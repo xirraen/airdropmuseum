@@ -51,3 +51,7 @@ Adds a D1-backed server foundation and private Telegram sync path, preserving th
 ## Version 0.6 — unified product navigation
 
 Consolidates navigation into Beranda, Jelajahi, Portofolio and Profil. Invitation sharing moves inside Profile; calendar/archive become Portfolio tools; transparency methodology becomes a Gallery tool. A shared navy/silver visual system replaces disconnected panels. Exhibit detail has three focused tabs with session draft preservation. See `docs/UI_STRUCTURE.md`. Existing D1/auth/sync behavior and local data remain compatible.
+
+## Version 0.7 — progression, missions and bounty workbench
+
+Portfolio is now inside Profile. Misi & Bounty adds seven local XP missions, daily activity XP, levels/streaks, eight badges, a three-question wallet-safety lesson, glossary, four planning templates and external resource cards. A separate D1 ledger implements verified Telegram referral/learning XP with idempotent rewards, self-referral rejection and a daily inviter cap. See `docs/XP_AND_REFERRALS.md` for exact rules and activation requirements. Referral rewards remain inactive until the project bot secret/session are configured; browser XP is always explicitly local and non-financial.

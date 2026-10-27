@@ -1,3 +1,9 @@
+# Current structure — 0.7
+
+Primary sections are now Beranda, Jelajahi, Misi & Bounty, Profil. Portfolio, calendar and archive are inside Profile; badges/XP, referral and data management are also Profile tabs. The historical 0.6 structure below documents the previous release. See `XP_AND_REFERRALS.md` for the current progression and referral rules.
+
+---
+
 # UI structure — 0.6
 
 ## Four primary destinations

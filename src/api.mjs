@@ -1,7 +1,8 @@
+import {rewardsApi} from './rewards-api.mjs';
 import {verifyTelegram} from './auth.mjs';
 import {backup} from '../dist/model.js';
 import {projects} from '../dist/catalog.js';
-export const VERSION='0.6.0';
+export const VERSION='0.7.0';
 const LIMIT=1000000;
 export async function limitedText(request){if(Number(request.headers.get('Content-Length'))>LIMIT)throw Error('BODY_TOO_LARGE');if(!request.body)return '';const reader=request.body.getReader();const chunks=[];let size=0;for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>LIMIT){await reader.cancel();throw Error('BODY_TOO_LARGE')}chunks.push(value)}const out=new Uint8Array(size);let offset=0;for(const v of chunks){out.set(v,offset);offset+=v.byteLength}return new TextDecoder().decode(out)}
 export async function api(request,env={},headers={}){
@@ -11,17 +12,18 @@ export async function api(request,env={},headers={}){
  try{
  if(path==='/api/health'||path==='/api/capabilities'){
  const bad=method(['GET','HEAD']);if(bad)return bad;
- let database='unconfigured';if(env.DB){try{const schema=await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=1').first();database=schema?'ready':'migration_required'}catch{database='unavailable'}}
- return json({ok:database==='ready'||database==='unconfigured',version:VERSION,database,catalogMode:'demo',authentication:!!env.TELEGRAM_BOT_TOKEN,sync:database==='ready'&&!!env.TELEGRAM_BOT_TOKEN,publicReviews:false},database==='unavailable'||database==='migration_required'?503:200);
+ let database='unconfigured',rewardSchema=false;if(env.DB){try{const schema=await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=1').first();database=schema?'ready':'migration_required';rewardSchema=!!(await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=2').first())}catch{database='unavailable'}}
+ return json({ok:database==='ready'||database==='unconfigured',version:VERSION,database,catalogMode:'demo',authentication:!!env.TELEGRAM_BOT_TOKEN,sync:database==='ready'&&!!env.TELEGRAM_BOT_TOKEN,publicReviews:false,rewards:rewardSchema&&!!env.TELEGRAM_BOT_TOKEN},database==='unavailable'||database==='migration_required'?503:200);
  }
  if(path==='/api/projects'){const bad=method(['GET','HEAD']);if(bad)return bad;return json({mode:'demo',projects},200,{'Cache-Control':'public, max-age=60'})}
  if(path==='/api/exhibits'){const bad=method(['GET','HEAD']);if(bad)return bad;if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const result=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits ORDER BY updated_at DESC LIMIT 100').all();return json({mode:'shared_catalog',exhibits:result.results.map(r=>({id:r.id,data:JSON.parse(r.payload),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),verification:'Per-exhibit evidence required; listing is not an endorsement.'})}
- if(path!=='/api/me/state')return json({error:'NOT_FOUND'},404);
- const bad=method(['GET','PUT']);if(bad)return bad;
+ if(!['/api/me/state','/api/me/rewards','/api/me/referral','/api/me/qualify'].includes(path))return json({error:'NOT_FOUND'},404);
+ const bad=method(path==='/api/me/state'?['GET','PUT']:path==='/api/me/rewards'?['GET']:['POST']);if(bad)return bad;
  if(!env.TELEGRAM_BOT_TOKEN)return json({error:'AUTH_NOT_CONFIGURED',message:'Telegram bot secret is required.'},503);
  if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
  const origin=request.headers.get('Origin');if(origin&&origin!==url.origin)return json({error:'ORIGIN_NOT_ALLOWED'},403);
  const user=await verifyTelegram(request.headers.get('X-Telegram-Init-Data'),env.TELEGRAM_BOT_TOKEN);
+ if(path!=='/api/me/state')return await rewardsApi(request,env.DB,user,json,limitedText);
  if(request.method==='GET'){const row=await env.DB.prepare('SELECT payload,revision,updated_at FROM am_core_user_state WHERE user_id=?').bind(user.id).first();return json({state:row?JSON.parse(row.payload):null,revision:row?.revision||0,updatedAt:row?.updated_at||null})}
  if(!(request.headers.get('Content-Type')||'').startsWith('application/json'))return json({error:'JSON_REQUIRED'},415);
  const match=request.headers.get('If-Match');if(!/^"?\d+"?$/.test(match||''))return json({error:'REVISION_REQUIRED'},428);

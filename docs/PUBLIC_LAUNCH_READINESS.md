@@ -1,3 +1,9 @@
+# Current status — 0.7
+
+This document retains the earlier pre-launch checklist below. Current implementation is described in `SERVER_CORE.md`, `UI_STRUCTURE.md`, and `XP_AND_REFERRALS.md`; those supersede earlier statements about absence of XP/server infrastructure. D1 is connected on C0. Local missions/XP/badges and a server referral-XP engine now exist. Public referral activation and cross-device synchronization still require the project Telegram bot secret/session and signed-in production verification. No wallet, real claim, public reviews, active paid bounty feed or crawler is enabled.
+
+---
+
 # Public launch readiness
 
 Status ini menjelaskan kesiapan **kode** Airdrop Museum. Ini bukan bukti bahwa versi produksi sudah diterbitkan atau domain publik sudah diverifikasi.
