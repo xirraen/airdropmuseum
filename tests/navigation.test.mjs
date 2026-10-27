@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {PRIMARY_NAV,resolveRoute,primaryRoute} from '../dist/navigation.js';
+test('secondary tools keep their parent section active',()=>{assert.equal(primaryRoute('calendar'),'workspace');assert.equal(primaryRoute('archive'),'workspace');assert.equal(primaryRoute('voices'),'explore');assert.equal(primaryRoute('referral'),'profile')});
+test('old deep links remain valid after navigation consolidation',()=>{for(const route of ['referral','archive','voices','calendar'])assert.equal(resolveRoute(route),route);assert.equal(resolveRoute('unknown'),'home');assert.equal(PRIMARY_NAV.length,4)});

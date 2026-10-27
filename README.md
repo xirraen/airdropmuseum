@@ -47,3 +47,7 @@ See `docs/WHITEPAPER_ALIGNMENT.md` for the implemented whitepaper map. Museum-st
 ## Version 0.5 — server core
 
 Adds a D1-backed server foundation and private Telegram sync path, preserving the latest Ajak/privacy/UI changes. See `docs/SERVER_CORE.md` for configuration, API, migration, privacy and rollback details. The shared catalog starts empty; the six demo projects remain clearly identified. Private sync stays disabled until this project's bot secret is configured. No existing legacy database rows are migrated or exposed.
+
+## Version 0.6 — unified product navigation
+
+Consolidates navigation into Beranda, Jelajahi, Portofolio and Profil. Invitation sharing moves inside Profile; calendar/archive become Portfolio tools; transparency methodology becomes a Gallery tool. A shared navy/silver visual system replaces disconnected panels. Exhibit detail has three focused tabs with session draft preservation. See `docs/UI_STRUCTURE.md`. Existing D1/auth/sync behavior and local data remain compatible.
