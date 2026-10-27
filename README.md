@@ -36,3 +36,7 @@ Display SDK supports ready/expand, header/background colors and the native back 
 ## Version 0.3.0
 
 Replaces repeated catalog/progress screens with six connected workflows. Adds custom-project creation, kanban stages, priority, research notes, personal deadlines, calendar navigation/ICS, archive/reopen, manual USD ledger, profile editing and complete portable backups. Existing brand and C0 deployment are retained.
+
+## Version 0.4 — The Open Museum
+
+See `docs/WHITEPAPER_ALIGNMENT.md` for the implemented whitepaper map. Museum-style editorial UI replaces the generic dashboard framing. Gallery, Portfolio, historical Archive and Visitor Voice form distinct workflows. Exhibit dossiers, campaign stages, local reviews and source inspection are included in portable browser-local records. Public trust scoring, crawler aggregation and public community reputation remain unimplemented and are visibly labeled.
