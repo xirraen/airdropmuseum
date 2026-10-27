@@ -43,3 +43,7 @@ Replaces repeated catalog/progress screens with six connected workflows. Adds cu
 ## Version 0.4 — The Open Museum
 
 See `docs/WHITEPAPER_ALIGNMENT.md` for the implemented whitepaper map. Museum-style editorial UI replaces the generic dashboard framing. Gallery, Portfolio, historical Archive and Visitor Voice form distinct workflows. Exhibit dossiers, campaign stages, local reviews and source inspection are included in portable browser-local records. Public trust scoring, crawler aggregation and public community reputation remain unimplemented and are visibly labeled.
+
+## Version 0.5 — server core
+
+Adds a D1-backed server foundation and private Telegram sync path, preserving the latest Ajak/privacy/UI changes. See `docs/SERVER_CORE.md` for configuration, API, migration, privacy and rollback details. The shared catalog starts empty; the six demo projects remain clearly identified. Private sync stays disabled until this project's bot secret is configured. No existing legacy database rows are migrated or exposed.
