@@ -1,17 +1,20 @@
 # Airdrop Museum
 
-A mobile-first personal airdrop research workspace, deployed as `airdrop-museum` on **Cloudflare C0**. Porcelain, silver and navy branding follows the owner's supplied profile artwork.
+A mobile-first, Indonesian-language airdrop research museum deployed as `airdrop-museum` on **Cloudflare C0**. The editorial porcelain-and-teal UI is designed around evidence, provenance, lifecycle, and visitor judgment.
 
-## Six distinct tools
+Public launch caveats and remaining deployment checks are documented in [docs/PUBLIC_LAUNCH_READINESS.md](docs/PUBLIC_LAUNCH_READINESS.md). UI comparison and design adaptations are in [docs/UI_REFERENCE_RESEARCH.md](docs/UI_REFERENCE_RESEARCH.md). These documents prepare the code; they do not establish that a live public domain is deployed or verified.
+
+## Seven navigable areas
 
 | Menu | Purpose |
 | --- | --- |
-| Dashboard | Active work, upcoming personal deadlines, recent activity |
-| Discover | Search/filter directory by chain/category/source; add custom projects with HTTPS sources and research tasks |
-| Workspace | Watchlist / in progress / completed boards, checklists, priorities, notes, deadlines |
-| Calendar | Monthly personal deadlines, scheduled project list, ICS export |
-| Archive | Archived projects, manual cost/reward/net ledger in USD, reopen through project status |
-| Profile | Editable local display name, integration status, full JSON backup import/export, activity |
+| Museum | Overview, demo-data disclosures, and routes into the catalogue, archive, portfolio, and methodology |
+| Galeri | Search and browse the built-in fictional samples or user-added entries by category/chain; no editorial safety ranking |
+| Portofolio | Local watchlist, progress, checklists, priorities, personal notes/deadlines, and calendar/ICS tools |
+| Arsip | Historical lifecycle records and a manual cost/reward ledger; outcomes remain user-reported |
+| Suara Pengunjung | Private, browser-local notes and ratings; not public reviews or identity-verified reputation |
+| Profil | Local profile, integration status, data/privacy controls, and full JSON backup import/export |
+| Ajak | Share/copy a canonical museum link; no referral attribution, click count, points, or rewards |
 
 Data is stored in this browser. There is no shared backend storage, authenticated login, live campaign ingestion, wallet connection, or automated eligibility verification. Six built-in projects are fictional samples; custom projects are supplied by the user and **not automatically verified**. Manual accounting is not a wallet balance. Completed research tasks do not establish eligibility.
 

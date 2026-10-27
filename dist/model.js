@@ -1,4 +1,4 @@
-import {cleanDossier,cleanReview} from './exhibits.js?v=0.4.0';
+import {cleanDossier,cleanReview} from './exhibits.js?v=0.4.2';
 export const STATUSES=['watching','active','completed','archived'];
 export function cleanProject(p){
  if(!p||typeof p!=='object')throw Error('Data proyek tidak valid.');
