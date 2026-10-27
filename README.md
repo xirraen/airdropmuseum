@@ -29,3 +29,15 @@ All six catalog projects are **fictional demonstration data**. No claims of acti
 ## Deploy
 
 Static directory: `dist`. Compatible with static hosting; no secrets or environment variables required. Google Fonts is optional; system font fallbacks work offline.
+
+## v0.2 — C0 / navy & porcelain identity
+
+- Profile artwork supplied by the owner is included as `dist/brand.jpg`, resized for delivery.
+- White/porcelain background, navy accents, silver surfaces, responsive desktop/mobile layouts.
+- Telegram SDK: ready, expansion, native header/background colors, back button and haptic feedback. No unverified Telegram identity is trusted.
+- Validated JSON backup import merges bookmarks/completed tasks without overwriting existing completion.
+- Cloudflare C0 account pinned in `wrangler.jsonc`. Separate Worker: `airdrop-museum`.
+- Read-only endpoints: `/api/health`, `/api/projects` (demo catalog).
+- Build: `npm run build`; tests: `npm test`; deploy using an authenticated Wrangler session with `npx wrangler deploy`.
+- `src/worker.mjs` is generated from static assets; regenerate after edits. No database, secret, wallet integration, or verified login is configured yet.
+- Telegram bot/channel usernames and project bot token are still required to configure the launch menu and authenticated account synchronization. Store any future token as a Worker secret, never in Git.
