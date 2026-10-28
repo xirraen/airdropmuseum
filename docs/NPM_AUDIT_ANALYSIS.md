@@ -66,7 +66,7 @@ Pada 28 Oktober 2026, dua kandidat dicoba tanpa deployment:
 
 ### Status akhir eksperimen
 
-`package.json` dan `package-lock.json` dipulihkan persis ke baseline. Setelah pemulihan: `npm test` **85/85 pass**, `npm run build` berhasil, dan `npm audit` kembali melaporkan **11 high** pada baseline. Working tree hanya memiliki dokumen audit/rencana yang belum dikomit; tidak ada perubahan dependency atau deployment yang dilakukan.
+`package.json` dan `package-lock.json` dipulihkan persis ke baseline. Setelah pemulihan: `npm test` **85/85 pass**, `npm run build` berhasil, dan `npm audit` kembali melaporkan **11 high** pada baseline. Sembilan dokumen audit/rencana dikomit pada branch `security/walletconnect-zod-remediation` (commit `97055a9`) dan dipublikasikan sebagai draft PR [#11](https://github.com/xirraen/airdropmuseum/pull/11). Tidak ada perubahan dependency, kode runtime, atau deployment yang dilakukan.
 
 ### Keputusan keamanan
 
