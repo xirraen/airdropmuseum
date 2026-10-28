@@ -137,3 +137,32 @@ test('schema not migrated rejects private endpoint without user data fallback',a
  const e=await fixture(false);
  assert.equal((await run(e,'/api/autopsy',cookieA)).status,503);
 });
+
+test('consent can be withdrawn and notes deleted only by owner; cached patterns are purged',async()=>{
+ const e=await fixture();
+ const created=await run(e,'/api/autopsy',cookieA,'POST',{...base,consent_to_analysis:true});
+ assert.equal(created.status,201);
+ const {id}=await created.json();
+ assert.equal((await e.DB.prepare('SELECT sample_size FROM user_pattern_snapshots WHERE user_scope=?').bind('tg:alice').first()).sample_size,1);
+ assert.equal((await run(e,'/api/autopsy/'+id+'/consent',cookieB,'PUT',{consent_to_analysis:false})).status,404);
+ assert.equal((await run(e,'/api/autopsy/'+id,cookieB,'DELETE',undefined,{Origin:origin})).status,404);
+ const revoked=await run(e,'/api/autopsy/'+id+'/consent',cookieA,'PUT',{consent_to_analysis:false});
+ assert.equal(revoked.status,200);
+ assert.equal((await(await run(e,'/api/insights/patterns',cookieA)).json()).sample_count,0);
+ assert.equal(await e.DB.prepare('SELECT id FROM user_pattern_snapshots WHERE user_scope=?').bind('tg:alice').first(),null);
+ assert.equal((await run(e,'/api/autopsy/'+id+'/consent',cookieA,'PUT',{consent_to_analysis:true})).status,200);
+ assert.equal((await(await run(e,'/api/insights/patterns',cookieA)).json()).sample_count,1);
+ assert.equal((await run(e,'/api/autopsy/'+id,cookieA,'DELETE',undefined,{Origin:origin})).status,200);
+ assert.equal((await run(e,'/api/autopsy/'+id,cookieA)).status,404);
+ assert.equal((await(await run(e,'/api/insights/patterns',cookieA)).json()).sample_count,0);
+});
+test('no disclosure of personal notes in shareable evidence cards after an autopsy exists',async()=>{
+ const e=await fixture();
+ await run(e,'/api/autopsy',cookieA,'POST',{...base,hypothesis:'A secret personal research note'});
+ const response=await run(e,'/api/evidence-card/ended',null);
+ const content=await response.text();
+ assert.equal(response.status,200);
+ assert.equal(content.includes('A secret personal research note'),false);
+ assert.equal(content.includes(base.wallet_address),false);
+ assert.equal(content.includes('tg:alice'),false);
+});
