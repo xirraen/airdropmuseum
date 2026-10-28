@@ -36,6 +36,7 @@ export function questPayload(b){
  if(!Number.isFinite(weight)||weight<0||weight>100)problem('INVALID_WEIGHT');
  return {title:plain(b.title,160,true),description:plain(b.description||'',4000),
  quest_type:member(b.quest_type,QUEST_TYPES,'INVALID_QUEST_TYPE'),
+ verification_rule_id:b.verification_rule_id?plain(b.verification_rule_id,80,true):null,
  verification_method:member(b.verification_method,VERIFICATION_METHODS,'INVALID_VERIFICATION_METHOD'),
  points:positiveInt(b.points??0,'POINTS'),weight,starts_at,ends_at,official_url:secureUrl(b.official_url),
  required:b.required===undefined?1:b.required===true||b.required===1?1:b.required===false||b.required===0?0:problem('INVALID_REQUIRED')};
