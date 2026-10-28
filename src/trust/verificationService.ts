@@ -56,7 +56,7 @@ export async function verifyCampaign(env,campaignId,{trigger='manual',actor='sys
  const campaign=await sql(db,'SELECT id,payload,source_url,review_status FROM am_core_exhibits WHERE id=?',campaignId).first();
  if(!campaign)throw new TrustError('CAMPAIGN_NOT_FOUND',404);
  const links=(await sql(db,'SELECT l.*,p.source_url AS profile_url,p.etag,p.last_modified,p.content_hash,p.last_fetched_at FROM campaign_source_links l JOIN source_trust_profiles p ON p.id=l.source_id WHERE l.campaign_id=? AND l.enabled=1 ORDER BY l.id LIMIT 40',campaignId).all()).results||[];
- const runKey=await sha256(campaignId+':'+trigger+':'+Math.floor(now/(trigger==='scheduled'?21600000:3600000))+':'+links.map(s=>s.id+':'+s.updated_at).join(','));
+ const runKey=await sha256(campaignId+':'+trigger+':'+Math.floor(now/(trigger==='scheduled'?21600000:3600000))+':'+links.map(s=>s.id+':'+s.created_at).join(','));
  const runId=crypto.randomUUID();
  const acquired=await sql(db,"INSERT OR IGNORE INTO verification_runs(id,run_key,campaign_id,trigger_type,status) VALUES(?,?,?,?, 'running')",runId,runKey,campaignId,trigger).run();
  if(acquired.meta?.changes!==1){const existing=await sql(db,'SELECT * FROM verification_runs WHERE run_key=?',runKey).first();return {id:existing.id,status:existing.status,idempotent:true,confidence_label:existing.confidence_label};}
