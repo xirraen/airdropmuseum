@@ -8,6 +8,7 @@ import {OPENAPI,apiDocsPage} from './openapi.ts';
 const headers={'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'"};
 export async function publicApiRoutes(request,env,ctx){
  const url=new URL(request.url),path=url.pathname,base={...headers,...cors(request,env)};
+ let rateHeaders={'X-RateLimit-Limit':'30','X-RateLimit-Remaining':'30','X-RateLimit-Reset':String((Math.floor(Date.now()/60000)+1)*60)};
  try{
   if(path==='/docs/api'){method(request,'GET','HEAD');return new Response(request.method==='HEAD'?null:apiDocsPage,{headers:{...base,'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'"}});}
   if(path.startsWith('/api/admin/api-keys'))return await adminKeys(request,env);
@@ -18,10 +19,13 @@ export async function publicApiRoutes(request,env,ctx){
   }
   if(!env.DB)fail('DATABASE_UNAVAILABLE',503);
   if(!(await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=8').first()))fail('PUBLIC_API_MIGRATION_REQUIRED',503);
-  const auth=await principal(request,env),rate=await checkRate(request,env,auth),responseHeaders={...base,...rate};
+  const auth=await principal(request,env);
+  rateHeaders['X-RateLimit-Limit']=String(auth.limit);
+  rateHeaders=await checkRate(request,env,auth);
+  const responseHeaders={...base,...rateHeaders};
   if(path==='/v1/openapi.json'){
    method(request,'GET','HEAD');
-   return etagResponse({...OPENAPI,'x-disclaimer':DISCLAIMER},request,responseHeaders);
+   return etagResponse(OPENAPI,request,responseHeaders);
   }
   if(path==='/v1/campaigns'||path==='/v1/deadlines'||path==='/v1/snapshots'){
    method(request,'GET','HEAD');
@@ -51,6 +55,6 @@ export async function publicApiRoutes(request,env,ctx){
  }catch(e){
   const status=e instanceof ApiError?e.status:e?.message==='LOGIN_REQUIRED'?401:500;
   const code=e instanceof ApiError?e.message:e?.message==='LOGIN_REQUIRED'?'ADMIN_AUTH_REQUIRED':'PUBLIC_API_UNAVAILABLE';
-  return json({error:code,disclaimer:DISCLAIMER},status,{...base,...(status===429?{...retryHeaders,'X-RateLimit-Limit':'0','X-RateLimit-Reset':String(Math.ceil(Date.now()/60000)*60+60)}:{})});
+  return json({error:code,disclaimer:DISCLAIMER},status,{...base,...rateHeaders,...(status===429?retryHeaders:{})});
  }
 }
