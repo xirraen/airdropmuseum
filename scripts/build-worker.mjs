@@ -43,7 +43,7 @@ import {handlePartnerQueue,scanPartnerEvents} from './publicApi/webhookService.t
  if(url.pathname.startsWith('/api/'))return api(request,env,headers);
  if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{...headers,Allow:'GET, HEAD'}});
  const head=request.method==='HEAD';
- const asset=assets[url.pathname==='/'?'/aggregator.html':url.pathname==='/admin'?'/admin.html':url.pathname==='/museum.html'?'/index.html':url.pathname];
+ const asset=assets[url.pathname==='/'?'/index.html':url.pathname==='/admin'?'/admin.html':url.pathname==='/museum.html'?'/index.html':url.pathname];
  if(!asset)return new Response(head?null:'Not found',{status:404,headers});
  const bytes=Uint8Array.from(atob(asset.body),c=>c.charCodeAt(0));
  const compressed=asset.encoding==='gzip',acceptGzip=false;const body=compressed&&!acceptGzip?new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')):bytes;\n const banner=asset.type.startsWith('text/html')&&mode!=='normal'?'\x3cdiv role="status" style="background:#17364c;color:white;padding:12px 18px;text-align:center;font:600 14px system-ui">Mode '+(mode==='read_only'?'baca-saja':'pemeliharaan')+'. Perubahan sementara dinonaktifkan.\x3c/div>':'';
