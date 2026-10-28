@@ -64,11 +64,11 @@ export async function campaignProgress(db,slug,user_scope){
 }
 async function validActivity(db,scope,q,wallet){
  if(!wallet)problem('WALLET_REQUIRED');
- const r=await s(db,`SELECT e.evidence_refs,e.evaluated_at FROM eligibility_results e
+ const r=await s(db,`SELECT e.evidence_refs,e.evaluated_at,e.evaluation_status FROM eligibility_results e
  JOIN wallet_watchlist w ON w.id=e.wallet_id
- WHERE w.user_id=? AND lower(w.address)=? AND e.campaign_id=? AND e.rule_id=? AND e.evaluation_status='passed'
+ WHERE w.user_id=? AND lower(w.address)=? AND e.campaign_id=? AND e.rule_id=?
  ORDER BY e.evaluated_at DESC LIMIT 1`,scope,wallet,q.campaign_id,q.verification_rule_id||q.id).first();
- if(!r)problem('ONCHAIN_EVIDENCE_NOT_FOUND',409);
+ if(!r||r.evaluation_status!=='passed')problem('ONCHAIN_EVIDENCE_NOT_FOUND',409);
  let refs;try{refs=JSON.parse(r.evidence_refs)}catch{refs=[]}
  if(!Array.isArray(refs)||!refs.length)problem('ONCHAIN_EVIDENCE_NOT_FOUND',409);
  const url=refs.find(e=>e.source_url)?.source_url;return secureUrl(url,false);
