@@ -103,7 +103,12 @@ async function displayCard(slug){
   if(!d.conflicts.length)conflicts.append(make('p','Tidak ada konflik terbuka yang tercatat (bukan bukti tidak ada risiko).','muted'));
   const caution=card('Batasan');add(caution,make('p',d.limitations),make('p',d.disclaimer));
   const button=make('button','Bagikan kartu tanpa data pribadi','primary');
-  button.addEventListener('click',async()=>{const text=d.claim+'\nStatus: '+d.status+'\nSumber utama: '+d.primary_sources.map(x=>x.url).join(', ')+'\n'+d.disclaimer;
+  button.addEventListener('click',async()=>{const text=[d.claim,'Status: '+d.status,'Sumber primer: '+d.primary_sources.map(x=>x.url).join(', '),
+   'Konfirmasi tambahan: '+(d.confirmations.map(x=>x.url).join(', ')||'Belum ada'),
+   'Konflik terbuka: '+(d.conflicts.map(x=>x.field+' ('+x.severity+')').join(', ')||'Tidak ada yang tercatat'),
+   'Terakhir diperiksa: '+(d.last_checked_at||'Belum diketahui'),'Sampel sumber: '+d.sample_count,
+   'Periode: '+(d.period?.from||'Tidak tersedia')+' — '+(d.period?.to||'Tidak tersedia'),
+   d.limitations,d.disclaimer].join('\n');
    try{if(navigator.share)await navigator.share({title:'Evidence Chain: '+d.campaign_slug,text});else if(navigator.clipboard){await navigator.clipboard.writeText(text);notice('Isi kartu publik disalin.');}else notice('Fitur berbagi tidak tersedia.');}catch(err){if(err.name!=='AbortError')notice('Gagal membagikan kartu.');}});
   caution.append(button);root.append(e,sources,confirm,conflicts,caution);
  }catch(err){root.append(make('p',err.message,'muted'));}
