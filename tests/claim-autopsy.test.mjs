@@ -62,6 +62,7 @@ test('validation rejects wallets, invalid expenses, secrets, non-HTTPS and fake 
  assert.throws(()=>parseAutopsy({...base,quest_count:1.7}),/INVALID_NUMBER/);
  assert.throws(()=>parseAutopsy({...base,outcome:'guaranteed'}),/INVALID_CHOICE/);
  assert.throws(()=>parseAutopsy({...base,hypothesis:'Please save my seed phrase'}),/SENSITIVE_INPUT_REFUSED/);
+ assert.throws(()=>parseAutopsy({...base,hypothesis:'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'}),/SENSITIVE_INPUT_REFUSED/);
  assert.throws(()=>parseAutopsy({...base,evidence:[{kind:'tx_hash',value:'0x123'}]}),/INVALID_TX_HASH/);
  assert.throws(()=>parseDecision({...decision,primary_evidence_url:'https://localhost/token'}),/INVALID_HTTPS_URL/);
  assert.throws(()=>evidence([{kind:'screenshot',value:'http://site.example/a'}]),/INVALID_HTTPS_URL/);
