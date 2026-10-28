@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 import {computeSummary,exposureLabel,groupDeadline,chainExposure} from '../src/aggregator/portfolioService.mjs';
-import {csvCell,csvLine,exportPortfolio} from '../src/aggregator/exportService.mjs';
+import {csvCell,csvLine,exportPortfolio,redactSecrets} from '../src/aggregator/exportService.mjs';
 import {SCHEMA_VERSION,MAX_BACKUP_BYTES,checkBackupSize,restoreBackup,createBackup} from '../src/aggregator/backupService.mjs';
 import {localTime,weeklyReport,REPORT_DISCLAIMER} from '../src/aggregator/reportService.mjs';
 globalThis.crypto ||= webcrypto;
@@ -39,6 +39,7 @@ test('Markdown export contains required sections',async()=>{
 test('JSON export includes metadata and no secret',async()=>{
  const r=await exportPortfolio(new FakeDB(),scope,'json'),v=await r.json();assert.equal(v.schema_version,1);assert.ok(!JSON.stringify(v).includes('private_key'));
 });
+test('sensitive token and key redaction before exports',()=>{assert.equal(redactSecrets('https://a.example/?api_key=abcd&token=efg'), 'https://a.example/?api_key=[REDACTED]&token=[REDACTED]');assert.ok(!redactSecrets('Bearer abcdefghijklmnopqrst').includes('abcdefghijklmnopqrst'));});
 test('backup size boundary',()=>assert.throws(()=>checkBackupSize('x'.repeat(MAX_BACKUP_BYTES+1)),/BACKUP_TOO_LARGE/));
 test('schema version mismatch blocks restore before mutation',async()=>{
  const env={DB:new FakeDB()},envelope={payload:{schema_version:SCHEMA_VERSION+1},signature:'0'.repeat(64)};

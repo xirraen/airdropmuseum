@@ -1,4 +1,5 @@
 import {validOfficial} from './portfolioService.mjs';
+import {redactSecrets} from './exportService.mjs';
 export const SCHEMA_VERSION=9,MAX_BACKUP_BYTES=524288,RETENTION_DAYS=30;
 const q=(db,sql,...args)=>db.prepare(sql).bind(...args),rows=r=>r?.results||[];
 const err=(code,status=400)=>{throw Object.assign(Error(code),{status});};
@@ -22,9 +23,10 @@ async function payloadFor(db,scope){
   q(db,"SELECT er.campaign_id,er.rule_id,er.evaluation_status,er.evidence_refs,er.evaluated_at FROM eligibility_results er JOIN wallet_watchlist w ON w.id=er.wallet_id WHERE w.user_id=? ORDER BY er.evaluated_at DESC LIMIT 5001",scope)
  ]);
  if(r.some(x=>rows(x).length>5000))err('BACKUP_ROW_LIMIT',413);
- return {schema_version:SCHEMA_VERSION,user_scope:scope,created_at:new Date().toISOString(),
+ const payload={schema_version:SCHEMA_VERSION,user_scope:scope,created_at:new Date().toISOString(),
  wallet_watchlist:rows(r[0]),campaign_subscriptions:rows(r[1]),quest_progress:rows(r[2]),points_ledger:rows(r[3]),alert_preferences:rows(r[4])[0]||null,
  evidence_refs:rows(r[5]),notice:'Alamat publik dan poin internal saja. Evidence eligibility hanya catatan dan tidak diimpor sebagai hasil verifikasi baru.'};
+ return JSON.parse(JSON.stringify(payload,(key,value)=>typeof value==='string'?redactSecrets(value):value));
 }
 function validatedEnvelope(envelope,secret){if(!only(envelope,['payload','signature']))err('INVALID_BACKUP');const p=envelope.payload;if(!p||!only(p,['schema_version','user_scope','created_at','wallet_watchlist','campaign_subscriptions','quest_progress','points_ledger','alert_preferences','evidence_refs','notice']))err('INVALID_BACKUP');
  if(p.schema_version!==SCHEMA_VERSION)err('SCHEMA_VERSION_MISMATCH',409);
