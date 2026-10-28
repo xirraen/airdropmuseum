@@ -52,7 +52,9 @@ function renderState(){
  const header=el('h3','Riwayat event (immutable)');root.append(header);
  for(const event of current.timeline){
   const card=box('#'+event.version+' · '+event.type);
-  append(card,el('p','Dicatat '+date(event.recorded_at)),el('p','Knowledge cutoff '+date(event.knowledge_cutoff_at),'muted'),
+  append(card,el('p','Dicatat '+date(event.recorded_at)),
+   el('p','Fase: '+({pre_outcome:'Sebelum outcome',outcome_transition:'Hasil pertama',post_outcome:'Sesudah outcome'}[event.knowledge_phase]||'Tidak diketahui')),
+   el('p','Knowledge cutoff '+date(event.knowledge_cutoff_at),'muted'),
    el('p','Evidence refs: '+(event.evidence_refs.join(', ')||'Tidak berlaku'),'muted'));
   if(event.compensated)card.append(badge('Dikompensasi'));
   const allowed=['decision_created','activity_recorded','hypothesis_updated','evidence_added','outcome_recorded','outcome_revised','autopsy_finalized'];
