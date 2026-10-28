@@ -154,3 +154,32 @@ test('strict HTTPS evidence and version/cutoff validation',async()=>{
  const good=await call(e,id,'evidence',{expected_version:1,kind:'screenshot',value:'https://evidence.example.org/image.png?token=erase'});
  assert.equal(good.status,200);assert.equal(good.data.state.evidence[1].value,'https://evidence.example.org/image.png');
 });
+
+test('post-outcome activity remains in timeline but is excluded from neutral pre-outcome cohorts',()=>{
+ const a={aggregate_id:'a',campaign_id:'ended',status:'finalized',analysis_consent:true,decision:{decision_source:'official'},
+  finalized_at:'2026-10-28T12:00:00Z',outcome:'allocated',created_at:'2026-10-28T10:00:00Z',
+  activities:[{phase:'before_snapshot',quest_count:9,chain_count:5,gas_cost_usd:90,knowledge_phase:'post_outcome'}]};
+ const records=Array.from({length:6},(_,i)=>({...a,aggregate_id:String(i)}));
+ const result=cohorts(records);
+ assert.equal(result.cohorts.find(c=>c.key==='pre_snapshot').sample_size,0);
+ assert.equal(result.cohorts.find(c=>c.key==='quests_4').sample_size,0);
+ assert.equal(result.cohorts.find(c=>c.key==='source_official').sample_size,6);
+});
+test('evidence compensation revokes its reference in replay, but immutable source event remains',async()=>{
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id,primary=c.data.state.evidence[0].id;
+ const added=await call(e,id,'evidence',{expected_version:1,kind:'official_link',value:'https://evidence.example.org/extra'});
+ assert.equal(added.status,200);const ref=added.data.state.evidence[1].id,event=added.data.state.timeline[1].id;
+ const removed=await call(e,id,'compensate',{expected_version:2,target_event_id:event,reason:'Bukti tidak relevan'});
+ assert.equal(removed.status,200);assert.deepEqual(removed.data.state.evidence.map(x=>x.id),[primary]);
+ assert.equal((await call(e,id,'hypothesis',{expected_version:3,hypothesis:'Tidak boleh pakai ref batal',evidence_refs:[ref]})).status,422);
+ assert.equal((await e.DB.prepare('SELECT revoked FROM evidence_items WHERE id=?').bind(ref).first()).revoked,1);
+ assert.equal((await e.DB.prepare('SELECT count(*) AS n FROM autopsy_events WHERE aggregate_id=?').bind(id).first()).n,3);
+});
+test('weekly report excludes decisions without explicit analysis consent',async()=>{
+ const e=await fixture(),c=await create(e);
+ const weekly=await api(e,'/api/autopsy/insights/weekly',cookieA);
+ assert.equal(weekly.status,200);assert.equal((await weekly.json()).sample_size,0);
+ const opt=await call(e,c.data.aggregate_id,'consent',{expected_version:1,enabled:true});assert.equal(opt.status,200);
+ const after=await api(e,'/api/autopsy/insights/weekly',cookieA);
+ assert.equal((await after.json()).sample_size,1);
+});
