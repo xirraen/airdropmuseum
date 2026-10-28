@@ -75,7 +75,8 @@ export function priority(c,results=[],interests=[],now=iso()){
  if(['expired','archived'].includes(effectiveStatus(c,now)))return {label:'Prioritas Rendah',score:0};
  const hours=c.claim_deadline_at?(Date.parse(c.claim_deadline_at)-Date.parse(now))/3600000:Infinity;
  const progress=results.length?results.filter(r=>r.evaluation_status==='passed').length/results.length:0;
- const score=(hours<=72?30:hours<=168?20:0)+progress*25+(c.status==='confirmed'?15:5)+(interests.includes(c.category)?10:0)+Math.max(0,10-c.estimated_effort/10)+(c.gas_cost_estimate==null?0:Math.max(0,10-c.gas_cost_estimate));
+ const official=(c.source_evidence||[]).filter(e=>['official_docs','official_blog','contract'].includes(e.source_type));const freshness=official.length?Math.max(...official.map(e=>Date.parse(e.captured_at))):0;const confidence=official.length?(Date.parse(now)-freshness<=30*86400000?15:7):0;
+ const score=(hours<=72?30:hours<=168?20:0)+progress*25+confidence+(interests.includes(c.category)?10:0)+Math.max(0,10-c.estimated_effort/10)+(c.gas_cost_estimate==null?0:Math.max(0,10-c.gas_cost_estimate));
  return {label:score>=60?'Prioritas Tinggi':score>=35?'Prioritas Sedang':'Prioritas Rendah',score:Math.round(score)};
 }
 export function scheduledAlerts(c,now=iso()){

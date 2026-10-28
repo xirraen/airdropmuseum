@@ -192,3 +192,14 @@ Verifikasi setelah deploy: `/`, `/api/aggregator/capabilities`, `/api/aggregator
 Migrasi hanya menambah tabel, jadi rollback aplikasi ke versi sebelum Core aman tanpa menghapus tabel baru. Nonaktifkan Cron/consumer Core, deploy versi Worker sebelumnya, dan pertahankan semua tabel sampai backup diverifikasi. Ini opsi utama karena tidak membuang watchlist/evidence.
 
 Jika rollback schema memang diperlukan, ekspor D1 dahulu dan hentikan seluruh penulis. Hapus tabel dalam urutan: alerts, alert_preferences, quest_progress, claim_checks, eligibility_results, wallet_snapshots, wallet_watchlist, campaign_sources, campaigns, aggregator_cursor, aggregator_rate_limits. Hapus hanya row version=5 dari am_core_schema dan pencatatan 0005 dari d1_migrations jika memang menggunakan Wrangler migration ledger. Jangan menghapus atau mengubah tabel am_* lain. Penghapusan tabel Core bersifat destruktif; bukan langkah deployment normal.
+
+## Deployment 28 Oktober 2026
+
+- Worker produksi: https://airdrop-museum.xirraen.workers.dev/
+- Migrasi 0005 diterapkan ke D1 yang sudah ada; schema versions 1–5 terkonfirmasi. Ledger d1_migrations dicatat agar Wrangler tidak mengulang ALTER TABLE 0004 yang sudah diterapkan sebelumnya.
+- Queue `airdrop-museum-aggregator`, consumer Worker yang sama, batch 5, retry 3, dan DLQ `airdrop-museum-aggregator-dlq` sudah dibuat.
+- Cron `*/15 * * * *` sudah dipasang.
+- Endpoint capabilities terverifikasi: version 2.0, address_only=true, local_default=true, queue=true, Telegram sync=false, discovery_configured=false, RPC Ethereum/Base tersedia dalam konfigurasi.
+- Endpoint registry merespons 200 dengan daftar kosong. Belum ada feed resmi/operator yang disetujui; ini tidak ditampilkan sebagai data airdrop aktif.
+- npm ci, npm run build dan npm test lulus (115 tests). Browser produksi juga diperiksa: halaman utama, registry kosong yang jujur, penyimpanan alamat uji lokal, serta persistensi setelah reload berjalan. Browser lokal tidak berhasil mengunduh Chromium; pemeriksaan ini memakai cloud browser desktop, bukan emulasi viewport mobile.
+- Masih perlu konfigurasi operator: TELEGRAM_BOT_TOKEN dan AGGREGATOR_ADMIN_TOKEN; host/URL feed resmi yang diizinkan; indexer historis beserta token bila diperlukan; RPC tambahan sesuai chain. Alert nyata dan klaim campaign tertentu belum diuji terhadap akun atau endpoint produksi.
