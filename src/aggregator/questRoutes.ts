@@ -1,4 +1,5 @@
 import {verifyTelegram} from '../auth.mjs';
+import {rejectSensitive} from '../aggregator-secrets.mjs';
 import {err,httpsURL,DISCLAIMER} from './questTypes.ts';
 import {createQuest,editQuest,deleteQuest,listQuests,myQuests,quest,setProgress,campaignEligibility} from './questService.ts';
 import {pointsSummary,userStreak,statement as s} from './pointsService.ts';
@@ -11,7 +12,7 @@ async function jsonBody(req){
  const chunks=[];let n=0;for(;;){const {done,value}=await reader.read();if(done)break;n+=value.length;if(n>16384){await reader.cancel();err('BODY_TOO_LARGE',413)}chunks.push(value)}
  const buf=new Uint8Array(n);let i=0;for(const chunk of chunks){buf.set(chunk,i);i+=chunk.length}
  let parsed;try{parsed=JSON.parse(new TextDecoder().decode(buf))}catch{err('INVALID_JSON')}
- if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))err('INVALID_JSON');return parsed;
+ if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))err('INVALID_JSON');rejectSensitive(parsed);return parsed;
 }
 async function admin(req,env){
  if(!env.AGGREGATOR_ADMIN_TOKEN)return false;
