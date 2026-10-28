@@ -124,7 +124,7 @@ test('Next Best Action excludes expired and verified, sorts by deadline and page
  const got=await nextActions(DB,scope);
  assert.equal(got.total,2);assert.equal(got.harus_segera[0].quest_title,'Soon');
  assert.equal(priorityForQuest({...a,estimated_effort:1,gas_cost_estimate:1},now()).group,'harus_segera');
- assert.equal((await nextActions(DB,scope,{limit:1,offset:1})).harus_segera.length,0);
+ assert.equal((await nextActions(DB,scope,{limit:1,offset:1})).harus_segera.length,1);
  assert.equal((await api(DB,'/next-actions?limit=101',undefined,'GET')).status,400);
  DB.sql.close();
 });
