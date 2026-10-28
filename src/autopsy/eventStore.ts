@@ -12,6 +12,8 @@ export async function appendEvent(db,{scope,aggregate_id,campaign_id,event_type,
  const evidenceRefs=event_type==='insight_generated'||event_type==='analysis_consent_changed'||event_type==='event_compensated'?[]:refs(evidence_refs);
  if(!payload||typeof payload!=='object'||Array.isArray(payload))fail('INVALID_EVENT_PAYLOAD');
  const rows=await readEvents(db,scope,aggregate_id),prior=replay(rows);
+ if(rows.length>=500)fail('EVENT_LIMIT_REACHED',422);
+ if(event_type==='evidence_added'&&prior?.evidence.length>=20)fail('EVIDENCE_LIMIT_REACHED',422);
  if((prior?.version||0)!==version)fail('VERSION_CONFLICT',409);
  if(prior&&prior.campaign_id!==campaign_id)fail('AGGREGATE_MISMATCH',409);
  if(!prior&&event_type!=='decision_created')fail('DECISION_REQUIRED',409);
