@@ -74,3 +74,10 @@ Discovery menerima RSS/Atom/JSON feed HTTPS yang ditambahkan admin, dengan norma
 ## Sprint 7 — Source Trust & Cross-Verification
 
 Source Trust melakukan penilaian platform internal terhadap sumber HTTPS yang didaftarkan admin: trust tiers, score 0–100, 12 field cross-verification, konflik material/minor/informational, audit trail, cache KV enam jam, penjadwalan setiap enam jam, dan alert Telegram untuk perubahan penting. Tab **Trust & Verifikasi** pada detail exhibit serta halaman admin **Konflik Sumber** di `/trust.html` disediakan. **Tidak ada auto-publish, verdict aman/scam, atau janji eligibility/reward.** Lihat [docs/SOURCE_TRUST.md](docs/SOURCE_TRUST.md) untuk API, model trust, batasan, deployment dan rollback.
+
+
+## Sprint 8 — Public API & Partner Feed
+
+Menambahkan API kurasi read-only berversi `/v1/`, RSS campaign/deadline, API key SHA-256 dengan tier/quota, rate limiting Cloudflare + D1, webhook partner HMAC-SHA256 dan retry/DLQ, spesifikasi OpenAPI 3.1 di `/v1/openapi.json`, serta halaman `/docs/api`. Daftar campaign publik membutuhkan `payload.visibility="public"`, sumber HTTPS, review non-draft dan catatan verifikasi yang lengkap; data user tidak pernah diserialisasi. Semua hasil dilengkapi disclaimer verifikasi manual.
+
+Lihat [docs/PUBLIC_API.md](docs/PUBLIC_API.md) untuk autentikasi, pagination, signature, sumber RSS, retensi, pengujian, konfigurasi `PUBLIC_API_RATE_LIMITER`, `PARTNER_WEBHOOK_QUEUE`, `API_HASH_PEPPER`, `WEBHOOK_MASTER_SECRET`, dan dependensi migrasi `0012_public_api.sql`. Penggabungan seluruh branch Sprint 2–7 serta migrasi/deployment produksi **belum** dilakukan oleh Sprint 8.
