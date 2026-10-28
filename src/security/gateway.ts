@@ -1,6 +1,7 @@
 import {requestContext,safeRoute} from '../observability/requestContext.ts';
 import {logEvent,classifyError} from '../observability/logger.ts';
 import {safeLegalPage} from '../legal/pages.ts';
+import {healthResponse} from '../observability/health.ts';
 const MAX_BODY=1048576;
 export const SECURITY_HEADERS={
  'Strict-Transport-Security':'max-age=31536000',
@@ -49,7 +50,7 @@ export async function withSecurity(request,env,ctx,next){
   if(request.url.length>4096||url.search.length>2048)response=safeError('INVALID_REQUEST',400,context.request_id);
   else if(!await bodyWithinLimit(request))response=safeError('BODY_TOO_LARGE',413,context.request_id);
   else if(!await rateLimit(request,env,context.route))response=safeError('RATE_LIMITED',429,context.request_id,{'Retry-After':'60'});
-  else response=safeLegalPage(request)||await next();
+  else response=safeLegalPage(request)||await healthResponse(request,env)||await next();
  }catch(error){
   const error_class=classifyError(error);
   const status=error_class==='rate_limit'?503:503;
