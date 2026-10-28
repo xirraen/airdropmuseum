@@ -37,7 +37,7 @@ const isoWeek=(now=new Date())=>{const d=new Date(now),dow=(d.getUTCDay()+6)%7;
  const start=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-dow));
  return {from:start.toISOString(),to:new Date(start.getTime()+7*86400000).toISOString()};};
 export async function weekly(db,scope,now=new Date()){
- const period=isoWeek(now),records=await currentStates(db,scope),week=records.filter(s=>s.created_at>=period.from&&s.created_at<period.to);
+ const period=isoWeek(now),records=await currentStates(db,scope),week=records.filter(s=>s.analysis_consent===true&&s.created_at>=period.from&&s.created_at<period.to);
  const all=week.length,allocated=week.filter(s=>s.outcome==='allocated').length,
  not_allocated=week.filter(s=>s.outcome==='not_allocated').length,unknown=week.filter(s=>s.outcome==='unknown').length;
  const lessons=week.map(s=>({aggregate_id:s.aggregate_id,hypothesis:s.hypothesis,status:s.status})).filter(s=>s.hypothesis);
