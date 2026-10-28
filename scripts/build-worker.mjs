@@ -1,6 +1,9 @@
 import {gzipSync} from 'node:zlib';
 import {createHash} from 'node:crypto';
 import {build} from 'esbuild';
+await build({entryPoints:['src/aggregator/questTypes.ts'],outfile:'src/quest-policy-bundle.mjs',bundle:true,format:'esm',platform:'node'});
+await build({entryPoints:['src/aggregator/pointsService.ts'],outfile:'src/quest-points-bundle.mjs',bundle:true,format:'esm',platform:'node'});
+await build({entryPoints:['src/aggregator/nextActionService.ts'],outfile:'src/quest-actions-bundle.mjs',bundle:true,format:'esm',platform:'node'});
 await build({entryPoints:['src/aggregator/questRoutes.ts'],outfile:'src/quest-bundle.mjs',bundle:true,format:'esm',platform:'browser',minify:true});
 await build({entryPoints:['src/aggregator-secrets.mjs'],outfile:'dist/aggregator-secrets.js',bundle:true,format:'esm',platform:'browser',minify:true});
 await build({entryPoints:['dist/aggregator-ui.js'],outfile:'dist/aggregator-ui-bundle.js',bundle:true,format:'esm',platform:'browser',minify:true});
