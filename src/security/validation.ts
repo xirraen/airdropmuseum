@@ -7,7 +7,7 @@ export function safeHttpsUrl(input,{allowedHosts=null}={}){
  if(url.protocol!=='https:'||url.username||url.password||url.port||url.hash)throw Error('INVALID_URL');
  const host=url.hostname.toLowerCase().replace(/\.$/,'');
  if(host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||host.endsWith('.internal')||host==='metadata.google.internal'||host==='metadata'||host==='0'||host.includes('%')||!host.includes('.'))throw Error('SSRF_BLOCKED');
- if(host.startsWith('[')||/^\d/.test(host)){
+ if(host.startsWith('[')||/^[\d.]+$/.test(host)){
   // Reject literal IPv4/IPv6, obfuscated numeric IPs and IPv6 mapped addresses.
   throw Error('SSRF_BLOCKED');
  }
