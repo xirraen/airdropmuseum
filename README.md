@@ -70,3 +70,7 @@ Misi & Bounty now starts with a unified personal action queue: blocked tasks, ve
 ## Sprint 6 — Discovery Automation
 
 Discovery menerima RSS/Atom/JSON feed HTTPS yang ditambahkan admin, dengan normalisasi URL, klasifikasi awal, deduplikasi SHA-256, Cloudflare Queue/DLQ, cron 30 menit, dan antrean review admin berbahasa Indonesia di `/discovery.html`. **Tidak ada auto-publish**: item hanya pending review; konversi membuat draft privat (rumored/speculative) dengan evidence URL dan disclaimer verifikasi manual. Lihat [docs/DISCOVERY_AUTOMATION.md](docs/DISCOVERY_AUTOMATION.md) untuk konfigurasi, batasan ToS, pengujian, dan rollback.
+
+## Sprint 7 — Source Trust & Cross-Verification
+
+Source Trust melakukan penilaian platform internal terhadap sumber HTTPS yang didaftarkan admin: trust tiers, score 0–100, 12 field cross-verification, konflik material/minor/informational, audit trail, cache KV enam jam, penjadwalan setiap enam jam, dan alert Telegram untuk perubahan penting. Tab **Trust & Verifikasi** pada detail exhibit serta halaman admin **Konflik Sumber** di `/trust.html` disediakan. **Tidak ada auto-publish, verdict aman/scam, atau janji eligibility/reward.** Lihat [docs/SOURCE_TRUST.md](docs/SOURCE_TRUST.md) untuk API, model trust, batasan, deployment dan rollback.
