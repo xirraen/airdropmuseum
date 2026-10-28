@@ -20,6 +20,12 @@ async function bodyWithinLimit(request){
  try{for(;;){const {value,done}=await reader.read();if(done)return true;size+=value.byteLength;if(size>MAX_BODY)return false;}}
  finally{await reader.cancel().catch(()=>{});}
 }
+function requireSecrets(env,route){
+ if(env.REQUIRE_PRODUCTION_SECRETS!=='1')return;
+ const needed=route.startsWith('/api/admin/')?['ADMIN_CSRF_PEPPER']:route.startsWith('/v1/')?['API_HASH_PEPPER']:[];
+ if(route.startsWith('/v1/webhooks'))needed.push('WEBHOOK_MASTER_SECRET');
+ for(const key of needed)if(typeof env[key]!=='string'||env[key].length<32)throw Error('RUNTIME_SECRET_MISSING');
+}
 async function rateLimit(request,env,route){
  const api=/^\/(api|v1)\//.test(route)||route==='/docs/api';
  if(!api)return true;
@@ -49,7 +55,8 @@ export async function withSecurity(request,env,ctx,next){
  try{
   if(request.url.length>4096||url.search.length>2048)response=safeError('INVALID_REQUEST',400,context.request_id);
   else if(!await bodyWithinLimit(request))response=safeError('BODY_TOO_LARGE',413,context.request_id);
-  else if(!await rateLimit(request,env,context.route))response=safeError('RATE_LIMITED',429,context.request_id,{'Retry-After':'60'});
+  else if((requireSecrets(env,context.route),false))response=safeError('SERVICE_UNAVAILABLE',503,context.request_id);
+  else if((requireSecrets(env,context.route),!(await rateLimit(request,env,context.route))))response=safeError('RATE_LIMITED',429,context.request_id,{'Retry-After':'60'});
   else response=safeLegalPage(request)||await healthResponse(request,env)||await next();
  }catch(error){
   const error_class=classifyError(error);
