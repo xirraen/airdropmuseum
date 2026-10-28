@@ -34,7 +34,8 @@
     "RPC_8453": "https://base-rpc.publicnode.com",
     "TRUST_PUBLIC_ORIGIN": "https://airdrop-museum.xirraen.workers.dev",
     "PUBLIC_API_ORIGIN": "https://airdrop-museum.xirraen.workers.dev",
-    "PUBLIC_API_ALLOWED_ORIGINS": "https://airdrop-museum.xirraen.workers.dev"
+    "PUBLIC_API_ALLOWED_ORIGINS": "https://airdrop-museum.xirraen.workers.dev",
+    "REQUIRE_RATE_LIMIT_BINDINGS": "1"
   },
   "queues": {
     "producers": [
@@ -73,7 +74,12 @@
       "id": "bc8fc9f66cf7495f9ad2f2c4917e1674"
     }
   ],
-  "analytics_engine_datasets": [{"binding": "ANALYTICS", "dataset": "airdropmuseum_operations"}],
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "airdropmuseum_operations"
+    }
+  ],
   "ratelimits": [
     {
       "name": "PUBLIC_API_RATE_LIMITER",
@@ -83,5 +89,12 @@
         "period": 60
       }
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  }
 }
