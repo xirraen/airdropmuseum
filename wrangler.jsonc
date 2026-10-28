@@ -50,5 +50,11 @@
         "dead_letter_queue": "airdrop-museum-aggregator-dlq"
       }
     ]
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "AGGREGATOR_BACKUP_BUCKET",
+      "bucket_name": "airdrop-museum-backups"
+    }
+  ]
 }

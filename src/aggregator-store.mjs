@@ -12,7 +12,7 @@ export async function putCampaign(db,input,event='research',now=iso()){
  const stmts=[insert];
  for(const e of c.source_evidence)stmts.push(statement(db,'INSERT INTO campaign_sources(id,campaign_id,source_url,source_type,captured_at,note,verified_by,event_type) VALUES(?,?,?,?,?,?,?,?)',crypto.randomUUID(),c.id,e.source_url,e.source_type,e.captured_at,e.note,e.verified_by,changed?`status:${old.status}→${c.status}`:event));
  // D1 batch transactions ensure status and evidence commit together.
- await db.batch(stmts);return {campaign:c,events:[...(!old?['new_campaign']:[]),...(sourceChanged?['source_changed']:[]),...(newQuest?['new_quest']:[])]};
+ await db.batch(stmts);try{await statement(db,'DELETE FROM user_portfolio_snapshots').run()}catch{/* 0009 not yet applied */}return {campaign:c,events:[...(!old?['new_campaign']:[]),...(sourceChanged?['source_changed']:[]),...(newQuest?['new_quest']:[])]};
 }
 export function matches(c,filters={},now=iso()){
  const status=c.status!=='archived'&&c.claim_deadline_at&&Date.parse(c.claim_deadline_at)<Date.parse(now)?'expired':c.status;
