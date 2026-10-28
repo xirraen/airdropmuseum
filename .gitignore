@@ -2,3 +2,4 @@ node_modules/
 .DS_Store
 *.tar.gz
 dist/walletconnect-bundle.js
+dist/aggregator-ui-bundle.js

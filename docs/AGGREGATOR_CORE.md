@@ -202,7 +202,7 @@ Jika rollback schema memang diperlukan, ekspor D1 dahulu dan hentikan seluruh pe
 - Cron `*/15 * * * *` sudah dipasang.
 - Endpoint capabilities terverifikasi: version 2.0, address_only=true, local_default=true, queue=true, Telegram sync=false, discovery_configured=false, RPC Ethereum/Base tersedia dalam konfigurasi.
 - Endpoint registry merespons 200 dengan daftar kosong. Belum ada feed resmi/operator yang disetujui; ini tidak ditampilkan sebagai data airdrop aktif.
-- npm ci, npm run build dan npm test lulus (122 tests). Browser produksi juga diperiksa: halaman utama, registry kosong yang jujur, penyimpanan alamat uji lokal, serta persistensi setelah reload berjalan. Browser lokal tidak berhasil mengunduh Chromium; pemeriksaan ini memakai cloud browser desktop, bukan emulasi viewport mobile.
+- npm ci, npm run build dan npm test lulus (123 tests). Browser produksi juga diperiksa: halaman utama, registry kosong yang jujur, penyimpanan alamat uji lokal, serta persistensi setelah reload berjalan. Browser lokal tidak berhasil mengunduh Chromium; pemeriksaan ini memakai cloud browser desktop, bukan emulasi viewport mobile.
 - Masih perlu konfigurasi operator: TELEGRAM_BOT_TOKEN dan AGGREGATOR_ADMIN_TOKEN; host/URL feed resmi yang diizinkan; indexer historis beserta token bila diperlukan; RPC tambahan sesuai chain. Alert nyata dan klaim campaign tertentu belum diuji terhadap akun atau endpoint produksi.
 
 ### Lanjutan registry dan monitor sumber
@@ -226,3 +226,5 @@ Setelah perbaikan transport, scan produksi pada alamat publik uji di Base berhas
 Pada pemeriksaan 28 Oktober 2026 pukul 15.31 WIB, Cron produksi telah menyimpan empat baseline fingerprint sumber resmi. Sumber yang tidak dapat dibaca tetap dicatat sebagai source_unavailable; tidak diubah menjadi hasil eligibility negatif. Watchlist D1 tetap berjumlah nol setelah seluruh scan anonim alamat publik uji. Token bot Telegram dan indexer historis belum tersedia, sehingga pengiriman bot nyata dan verifikasi histori protokol belum dinyatakan aktif.
 
 Referensi perilaku redirect Workers: https://developers.cloudflare.com/workers/runtime-apis/request/ .
+
+Build UI Core dibundel dengan dependensinya dan ditautkan memakai hash konten. CSS juga memakai hash konten. Ini mencegah cache browser memadukan UI lama dengan aturan/aset deployment terbaru.
