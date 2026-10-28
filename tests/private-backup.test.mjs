@@ -21,3 +21,5 @@ test('private backup rejects orphaned data even if export disables foreign keys'
 }));
 
 test('remote restore rejects production and historical staging before reading backup or invoking Wrangler',()=>{for(const id of ['4e75c8b9-6c58-4bac-a180-01e5bec0d0a3','461404c7-a2c6-4222-bb13-6aa26fce2332','invalid']){const result=spawnSync(process.execPath,['scripts/restore-private-backup.mjs'],{encoding:'utf8',env:{...process.env,RESTORE_STAGING_D1_ID:id,PRIVATE_BACKUP_DIRECTORY:'/nonexistent'}});assert.notEqual(result.status,0);assert.match(result.stderr,/FRESH_STAGING_DATABASE_REQUIRED/);assert.equal(result.stderr.includes('ENOENT'),false);}});
+
+test('synthetic E2E harness refuses production even when staging is explicitly enabled',()=>{for(const origin of ['https://airdrop-museum.xirraen.workers.dev','https://other.example.org']){const r=spawnSync(process.execPath,['scripts/runtime-checks.mjs'],{encoding:'utf8',timeout:3000,env:{...process.env,STAGING_SYNTHETIC_E2E:'1',STAGING_TEST_BOT_TOKEN:'synthetic',RUNTIME_TEST_ORIGIN:origin}});assert.notEqual(r.status,0);assert.match(r.stderr,/dedicated synthetic staging origin/);}});

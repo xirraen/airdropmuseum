@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
 const base=process.env.RUNTIME_TEST_ORIGIN||'http://localhost:8787';
-if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('Runtime synthetic tests are restricted to local hosts');
-const user=Math.floor(Date.now()/10),bot='local-synthetic-bot-token';
+const local=['localhost','127.0.0.1'].includes(new URL(base).hostname);
+const staging=process.env.STAGING_SYNTHETIC_E2E==='1'&&new URL(base).origin==='https://airdrop-museum-e2e-direct.xirraen.workers.dev';
+if(!local&&!staging)throw Error('Runtime synthetic tests require localhost or the dedicated synthetic staging origin');
+const user=Math.floor(Date.now()/10),bot=staging?process.env.STAGING_TEST_BOT_TOKEN:'local-synthetic-bot-token';
+if(!bot)throw Error('Synthetic staging token required');
 function telegram(id){const p=new URLSearchParams({auth_date:String(Math.floor(Date.now()/1000)),user:JSON.stringify({id})});const data=[...p].sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>k+'='+v).join('\n');const key=createHmac('sha256','WebAppData').update(bot).digest();p.set('hash',createHmac('sha256',key).update(data).digest('hex'));return p.toString();}
 async function call(path,method='GET',body,id=user){const r=await fetch(base+path,{method,headers:{Origin:base,...(id?{'X-Telegram-Init-Data':telegram(id)}:{}),...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});const text=await r.text();let data;try{data=JSON.parse(text)}catch{data={text}}return {status:r.status,data,headers:r.headers};}
 const results=[];async function check(name,fn){await fn();results.push(name);console.log('PASS '+name);}
@@ -22,4 +25,4 @@ await check('consent withdrawal removes cohort from future analysis',async()=>{a
 await check('admin scope and public evidence privacy are enforced',async()=>{assert.equal((await call('/api/admin/overview')).status,401);assert.equal((await call('/api/autopsy/evidence-card/'+aggregate,'GET',undefined,null)).status,404);});
 await check('private export is bounded and owner-scoped',async()=>{const r=await call('/api/autopsy/export?limit=2');assert.equal(r.status,200);assert.equal(r.data.events.length,2);assert.ok(r.data.events.every(e=>e.user_scope==='tg:'+user));});
 await check('large streamed journal payload is rejected',async()=>{const r=await call('/api/autopsy/decisions','POST',{reason:'x'.repeat(1048577)});assert.equal(r.status,413);});
-console.log(JSON.stringify({runtime:'workerd + local D1',passed:results.length,failed:0,aggregate_id:aggregate}));
+console.log(JSON.stringify({runtime:staging?'Cloudflare Worker + remote synthetic D1':'workerd + local D1',passed:results.length,failed:0,aggregate_id:aggregate}));

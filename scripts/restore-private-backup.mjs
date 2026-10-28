@@ -31,8 +31,12 @@ try{
  run(['d1','execute','DB','--remote','--file',dump],'import');
  const tables=Object.keys(manifest.table_counts);
  const quote=name=>'"'+name.replaceAll('"','""')+'"';
- const countSql=tables.map(name=>"SELECT '"+name.replaceAll("'","''")+"' table_name,COUNT(*) n FROM "+quote(name)).join(' UNION ALL ');
- const counts=query(countSql,'counts');
+ const counts=[];
+ // D1 limits compound SELECT terms; separate statements preserve complete inventories.
+ for(let offset=0;offset<tables.length;offset+=10){
+  const countSql=tables.slice(offset,offset+10).map(name=>"SELECT '"+name.replaceAll("'","''")+"' table_name,COUNT(*) n FROM "+quote(name)).join('; ');
+  counts.push(...query(countSql,'counts-'+offset));
+ }
  if(counts.length!==tables.length||counts.some(row=>row.n!==manifest.table_counts[row.table_name]))throw Error('STAGING_RESTORE_COUNT_MISMATCH');
  if(query('PRAGMA foreign_key_check','foreign-keys').length)throw Error('STAGING_RESTORE_FOREIGN_KEYS_FAILED');
  // Imported d1_migrations is authoritative: Wrangler applies only the missing suffix.
