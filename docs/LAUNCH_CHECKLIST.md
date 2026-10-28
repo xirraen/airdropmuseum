@@ -31,6 +31,7 @@
 - [ ] DNS rebinding/outbound webhook egress protections direview
 - [ ] Main dilindungi: wajib PR review, CI, tanpa direct push
 - [ ] Security report ditinjau dan risiko residual diterima pengelola
+- [ ] 11 dependency advisories severity high diperbaiki atau disetujui melalui risk acceptance formal
 
 ## Launch
 
