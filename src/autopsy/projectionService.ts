@@ -6,14 +6,15 @@ export function replay(rows){
  const compensations=new Set(ordered.filter(e=>e.event_type==='event_compensated').map(e=>parse(e.payload_json).target_event_id));
  const first=ordered[0];
  if(!first)return null;
+ const firstOutcome=ordered.find(e=>['outcome_recorded','outcome_revised'].includes(e.event_type)&&!compensations.has(e.id));
  const state={aggregate_id:first.aggregate_id,campaign_id:first.campaign_id,version:ordered.at(-1).event_version,
   status:'open',analysis_consent:false,decision:null,decision_cutoff_at:null,outcome_cutoff_at:null,
-  outcome:null,activities:[],hypothesis:'',evidence:[],timeline:[],created_at:first.recorded_at,
+  outcome:null,first_outcome_at:firstOutcome?.recorded_at||null,activities:[],hypothesis:'',evidence:[],timeline:[],created_at:first.recorded_at,
   updated_at:ordered.at(-1).recorded_at,finalized_at:null,insights:[]};
  for(const e of ordered){
   const p=parse(e.payload_json),compensated=compensations.has(e.id);
   state.timeline.push({id:e.id,version:e.event_version,type:e.event_type,recorded_at:e.recorded_at,
-   knowledge_cutoff_at:e.knowledge_cutoff_at,evidence_refs:parse(e.evidence_refs),compensated});
+   knowledge_cutoff_at:e.knowledge_cutoff_at,knowledge_phase:!firstOutcome||e.event_version<firstOutcome.event_version?'pre_outcome':e.event_version===firstOutcome.event_version?'outcome_transition':'post_outcome',evidence_refs:parse(e.evidence_refs),compensated});
   if(compensated&&e.event_type!=='decision_created')continue;
   switch(e.event_type){
    case 'decision_created':
@@ -21,11 +22,11 @@ export function replay(rows){
      decision_source:p.decision_source,time_budget_minutes:p.time_budget_minutes,cost_ceiling_usd:p.cost_ceiling_usd,
      realistic_expectations:p.realistic_expectations};
     state.decision_cutoff_at=e.knowledge_cutoff_at;
-    state.evidence.push({id:p.primary_evidence_ref,kind:'official_link',value:p.primary_evidence_url,knowledge_cutoff_at:e.knowledge_cutoff_at,source_event_id:e.id});
+    state.evidence.push({id:p.primary_evidence_ref,kind:'official_link',value:p.primary_evidence_url,knowledge_cutoff_at:e.knowledge_cutoff_at,recorded_at:e.recorded_at,source_event_id:e.id});
     if(compensated)state.status='cancelled';
     break;
    case 'evidence_added': state.evidence.push({id:p.id,kind:p.kind,value:p.value,knowledge_cutoff_at:e.knowledge_cutoff_at,source_event_id:e.id});break;
-   case 'activity_recorded':state.activities.push({id:e.id,knowledge_cutoff_at:e.knowledge_cutoff_at,...p});break;
+   case 'activity_recorded':state.activities.push({id:e.id,knowledge_cutoff_at:e.knowledge_cutoff_at,recorded_at:e.recorded_at,knowledge_phase:!firstOutcome||e.event_version<firstOutcome.event_version?'pre_outcome':'post_outcome',...p});break;
    case 'hypothesis_updated':state.hypothesis=p.text;break;
    case 'outcome_recorded':
    case 'outcome_revised':state.outcome=p.outcome;state.outcome_cutoff_at=e.knowledge_cutoff_at;break;
