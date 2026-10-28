@@ -61,7 +61,7 @@ export async function aggregatorApi(request,env={},headers={}){
   if(data.wallets.length)await env.DB.batch(data.wallets.map(w=>s(env.DB,'INSERT INTO wallet_watchlist(id,user_id,chain,address,label,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,chain,address) DO UPDATE SET label=excluded.label',crypto.randomUUID(),uid,w.chain,w.address,w.label,iso())));return json({imported:data.wallets.length,legacy_preserved_locally:!!data.legacy});
  }
  if(path==='/privacy'&&method==='DELETE'){
-  await env.DB.batch([s(env.DB,'DELETE FROM wallet_watchlist WHERE user_id=?',uid),s(env.DB,'DELETE FROM alert_preferences WHERE user_id=?',uid)]);return json({deleted:true});
+  const questReady=await s(env.DB,'SELECT version FROM am_core_schema WHERE version=8').first();const statements=[s(env.DB,'DELETE FROM wallet_watchlist WHERE user_id=?',uid),s(env.DB,'DELETE FROM alert_preferences WHERE user_id=?',uid)];if(questReady)statements.push(s(env.DB,'DELETE FROM user_points_ledger WHERE user_scope=?',uid),s(env.DB,'DELETE FROM user_quest_progress WHERE user_scope=?',uid));await env.DB.batch(statements);return json({deleted:true});
  }
  return json({error:'METHOD_NOT_ALLOWED'},405);
  }catch(e){const status=e.status||(e.message==='UNAUTHORIZED'?401:/^(INVALID_|OFFICIAL_|DUPLICATE_|CLAIM_ENDPOINT_|SOURCE_NOT_|WATCHLIST_)/.test(e.message)?400:503);return json({error:status===503?'AGGREGATOR_UNAVAILABLE':e.message},status,status===429?{'Retry-After':'60'}:{});}

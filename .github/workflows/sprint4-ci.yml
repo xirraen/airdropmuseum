@@ -1,0 +1,27 @@
+name: Sprint 4 CI
+on:
+  push:
+    branches:
+      - feat/sprint4-quest-points-tracker
+  pull_request:
+    paths:
+      - 'src/aggregator/**'
+      - 'migrations/0008_quest_tracker.sql'
+      - 'src/api.mjs'
+      - 'scripts/build-worker.mjs'
+      - 'dist/quest-ui.js'
+      - 'tests/quest-sprint4.test.mjs'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

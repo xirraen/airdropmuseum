@@ -1,4 +1,5 @@
 import {aggregatorApi} from './aggregator-api.mjs';
+import {questRoutes} from './quest-bundle.mjs';
 import {platformApi,platformUser} from './platform-api.mjs';
 import {rewardsApi} from './rewards-api.mjs';
 import {verifyTelegram} from './auth.mjs';
@@ -12,6 +13,7 @@ export async function api(request,env={},headers={}){
  const json=(body,status=200,extra={})=>new Response(head?null:JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...extra}});
  const method=allow=>allow.includes(request.method)?null:json({error:'METHOD_NOT_ALLOWED'},405,{Allow:allow.join(', ')});
  try{
+ if(path.startsWith('/api/aggregator/')&&(path.includes('/quests/')||path.endsWith('/quests')||path.endsWith('/progress')||path==='/api/aggregator/next-actions'||path==='/api/aggregator/points'))return questRoutes(request,env,headers);
  if(path.startsWith('/api/aggregator/'))return aggregatorApi(request,env,headers);
  if(path.startsWith('/api/platform/'))return platformApi(request,env,headers);
  if(path==='/api/v1/airdrops'){if(!['GET','HEAD'].includes(request.method))return json({error:'METHOD_NOT_ALLOWED'},405);if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const rows=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits ORDER BY updated_at DESC LIMIT 100').all();return json({version:1,airdrops:rows.results.map(r=>({id:r.id,...JSON.parse(r.payload),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),notice:'Source records, not endorsements.'});}
