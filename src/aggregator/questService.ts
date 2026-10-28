@@ -67,7 +67,7 @@ export async function setProgress(db,scope,qid,body,actor='user'){
  const q=await quest(db,qid);if(!q)err('QUEST_NOT_FOUND',404);
  const addr=wallet(body.wallet_address);
  if(actor!=='admin')await walletOwned(db,scope,addr);
- const note=string(body.note??'',1000,'NOTE',{optional:true});
+ const note=body.note===undefined?undefined:string(body.note,1000,'NOTE',{optional:true});
  let evidence=body.evidence_url===undefined?undefined:httpsURL(body.evidence_url);
  // Initial insert is idempotent. NULL address has a functional unique index.
  await s(db,"INSERT OR IGNORE INTO user_quest_progress(id,user_scope,quest_id,wallet_address,status,updated_at) VALUES(?,?,?,?, 'todo',?)",id(),scope,qid,addr,now()).run();
@@ -80,28 +80,29 @@ export async function setProgress(db,scope,qid,body,actor='user'){
   if(proof){status='verified';evidence=proof.evidence_url;actor='system'}
  }
  if(expired(q)&&status!=='verified'&&status!=='expired')err('QUEST_EXPIRED',409);
- if(status!=='old'&&!transition(q.verification_method,old.status,status,actor))err('INVALID_STATUS_TRANSITION',409);
+ if(!transition(q.verification_method,old.status,status,actor))err('INVALID_STATUS_TRANSITION',409);
  if(status==='submitted'&&q.verification_method==='url_submission'&&! (evidence||old.evidence_url))err('EVIDENCE_REQUIRED');
  if(status==='verified'){
   if(actor==='user'||actor==='system'&&q.verification_method!=='wallet_activity'||actor==='admin'&&!['admin_review','url_submission'].includes(q.verification_method))err('VERIFICATION_NOT_ALLOWED',403);
   if(!(evidence||old.evidence_url))err('VERIFIED_EVIDENCE_REQUIRED');
  }
- const ts=now(),newRev=old.revision+1,award=status==='verified'&&old.status!=='verified',reverse=old.status==='verified'&&status==='failed';
+ const ts=now(),newRev=old.revision+1,award=status==='verified'&&old.status!=='verified',reverse=old.status==='verified'&&status==='failed'&&old.points_awarded>0;
  const amount=award?q.points:reverse?-old.points_awarded:0;
  const awarded=award?q.points:reverse?0:old.points_awarded;
- const source=status==='verified'?(proof?.verification_source||'admin_review'):status===old.status?old.verification_source:null;
+ const source=status===old.status?old.verification_source:status==='verified'?(proof?.verification_source||'admin_review'):null;
  const stmts=[s(db,'UPDATE user_quest_progress SET status=?,note=?,evidence_url=?,updated_at=?,completed_at=?,points_awarded=?,revision=revision+1,verification_source=? WHERE id=? AND user_scope=? AND revision=?',
- status,note,evidence===undefined?old.evidence_url:evidence,ts,status==='verified'?ts:old.completed_at,awarded,source,old.id,scope,old.revision)];
- if(award||reverse)stmts.push(s(db,"INSERT OR IGNORE INTO user_points_ledger(id,user_scope,campaign_id,quest_id,wallet_address,points,reason,created_at) SELECT ?,?,?,?,?,?,?,? FROM user_quest_progress WHERE id=? AND user_scope=? AND revision=? AND status=?",
- 'quest:'+old.id+':'+newRev,scope,q.campaign_id,qid,addr,amount,award?'QUEST_VERIFIED':'QUEST_REVERSAL',ts,old.id,scope,newRev,status));
+ status,note===undefined?old.note:note,evidence===undefined?old.evidence_url:evidence,ts,status==='verified'?ts:old.completed_at,awarded,source,old.id,scope,old.revision)];
+ if(award||reverse)stmts.push(s(db,"INSERT OR IGNORE INTO user_points_ledger(id,user_scope,campaign_id,quest_id,wallet_address,points,reason,created_at) SELECT ?,?,?,?,?,?,?,? FROM user_quest_progress WHERE id=? AND user_scope=? AND revision=? AND status=? AND (?='QUEST_REVERSAL' OR COALESCE((SELECT SUM(points) FROM user_points_ledger WHERE user_scope=? AND quest_id=?),0)<=0)",
+ 'quest:'+old.id+':'+newRev,scope,q.campaign_id,qid,addr,amount,award?'QUEST_VERIFIED':'QUEST_REVERSAL',ts,old.id,scope,newRev,status,award?'QUEST_VERIFIED':'QUEST_REVERSAL',scope,qid));
+ if(award)stmts.push(s(db,"UPDATE user_quest_progress SET points_awarded=CASE WHEN EXISTS(SELECT 1 FROM user_points_ledger WHERE id=?) THEN ? ELSE 0 END WHERE id=? AND user_scope=? AND revision=?",'quest:'+old.id+':'+newRev,q.points,old.id,scope,newRev));
  const result=await db.batch(stmts);
  if(result[0]?.meta?.changes!==1)err('REVISION_CONFLICT',409);
  return s(db,'SELECT * FROM user_quest_progress WHERE id=? AND user_scope=?',old.id,scope).first();
 }
 export async function campaignEligibility(db,scope,cid){
  const campaign=await campaignById(db,cid);if(!campaign)err('CAMPAIGN_NOT_FOUND',404);
- const rows=(await s(db,"SELECT q.id,q.rule_id,q.required,q.verification_method,p.status,p.evidence_url,p.verification_source FROM campaign_quests q LEFT JOIN user_quest_progress p ON p.quest_id=q.id AND p.user_scope=? AND p.wallet_address IS NULL WHERE q.campaign_id=?",scope,campaign.id).all()).results;
- const required=rows.filter(q=>q.required===1),verified=required.filter(q=>q.status==='verified'&&q.evidence_url&&['wallet_activity','admin_review'].includes(q.verification_source));
+ const rows=(await s(db,"SELECT q.id,q.rule_id,q.required,q.verification_method,MAX(CASE WHEN p.status='verified' AND p.evidence_url IS NOT NULL AND p.verification_source IN ('wallet_activity','admin_review') THEN 1 ELSE 0 END) verified,MAX(CASE WHEN p.status='verified' AND p.evidence_url IS NOT NULL AND p.verification_source IN ('wallet_activity','admin_review') THEN p.evidence_url END) evidence_url FROM campaign_quests q LEFT JOIN user_quest_progress p ON p.quest_id=q.id AND p.user_scope=? WHERE q.campaign_id=? GROUP BY q.id",scope,campaign.id).all()).results;
+ const required=rows.filter(q=>q.required===1),verified=required.filter(q=>q.verified===1);
  return {campaign_id:campaign.id,total_required:required.length,verified_required:verified.length,progress:required.length?Math.round(100*verified.length/required.length):0,
  rules:required.map(q=>({rule_id:q.rule_id,quest_id:q.id,status:q.rule_id&&verified.includes(q)?'passed':'manual_check',reason:q.rule_id&&verified.includes(q)?'Quest terverifikasi dengan evidence; cek seluruh aturan lain secara terpisah.':'Belum ada bukti terverifikasi untuk aturan quest terkait.',evidence_url:verified.includes(q)?q.evidence_url:null})),
  notice:'Progres quest bukan status eligibility keseluruhan.'};
