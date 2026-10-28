@@ -23,11 +23,32 @@
   },
   "triggers": {
     "crons": [
-      "17 * * * *"
+      "*/15 * * * *"
     ]
   },
   "vars": {
     "RPC_1": "https://ethereum-rpc.publicnode.com",
-    "RPC_8453": "https://base-rpc.publicnode.com"
+    "RPC_8453": "https://base-rpc.publicnode.com",
+    "PUBLIC_APP_URL": "https://airdrop-museum.xirraen.workers.dev",
+    "AGGREGATOR_ALLOWED_HOSTS": "airdrop-museum.xirraen.workers.dev,docs.layer3.xyz,docs.layer3foundation.org,help.galxe.com,jup.ag",
+    "AGGREGATOR_DISCOVERY_URLS": "https://airdrop-museum.xirraen.workers.dev/official-registry.json",
+    "AGGREGATOR_MONITOR_SOURCES": "1"
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "AGGREGATOR_QUEUE",
+        "queue": "airdrop-museum-aggregator"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "airdrop-museum-aggregator",
+        "max_batch_size": 5,
+        "max_batch_timeout": 10,
+        "max_retries": 3,
+        "dead_letter_queue": "airdrop-museum-aggregator-dlq"
+      }
+    ]
   }
 }
