@@ -50,7 +50,12 @@ async function refreshAutopsy(){
    add(a,make('p','Hasil: '+r.outcome+' · '+date(r.created_at)),
     add(make('div',undefined,'kv'),stat('Quest '+r.quest_count),stat('Chain '+r.chain_count),stat('Gas USD '+formatUSD(r.gas_cost_usd)),stat('Bridge USD '+formatUSD(r.bridge_cost_usd))),
     make('p','Hipotesis: '+(r.hypothesis||'Belum ditulis')),    make('p',r.consent_to_analysis?'Analisis pribadi diizinkan':'Tidak disertakan dalam Pattern Review','muted'));
-   root.append(a);
+   const actions=make('div',undefined,'kv');
+   const consent=make('button',r.consent_to_analysis?'Cabut izin analisis':'Izinkan analisis');consent.type='button';
+   consent.onclick=async()=>{try{await call('/api/autopsy/'+encodeURIComponent(r.id)+'/consent','PUT',{consent_to_analysis:!r.consent_to_analysis});notice('Izin analisis diperbarui.');refreshAutopsy();}catch(e){notice(e.message);}};
+   const del=make('button','Hapus catatan privat');del.type='button';
+   del.onclick=async()=>{if(!confirm('Hapus Claim Autopsy ini secara permanen?'))return;try{await call('/api/autopsy/'+encodeURIComponent(r.id),'DELETE');notice('Catatan dihapus.');refreshAutopsy();}catch(e){notice(e.message);}};
+   actions.append(consent,del);a.append(actions);root.append(a);
   }
  }catch(err){root.replaceChildren(make('p',err.message,'muted'));}
 }
