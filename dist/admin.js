@@ -1,7 +1,7 @@
 const nav=[['Overview','overview'],['Campaigns','campaigns'],['Discovery','discovery'],['Conflicts','conflicts'],['API Keys','keys'],['Webhooks','webhooks'],['Feature Flags','flags'],['System Settings','settings'],['Audit Log','audit'],['Health','health']];
 const $=id=>document.getElementById(id),el=(tag,value)=>{const node=document.createElement(tag);node.textContent=value==null?'—':String(value);return node;};
 let csrf='',role='',selected=new Set(),active='overview';
-const permissions={readonly:['overview','campaigns','discovery','conflicts','keys','webhooks','flags','settings','audit','health'],moderator:['overview','campaigns','discovery','conflicts','audit','health'],admin:['overview','campaigns','discovery','conflicts','keys','webhooks','flags','settings','audit','health'],super_admin:nav.map(n=>n[1])};
+const permissions={readonly:['overview','audit','health'],moderator:['overview','campaigns','discovery','conflicts','audit','health'],admin:['overview','campaigns','discovery','conflicts','keys','webhooks','flags','settings','audit','health'],super_admin:nav.map(n=>n[1])};
 async function api(path,opts={}){
  const r=await fetch('/api/admin/'+path,{credentials:'same-origin',...opts,headers:{'X-CSRF-Token':csrf,...(opts.body?{'Content-Type':'application/json'}:{}),...opts.headers}});
  const out=await r.json();if(!r.ok)throw Error(out.error||'REQUEST_FAILED');return out;
@@ -34,6 +34,7 @@ async function show(tab){
   }
   if(tab==='discovery'){const d=await api('discovery/queue?status=pending_review');$('panel').append(table(d.items,[['ID','id'],['Judul','title'],['Sumber','source'],['Klasifikasi','classification'],['Confidence','classification_confidence']]));
    for(const row of d.items){const b=btn('Pilih '+row.id,()=>{selected.has(row.id)?selected.delete(row.id):selected.add(row.id);b.classList.toggle('primary',selected.has(row.id));});$('panel').append(b);}
+   if(role==='moderator')for(const row of d.items){$('panel').append(btn('Tinjau '+row.id,()=>moderate(row)));}
    if(role==='admin'||role==='super_admin'){const bar=el('div','');bar.className='toolbar';const type=document.createElement('select');['approve','reject','convert','duplicate'].forEach(x=>type.append(el('option',x)));const reason=el('input','');reason.placeholder='Alasan penolakan / duplikat';bar.append(type,reason,btn('Preview moderasi',()=>bulk('discovery',type.value,reason.value),'primary'));$('panel').prepend(bar);}
   }
   if(tab==='conflicts'){const d=await api('conflicts?status=open');$('panel').append(table(d.conflicts,[['ID','id'],['Campaign','campaign_id'],['Field','field'],['Severity','severity'],['Status','status']]));
@@ -59,6 +60,15 @@ async function bulk(type,action,value){
  try{const preview=await api(type+'/bulk-preview?'+query);await confirmAction('Aksi '+action+' pada '+preview.count+' item. Preview berlaku lima menit.',async()=>{
   const r=await api(type+'/bulk-action',{method:'POST',body:JSON.stringify({preview_id:preview.preview_id,confirm_phrase:'KONFIRMASI'})});
   notify('Berhasil: '+r.succeeded+', gagal: '+r.failed);});}catch(e){notify(e.message);}
+}
+async function moderate(row){
+ const action=prompt('Aksi: approve / reject / convert / duplicate');if(!['approve','reject','convert','duplicate'].includes(action))return;
+ const reason=action==='reject'||action==='duplicate'?prompt('Alasan (wajib)'):'';
+ if((action==='reject'||action==='duplicate')&&!reason){notify('Alasan diperlukan.');return;}
+ await confirmAction('Review '+action+' untuk '+row.id,async()=>{
+  await api('discovery/items/'+row.id+'/'+action,{method:'POST',body:JSON.stringify({rejection_reason:reason,reason,project_name:row.title})});
+  await show('discovery');
+ });
 }
 async function resolveConflict(row){
  const type=prompt('Pilih nilai sumber: a / b, atau ignore');if(!['a','b','ignore'].includes(type))return;

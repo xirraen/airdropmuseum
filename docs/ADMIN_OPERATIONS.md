@@ -20,7 +20,7 @@ Ganti placeholder dengan ID \`am_users.id\` yang telah diverifikasi; \`admin_sco
 | super_admin | Seluruh operasi, termasuk maintenance dan system settings |
 | admin | Campaign, discovery, konflik, API key, webhook, feature flags; lihat dashboard, health dan audit |
 | moderator | Review discovery/konflik, edit campaign hanya judul/deskripsi/kategori/reviewer, lihat health/audit |
-| readonly | Dashboard, daftar dan log; tidak ada mutasi |
+| readonly | Hanya dashboard, health dan audit log; tidak ada mutasi |
 
 Server mengecek role setiap request. GET \`/api/admin/session\` memberikan role dan token CSRF yang terikat ke sesi; kirim pada header \`X-CSRF-Token\` saat mutasi dan bulk preview. Semua request perubahan wajib mempunyai \`Origin\` identik dengan host, dan sesi yang tidak kedaluwarsa. Token tidak dicatat di audit/Analytics. Perlindungan rate limit per principal dan IP hash berlaku pada setiap route admin.
 
@@ -81,3 +81,5 @@ npx wrangler deploy
 **Periksa nama database sebelum menjalankan CLI:** \`wrangler.jsonc\` menggunakan \`database_name: "airdrop-museum"\`; gunakan nilai konfigurasi tersebut (bukan contoh placeholder) saat migrasi. Sebelum apply, ekspor/snapshot D1 dan verifikasi branch Sprint 2–8 sudah disatukan. Perlu binding \`DB\`, \`TRUST_CACHE\` atau \`ADMIN_FLAGS_KV\`, \`ANALYTICS\` (dataset operations), \`DISCOVERY_QUEUE\`, \`PARTNER_WEBHOOK_QUEUE\`. Secrets: \`ADMIN_CSRF_PEPPER\` (direkomendasikan acak panjang), \`ADMIN_AUDIT_PEPPER\` (wajib untuk pseudonimisasi), \`WEBHOOK_MASTER_SECRET\` (>=32 karakter), \`TELEGRAM_BOT_TOKEN\` jika login Telegram dan \`ETHERSCAN_API_KEY\` bila provider aktif. Jangan simpan secret di \`wrangler.jsonc\`.
 
 **Rollback:** hentikan deploy dan ubah mode ke maintenance bila perlu; restore dari snapshot D1 tervalidasi sebelum migrasi. SQLite/D1 tidak mendukung rollback otomatis \`ALTER TABLE ... ADD COLUMN\` dalam semua versi; jangan langsung DROP column atau audit log. Kembalikan worker pada commit sebelumnya *setelah* memastikan versi migrasi compatible. \`0013\` mempertahankan discovery review history saat memperluas CHECK constraint untuk aksi duplicate.
+
+Moderasi item tunggal untuk moderator: `POST /api/admin/discovery/items/:id/approve|reject|convert|duplicate`, dengan CSRF dan alasan wajib untuk reject/duplicate. Bulk preview dibatasi admin/super_admin.

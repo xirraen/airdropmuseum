@@ -118,3 +118,22 @@ test('conflict resolution requires source selection + confirmation; health degra
  assert.equal(r.status,200);assert.equal(JSON.parse((await a.e.DB.prepare("SELECT payload FROM am_core_exhibits WHERE id='c1'").first()).payload).chain,'Base');
  const h=await health(a.e);assert.ok(['healthy','degraded','unhealthy'].includes(h.status));assert.equal(h.checks.telegram,'degraded');
 });
+
+test('readonly access is limited to dashboard, audit and health',async()=>{
+ const a=await env('readonly');
+ assert.equal((await run('overview',a)).status,200);
+ assert.equal((await run('audit',a)).status,200);
+ for(const path of ['campaigns','discovery/queue','conflicts','api-keys','feature-flags','system-settings','webhooks'])
+  assert.equal((await run(path,a)).status,403,path);
+});
+test('moderator can review a discovery item but cannot run bulk actions',async()=>{
+ const a=await env('moderator');
+ await a.e.DB.prepare("INSERT INTO discovery_sources(id,name,source_type,feed_url) VALUES('mfeed','Moderation','rss','https://feed.example.net/feed')").run();
+ await a.e.DB.prepare("INSERT INTO discovery_items(id,source_id,url,title,content_fingerprint) VALUES('mitem','mfeed','https://feed.example.net/item','Review','mfp')").run();
+ const denied=await run('discovery/bulk-preview?ids=mitem&action=approve',a);assert.equal(denied.status,403);
+ const approved=await run('discovery/items/mitem/approve',a,'POST',{});
+ assert.equal(approved.status,200);
+ assert.equal((await a.e.DB.prepare("SELECT status FROM discovery_items WHERE id='mitem'").first()).status,'approved');
+ const record=await a.e.DB.prepare("SELECT COUNT(*) count FROM admin_audit_log WHERE action='discovery.approve'").first();
+ assert.equal(record.count,1);
+});
