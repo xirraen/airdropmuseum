@@ -45,7 +45,7 @@ export async function autopsyRoutes(request,env){
   if(!env.DB)fail('DATABASE_UNAVAILABLE',503);
   const version=await sqlRow(env.DB,'SELECT version FROM am_core_schema WHERE version=11');
   if(!version)fail('AUTOPSY_MIGRATION_REQUIRED',503);
-  if(!['GET','HEAD','POST','PUT'].includes(method))fail('METHOD_NOT_ALLOWED',405);
+  if(!['GET','HEAD','POST','PUT','DELETE'].includes(method))fail('METHOD_NOT_ALLOWED',405);
   if(!['GET','HEAD'].includes(method))sameOrigin(request);
   const user=await platformUser(request,env,false);
   if(!user)fail('LOGIN_REQUIRED',401);
@@ -64,11 +64,29 @@ export async function autopsyRoutes(request,env){
    const rows=await sql(env.DB,'SELECT * FROM claim_autopsies WHERE user_scope=? ORDER BY created_at DESC,id DESC LIMIT ?',scope,limit).all();
    return respond({items:(rows.results||[]).map(clean),private:true,limit,notice:'Catatan hanya dapat diakses oleh pemilik akun.'},200,head);
   }
+  const consentRoute=/^\/api\/autopsy\/([a-zA-Z0-9_-]{1,160})\/consent$/.exec(path);
+  if(consentRoute){
+   if(method!=='PUT')fail('METHOD_NOT_ALLOWED',405);
+   const body=await bodyJson(request);
+   if(typeof body.consent_to_analysis!=='boolean')fail('INVALID_BOOLEAN');
+   const before=await sqlRow(env.DB,'SELECT id FROM claim_autopsies WHERE id=? AND user_scope=?',consentRoute[1],scope);
+   if(!before)fail('NOT_FOUND',404);
+   await sql(env.DB,'UPDATE claim_autopsies SET consent_to_analysis=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_scope=?',body.consent_to_analysis?1:0,consentRoute[1],scope).run();
+   // Discard old aggregates immediately; do not serve persisted patterns after withdrawal.
+   await sql(env.DB,'DELETE FROM user_pattern_snapshots WHERE user_scope=?',scope).run();
+   if(body.consent_to_analysis)try{await savePatternSnapshot(env.DB,scope);}catch{}
+   return respond({updated:true,private:true,consent_to_analysis:body.consent_to_analysis});
+  }
   const detail=/^\/api\/autopsy\/([a-zA-Z0-9_-]{1,160})$/.exec(path);
   if(detail){
-   if(!['GET','HEAD'].includes(method))fail('METHOD_NOT_ALLOWED',405);
+   if(!['GET','HEAD','DELETE'].includes(method))fail('METHOD_NOT_ALLOWED',405);
    const row=await sqlRow(env.DB,'SELECT * FROM claim_autopsies WHERE id=? AND user_scope=?',detail[1],scope);
    if(!row)fail('NOT_FOUND',404);
+   if(method==='DELETE'){
+    await sql(env.DB,'DELETE FROM claim_autopsies WHERE id=? AND user_scope=?',detail[1],scope).run();
+    await sql(env.DB,'DELETE FROM user_pattern_snapshots WHERE user_scope=?',scope).run();
+    return respond({deleted:true,private:true});
+   }
    return respond({item:clean(row),private:true},200,head);
   }
   if(path==='/api/decisions'){
@@ -115,8 +133,8 @@ export async function autopsyRoutes(request,env){
   }
   fail('NOT_FOUND',404);
  }catch(err){
-  const status=err instanceof JournalError?err.status:typeof err?.status==='number'&&err.status>=400&&err.status<500?err.status:503;
-  const code=err instanceof JournalError?err.message:status===503?'SERVICE_UNAVAILABLE':'NOT_FOUND';
+  const status=err instanceof JournalError?err.status:err?.message==='UNAUTHORIZED'||err?.message==='LOGIN_REQUIRED'?401:typeof err?.status==='number'&&err.status>=400&&err.status<500?err.status:503;
+  const code=err instanceof JournalError?err.message:err?.message==='UNAUTHORIZED'||err?.message==='LOGIN_REQUIRED'?'LOGIN_REQUIRED':status===503?'SERVICE_UNAVAILABLE':'NOT_FOUND';
   return respond({error:code},status,head);
  }
 }
