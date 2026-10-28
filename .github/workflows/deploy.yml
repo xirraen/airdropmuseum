@@ -25,6 +25,18 @@ jobs:
       - run: node --experimental-sqlite scripts/validate-migrations.mjs
       - run: npm run build
       - run: npm test
+      - name: Audit production dependencies (fail closed)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify remote D1 event schema before deploying code
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 d1 execute airdrop-museum --remote --config wrangler.jsonc \
+            --command="SELECT CASE WHEN EXISTS(SELECT 1 FROM am_core_schema WHERE version=11) AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='autopsy_events') AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='autopsy_events_immutable_update') AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='autopsy_events_immutable_delete') THEN 'SPRINT11_SCHEMA_READY' ELSE 'MIGRATION_REQUIRED' END AS readiness" \
+            | tee /tmp/airdropmuseum-db-readiness.txt
+          grep -q 'SPRINT11_SCHEMA_READY' /tmp/airdropmuseum-db-readiness.txt
       - name: Deploy only after production environment approval and migration check
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
