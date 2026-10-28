@@ -73,6 +73,7 @@
       "id": "bc8fc9f66cf7495f9ad2f2c4917e1674"
     }
   ],
+  "analytics_engine_datasets": [{"binding": "ANALYTICS", "dataset": "airdropmuseum_operations"}],
   "ratelimits": [
     {
       "name": "PUBLIC_API_RATE_LIMITER",

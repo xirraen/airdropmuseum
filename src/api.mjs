@@ -1,4 +1,5 @@
 import {platformApi,platformUser} from './platform-api.mjs';
+import {adminAuth} from './admin/auth.ts';
 import {discoveryRoutes} from './discovery/discoveryRoutes.ts';
 import {trustRoutes} from './trust/trustRoutes.ts';
 import {rewardsApi} from './rewards-api.mjs';
@@ -13,8 +14,8 @@ export async function api(request,env={},headers={}){
  const json=(body,status=200,extra={})=>new Response(head?null:JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...extra}});
  const method=allow=>allow.includes(request.method)?null:json({error:'METHOD_NOT_ALLOWED'},405,{Allow:allow.join(', ')});
  try{
- if(path.startsWith('/api/trust/'))return trustRoutes(request,env,headers);
- if(path.startsWith('/api/discovery/'))return discoveryRoutes(request,env,headers);
+ if(path.startsWith('/api/trust/')){if(!['GET','HEAD'].includes(request.method))return json({error:'LEGACY_ADMIN_WRITE_DISABLED'},410);return trustRoutes(request,env,headers);}
+ if(path.startsWith('/api/discovery/')){if(!['GET','HEAD'].includes(request.method))return json({error:'LEGACY_ADMIN_WRITE_DISABLED'},410);await adminAuth(request,env,'discovery.read');return discoveryRoutes(request,env,headers);}
  if(path.startsWith('/api/platform/'))return platformApi(request,env,headers);
  if(path==='/api/v1/airdrops'){if(!['GET','HEAD'].includes(request.method))return json({error:'METHOD_NOT_ALLOWED'},405);if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const rows=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN (\'draft\',\'pending_review\') ORDER BY updated_at DESC LIMIT 100').all();return json({version:1,airdrops:rows.results.map(r=>({id:r.id,...JSON.parse(r.payload),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),notice:'Source records, not endorsements.'});}
  if(path==='/api/health'||path==='/api/capabilities'){

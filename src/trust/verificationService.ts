@@ -4,6 +4,7 @@ import {sha256,stableJSON,canonicalValue} from './fingerprint.ts';
 import {detectConflicts} from './conflictDetector.ts';
 import {computeSourceScore,campaignConfidence,summarizeFields} from './trustScoreService.ts';
 import {fetchTrustSource} from './sourceFetcher.ts';
+import {metric} from '../admin/metrics.ts';
 const TTL=21600;
 const sql=statement;
 const json=v=>{try{return JSON.parse(v||'{}');}catch{return {};}};
@@ -116,10 +117,13 @@ export async function verifyCampaign(env,campaignId,{trigger='manual',actor='sys
   await audit(db,actor,'verification_completed','verification_run',runId,'running','complete');
   await env.TRUST_CACHE.put('trust:campaign:'+campaignId+':latest',JSON.stringify({id:runId,fetched_at:stamp(),confidence_label:confidence,open_conflicts:allConflicts.length}),{expirationTtl:TTL});
   await enqueueTrustAlerts(env,campaignId,changes);
+  metric(env,'verification_run','complete',0,1);
+  if(newMaterial.length)metric(env,'conflict_detected','material',0,newMaterial.length);
   return {id:runId,status:'complete',confidence_label:confidence,open_conflicts:allConflicts.length,failed_sources:failed,changes:changes.length};
  }catch{
   await sql(db,"UPDATE verification_runs SET status='failed',error_code='VERIFICATION_FAILED',finished_at=CURRENT_TIMESTAMP WHERE id=? AND status='running'",runId).run();
   await audit(db,actor,'verification_failed','verification_run',runId,'running','failed');
+  metric(env,'verification_run','failed',0,1);
   return {id:runId,status:'failed',error_code:'VERIFICATION_FAILED'};
  }
 }

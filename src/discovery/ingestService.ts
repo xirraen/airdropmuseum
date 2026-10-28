@@ -1,5 +1,6 @@
 import {normalizeUrl,DiscoveryError} from './types.ts';
 import {parseFeed} from './feedParser.ts';
+import {metric} from '../admin/metrics.ts';
 const MAX_BYTES=524288;
 function scrub(code){return ['FETCH_FAILED','FEED_TOO_LARGE','FEED_TIMEOUT','INVALID_XML_FEED','INVALID_JSON_FEED','UNSAFE_XML','INVALID_FEED','QUEUE_UNAVAILABLE','UNSAFE_FEED_HOST','INVALID_HTTPS_URL'].includes(code)?code:'DISCOVERY_FETCH_FAILED';}
 async function boundedResponse(response){
@@ -54,8 +55,9 @@ export async function fetchDiscoverySource(env,source,{fetcher=fetch}={}){
 export async function consumeDiscoveryBatch(batch,env,{store}={}){
  const insert=store||((await import('./dedupeService.ts')).storeDiscoveredItem);
  for(const message of batch.messages){
-  try{await insert(env.DB,message.body);message.ack();}
+  try{await insert(env.DB,message.body);metric(env,'discovery_item_processed','ok',0,1);message.ack();}
   catch(error){
+   metric(env,'discovery_item_failed','failed',0,1);
    // Do not log raw URLs, feed bodies, credentials or exception strings.
    if(message.attempts>=4){try{await env.DB.prepare('UPDATE discovery_sources SET last_error=?,error_at=CURRENT_TIMESTAMP WHERE id=?')
     .bind('QUEUE_ITEM_FAILED',String(message.body?.source_id||'')).run();}catch{}}

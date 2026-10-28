@@ -81,3 +81,10 @@ Source Trust melakukan penilaian platform internal terhadap sumber HTTPS yang di
 Menambahkan API kurasi read-only berversi `/v1/`, RSS campaign/deadline, API key SHA-256 dengan tier/quota, rate limiting Cloudflare + D1, webhook partner HMAC-SHA256 dan retry/DLQ, spesifikasi OpenAPI 3.1 di `/v1/openapi.json`, serta halaman `/docs/api`. Daftar campaign publik membutuhkan `payload.visibility="public"`, sumber HTTPS, review non-draft dan catatan verifikasi yang lengkap; data user tidak pernah diserialisasi. Semua hasil dilengkapi disclaimer verifikasi manual.
 
 Lihat [docs/PUBLIC_API.md](docs/PUBLIC_API.md) untuk autentikasi, pagination, signature, sumber RSS, retensi, pengujian, konfigurasi `PUBLIC_API_RATE_LIMITER`, `PARTNER_WEBHOOK_QUEUE`, `API_HASH_PEPPER`, `WEBHOOK_MASTER_SECRET`, dan dependensi migrasi `0012_public_api.sql`. Penggabungan seluruh branch Sprint 2–7 serta migrasi/deployment produksi **belum** dilakukan oleh Sprint 8.
+
+
+## Sprint 9 — Admin Console & Operations
+
+Konsol administrasi responsif di \`/admin\` dengan empat role (\`super_admin\`, \`admin\`, \`moderator\`, \`readonly\`), autentikasi session dan CSRF, audit trail, operasi campaign/discovery/conflict, bulk preview + konfirmasi dua langkah, API key/webhook management, feature flags dengan KV cache, maintenance mode, health checks D1/KV/Queue/provider, serta Workers Analytics Engine. Semua perubahan administratif melalui \`/api/admin/*\`. Tidak ada akses kunci rahasia dari tampilan daftar atau audit.
+
+Migrasi: \`migrations/0013_admin_operations.sql\` (sesudah Sprint 8). Petunjuk hak akses, operasi, pengujian, rollback dan environment variable: [docs/ADMIN_OPERATIONS.md](docs/ADMIN_OPERATIONS.md). Branch Sprint 9 berbasis branch Sprint 8 yang belum digabung ke main; rekonsiliasi migrasi Sprint 2–8 wajib dilakukan sebelum produksi.

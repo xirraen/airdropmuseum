@@ -8,7 +8,7 @@ export async function principal(request,env){
  const found=await sql(env.DB,'SELECT * FROM api_keys WHERE key_hash=?',hash).first();
  // Compare the computed hash in constant time even after a keyed lookup.
  const good=fixedEqual(hash,found?.key_hash||'0'.repeat(64));
- if(!found||!good||!found.enabled||found.revoked_at)fail('INVALID_API_KEY',401);
+ if(!found||!good||!found.enabled||found.revoked_at||(found.expires_at&&Date.parse(found.expires_at)<=Date.now()))fail('INVALID_API_KEY',401);
  return {tier:found.tier,id:found.id,key:found,limit:found.rate_limit_per_minute};
 }
 export async function admin(request,env){
