@@ -220,3 +220,9 @@ Pembacaan provider gagal aman dengan `provider_status` berupa kategori teknis ya
 Uji produksi menemukan bahwa Workers tidak menerima mode fetch redirect=error. Transport sudah memakai redirect=manual lalu menolak 3xx secara eksplisit; ini menjaga larangan mengikuti redirect tanpa menyebabkan semua pembacaan provider gagal.
 
 Setelah perbaikan transport, scan produksi pada alamat publik uji di Base berhasil membaca saldo finalized dan bukti RPC untuk indikator CUBE. Hasil keseluruhan tetap manual_check sesuai kebijakan riset, persisted=false, dan wallet_watchlist server tetap kosong. Diagnostik sementara sudah dihapus; respons tidak berisi pesan exception mentah.
+
+### Verifikasi Cron produksi
+
+Pada pemeriksaan 28 Oktober 2026 pukul 15.31 WIB, Cron produksi telah menyimpan empat baseline fingerprint sumber resmi. Sumber yang tidak dapat dibaca tetap dicatat sebagai source_unavailable; tidak diubah menjadi hasil eligibility negatif. Watchlist D1 tetap berjumlah nol setelah seluruh scan anonim alamat publik uji. Token bot Telegram dan indexer historis belum tersedia, sehingga pengiriman bot nyata dan verifikasi histori protokol belum dinyatakan aktif.
+
+Referensi perilaku redirect Workers: https://developers.cloudflare.com/workers/runtime-apis/request/ .
