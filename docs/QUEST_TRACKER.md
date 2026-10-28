@@ -8,7 +8,7 @@ Sprint 4 menambah quest, poin internal, streak harian, progress campaign, dan Ne
 |---|---|
 | `campaign_quests` | Quest per campaign, jenis/metode, poin, bobot, batas tanggal, `required`, URL resmi, timestamps. |
 | `user_quest_progress` | Status, evidence, note, `updated_at`, `completed_at`, `revision`; terisolasi dengan `user_scope` dan wallet opsional. |
-| `user_points_ledger` | Riwayat kredit/reversal append-only, campaign/quest/wallet, `reason`, `created_at`. |
+| `user_points_ledger` | Riwayat kredit/reversal append-only, campaign/quest/wallet, `reason`, `created_at`. Campaign ID tetap disimpan meskipun campaign dihapus, agar audit ledger tidak ikut terhapus. |
 
 Index `user_quest_progress(user_scope,quest_id,coalesce(wallet_address,''))` diperlukan karena SQLite tidak menganggap NULL setara pada UNIQUE biasa. Semua akses privat menggunakan `user_scope=tg:<id>` setelah HMAC `X-Telegram-Init-Data` diverifikasi. Update progress+ledger menggunakan D1 `batch()`, revision optimistic concurrency, dan ledger ID per revision; query memakai prepared statements.
 
