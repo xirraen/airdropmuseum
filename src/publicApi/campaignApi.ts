@@ -32,8 +32,8 @@ function filters(params){
  }
  return {where,args};
 }
-function enc(obj){return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');}
-function dec(value){if(!/^[\w-]{1,512}$/.test(value))fail('INVALID_CURSOR');try{return JSON.parse(decodeURIComponent(escape(atob(value.replaceAll('-','+').replaceAll('_','/')))));}catch{fail('INVALID_CURSOR');}}
+function enc(obj){return btoa(JSON.stringify(obj)).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');}
+function dec(value){if(!/^[\w-]{1,512}$/.test(value))fail('INVALID_CURSOR');try{return JSON.parse(atob(value.replaceAll('-','+').replaceAll('_','/')));}catch{fail('INVALID_CURSOR');}}
 export async function listCampaigns(env,params,kind=null){
  const lim=params.get('limit')===null?50:Number(params.get('limit'));if(!Number.isSafeInteger(lim)||lim<1||lim>100)fail('INVALID_LIMIT');
  const clone=new URLSearchParams(params);clone.delete('cursor');clone.delete('limit');
@@ -42,7 +42,7 @@ export async function listCampaigns(env,params,kind=null){
  if(kind==='deadlines')where.push("json_extract(e.payload,'$.claim_deadline_at') IS NOT NULL");
  if(kind==='snapshots')where.push("json_extract(e.payload,'$.snapshot_at') IS NOT NULL");
  const cursor=params.get('cursor');
- if(cursor){const data=dec(cursor);if(data.f!==fp||!iso(data.t)||typeof data.id!=='string'||data.id.length>160)fail('INVALID_CURSOR');where.push('(e.updated_at<? OR (e.updated_at=? AND e.id<?))');args.push(data.t,data.t,data.id);}
+ if(cursor){const data=dec(cursor);if(data.f!==fp||!iso(data.t)||typeof data.id!=='string'||data.id.length>160)fail('INVALID_CURSOR');where.push('(datetime(e.updated_at)<datetime(?) OR (datetime(e.updated_at)=datetime(?) AND e.id<?))');args.push(data.t,data.t,data.id);}
  const found=await sql(env.DB,selected+' WHERE '+where.join(' AND ')+' ORDER BY e.updated_at DESC,e.id DESC LIMIT ?',...args,lim+1).all();
  const rows=found.results||[],more=rows.length>lim,chosen=rows.slice(0,lim),items=chosen.map(project).filter(Boolean);
  const end=chosen.at(-1),next_cursor=more&&end?enc({t:iso(end.updated_at),id:end.id,f:fp}):null;
