@@ -38,7 +38,7 @@ function article(row){
   const chain=prompt('Chain (boleh dilengkapi kemudian):','');if(chain===null)return;
   change(async()=>{await api('/items/'+row.id+'/convert',{project_name:name,chain,campaign_status:'speculative'});});
  },'primary'));
- actions.append(btn('Detail / Log',()=>change(async()=>{const data=await api('/items/'+row.id);msg.textContent='Review: '+(data.review_log.map(x=>x.action+' / '+x.admin_id).join(', ')||'Belum ada');})));
+ actions.append(btn('Detail / Log',async()=>{try{const data=await api('/items/'+row.id);msg.textContent='Review: '+(data.review_log.map(x=>x.action+' / '+x.admin_id).join(', ')||'Belum ada');}catch(e){msg.textContent='Gagal: '+e.message;}}));
  const link=elt('a','Buka Sumber');link.href=row.url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link);
  add(card,info,actions);return card;
 }

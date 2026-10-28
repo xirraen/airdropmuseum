@@ -16,7 +16,9 @@ async function download(url,headers,fetcher){
   if([301,302,303,307,308].includes(response.status)){
    if(i===2)throw new DiscoveryError('FETCH_FAILED',502);
    const next=response.headers.get('location');if(!next)throw new DiscoveryError('FETCH_FAILED',502);
-   url=normalizeUrl(new URL(next,url).href);continue;
+   const nextUrl=normalizeUrl(new URL(next,url).href);
+   if(new URL(nextUrl).hostname!==new URL(url).hostname)throw new DiscoveryError('FETCH_FAILED',502);
+   url=nextUrl;continue;
   }
   return response;
  }

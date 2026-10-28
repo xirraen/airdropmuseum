@@ -149,3 +149,12 @@ test('deployment declares discovery cron, producer, retries and DLQ',()=>{
  assert.equal(cfg.queues.consumers[0].max_retries,3);
  assert.equal(cfg.queues.consumers[0].dead_letter_queue,'airdrop-museum-discovery-dlq');
 });
+
+test('redirects cannot fetch an unapproved new host',async()=>{
+ const DB=database();try{source(DB);let hits=0;
+ const env={DB,DISCOVERY_QUEUE:{sendBatch:async()=>{throw Error('unexpected queue');}}};
+ const row=DB.sql.prepare('SELECT * FROM discovery_sources').get();
+ const result=await fetchDiscoverySource(env,row,{fetcher:async()=>{hits++;return new Response(null,{status:302,headers:{location:'https://elsewhere.example/rss'}});}});
+ assert.equal(result.error,'FETCH_FAILED');assert.equal(hits,1);
+ }finally{DB.sql.close();}
+});
