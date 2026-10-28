@@ -79,8 +79,9 @@ export async function autopsyRoutes(request,env){
   return json({version:result.version,event_id:result.id,state:overview(result.state),private:true},200);
  }catch(error){
   const status=error instanceof JournalError?error.status:
-    error?.message==='UNAUTHORIZED'||error?.message==='LOGIN_REQUIRED'?401:503;
-  const code=error instanceof JournalError?error.message:status===401?'LOGIN_REQUIRED':'SERVICE_UNAVAILABLE';
+    error?.message==='UNAUTHORIZED'||error?.message==='LOGIN_REQUIRED'?401:
+    Number.isInteger(error?.status)&&error.status>=400&&error.status<500?error.status:503;
+  const code=error instanceof JournalError?error.message:status===401?'LOGIN_REQUIRED':status===404?'NOT_FOUND':status===400?'INVALID_REQUEST':'SERVICE_UNAVAILABLE';
   return json({error:code},status,head);
  }
 }
