@@ -9,7 +9,7 @@ export function assembleEvidenceCard(campaign,rows=[],conflicts=[]){
  return {campaign_slug:campaign.slug,claim:`Status campaign ${campaign.name||campaign.project_name}: ${campaign.status||'belum diketahui'} (sesuai data kurasi).`,
   primary_sources:primary.length?primary:[{url:https(campaign.source_url),last_checked_at:campaign.last_verified_at}],
   confirmations:confirmation,conflicts:open,
-  status:open.length?'conflicted':confirmation.length?'cross_checked':'needs_manual_review',
+  status:open.length?'conflicted':confirmation.length?'additional_sources_linked':'needs_manual_review',
   last_checked_at:campaign.last_verified_at,source_count:campaign.source_count,
   sample_count:vetted.length,period:{from:[...vetted.map(s=>s.last_fetched_at).filter(Boolean),campaign.last_verified_at].sort()[0]||null,to:campaign.last_verified_at},
   limitations:'Kartu ini hanya mencakup sumber yang tercatat dan terverifikasi; bukan audit wallet, tidak membuktikan kelayakan, dan tidak berisi data keputusan atau catatan pribadi pengguna.',
