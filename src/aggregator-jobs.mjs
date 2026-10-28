@@ -1,11 +1,13 @@
+import {monitorSources} from './aggregator-sources.mjs';
 import {iso,evaluateRule,aggregateEligibility,scheduledAlerts,priority,ALERT_TYPES,https} from '../dist/aggregator-core.js';
 import {portfolio,observations,checkClaim,readJSON,allowed} from './aggregator-providers.mjs';
 import {statement as s,listCampaigns,getCampaign,putCampaign,matches} from './aggregator-store.mjs';
 const reasons={new_campaign:'Campaign baru sesuai filter Anda.',snapshot_7d:'Snapshot dalam 7 hari.',claim_open:'Periode claim telah dibuka.',deadline_72h:'Deadline dalam 72 jam.',eligibility_change:'Hasil pemeriksaan syarat berubah.',new_quest:'Quest baru ditambahkan.',source_changed:'Sumber resmi berubah; tinjau ulang bukti.'};
 export async function scan(env,wallet,c,fetcher=fetch){
- const now=iso(),data=await observations(env,c,wallet,fetcher),context={address:wallet.address,chain:wallet.chain,snapshot_at:c.snapshot_at,now};
- const rules=c.eligibility_rules.map(r=>{const result=evaluateRule(r,data,context);if(!result.evidence_refs.length)result.evidence_refs=c.source_evidence;return result;});
- return {campaign_id:c.id,protocol_activity:data.filter(o=>['protocol_interaction','bridge_activity','governance_vote','lp_position'].includes(o.rule_type)).map(o=>({rule_type:o.rule_type,value:o.value,evidence_refs:o.evidence_refs,observed_at:o.observed_at})),rules,status:aggregateEligibility(rules),claim:await checkClaim(env,c,wallet,fetcher,now),priority:priority(c,rules,[],now),evaluated_at:now,notice:'Hasil pemeriksaan perlu diverifikasi ulang; bukan jaminan eligibility, keamanan atau reward.'};
+ const deadline=AbortSignal.timeout(20000),boundedFetch=(url,options={})=>fetcher(url,{...options,signal:AbortSignal.any([deadline,...(options.signal?[options.signal]:[])])});
+ const now=iso(),data=c.risk_flags.includes('source_changed_review_required')?[]:await observations(env,c,wallet,boundedFetch),context={address:wallet.address,chain:wallet.chain,snapshot_at:c.snapshot_at,now};
+ const rules=c.eligibility_rules.map(r=>{const result=c.risk_flags.includes('source_changed_review_required')?{rule_id:r.id,rule_type:r.rule_type,parameters:r.parameters,evaluation_status:'manual_check',evaluated_at:now,evidence_refs:c.source_evidence,human_reason:'Sumber resmi berubah; aturan campaign perlu ditinjau ulang sebelum menilai wallet.'}:evaluateRule(r,data,context);if(!result.evidence_refs.length)result.evidence_refs=c.source_evidence;return result;});
+ return {campaign_id:c.id,protocol_activity:data.filter(o=>['protocol_interaction','bridge_activity','governance_vote','lp_position'].includes(o.rule_type)).map(o=>({rule_type:o.rule_type,value:o.value,evidence_refs:o.evidence_refs,observed_at:o.observed_at})),rules,status:aggregateEligibility(rules),claim:await checkClaim(env,c,wallet,boundedFetch,now),priority:priority(c,rules,[],now),evaluated_at:now,notice:'Hasil pemeriksaan perlu diverifikasi ulang; bukan jaminan eligibility, keamanan atau reward.'};
 }
 export async function enqueueAlert(env,c,type,suffix='',userId=null){
  if(!ALERT_TYPES.includes(type))throw Error('INVALID_ALERT');const now=iso();
@@ -37,7 +39,7 @@ export async function discover(env,fetcher=fetch){
 }
 export async function scanStoredWallet(env,id,fetcher=fetch){
  const w=await s(env.DB,'SELECT * FROM wallet_watchlist WHERE id=?',id).first();if(!w)return;
- const c=(await listCampaigns(env.DB)).filter(c=>c.chain.includes(w.chain)&&!['archived','expired'].includes(c.status)).slice(0,50),snap=await portfolio(env,w,fetcher),now=iso();
+ const c=(await listCampaigns(env.DB)).filter(c=>(c.chain.includes(w.chain)||c.chain.includes('offchain'))&&!['archived','expired'].includes(c.status)).slice(0,50),snap=await portfolio(env,w,fetcher),now=iso();
  const tasks=[],pendingAlerts=[];
  for(const campaign of c){const result=await scan(env,w,campaign,fetcher);snap.protocol_activity.push(...result.protocol_activity);
   const prior=await s(env.DB,'SELECT evaluation_status,rule_id FROM eligibility_results WHERE wallet_id=? AND campaign_id=? ORDER BY evaluated_at DESC LIMIT 40',w.id,campaign.id).all();
@@ -71,7 +73,7 @@ export async function deliverAlerts(env,fetcher=fetch){
 }
 export async function scheduledAggregator(env,fetcher=fetch){
  if(!env.DB||!await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=5').first())return;
- await discover(env,fetcher);for(const c of await listCampaigns(env.DB)){
+ await discover(env,fetcher);await monitorSources(env,fetcher);for(const c of await listCampaigns(env.DB)){
  if(!['expired','archived'].includes(c.status)&&c.claim_deadline_at&&Date.parse(c.claim_deadline_at)<Date.now()){await putCampaign(env.DB,{...c,status:'expired',source_evidence:[{source_url:c.official_urls[0],source_type:'official_docs',captured_at:iso(),verified_by:'system',note:'Deadline resmi yang tercatat telah berlalu; ini evaluasi waktu, bukan verifikasi ulang isi sumber.'}]},'deadline_elapsed');continue;}
  for(const type of scheduledAlerts(c))await enqueueAlert(env,c,type);}
  const wallets=(await env.DB.prepare("SELECT id FROM wallet_watchlist WHERE last_scan_at IS NULL OR last_scan_at<strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour') ORDER BY COALESCE(last_scan_at,''),id LIMIT 20").all()).results;

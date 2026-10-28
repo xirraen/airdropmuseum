@@ -21,8 +21,8 @@ export async function aggregatorApi(request,env={},headers={}){
  const detail=path.match(/^\/campaigns\/([a-z0-9-]{1,80})$/);
  if(detail&&['GET','HEAD'].includes(method)){const c=await getCampaign(env.DB,detail[1]);if(!c)fail('CAMPAIGN_NOT_FOUND',404);const timeline=(await s(env.DB,'SELECT source_url,source_type,captured_at,note,verified_by,event_type FROM campaign_sources WHERE campaign_id=? ORDER BY captured_at DESC LIMIT 200',c.id).all()).results;return json({campaign:{...c,effective_status:effectiveStatus(c)},timeline});}
  if(path==='/scan'&&method==='POST'){
-  await rate(env,'scan:'+ip,10);const b=await input(request),w={chain:b.chain,address:address(b.address,b.chain)},c=await getCampaign(env.DB,String(b.campaign_id||''));if(!c||!c.chain.includes(w.chain))fail('CAMPAIGN_CHAIN_MISMATCH');
-  return json({portfolio:await portfolio(env,w),result:await scan(env,w,c),persisted:false});
+  await rate(env,'scan:'+ip,10);const b=await input(request),w={chain:b.chain,address:address(b.address,b.chain)},c=await getCampaign(env.DB,String(b.campaign_id||''));if(!c||!c.chain.includes(w.chain)&&!c.chain.includes('offchain'))fail('CAMPAIGN_CHAIN_MISMATCH');
+  const [walletPortfolio,result]=await Promise.all([portfolio(env,w),scan(env,w,c)]);return json({portfolio:walletPortfolio,result,persisted:false});
  }
  if(path==='/admin/campaigns'&&method==='POST'){await admin(request,env);const b=await input(request);for(const u of b.official_urls||[])allowed(u,env);const r=await putCampaign(env.DB,b,'admin_review');for(const t of r.events)await enqueueAlert(env,r.campaign,t);return json(r,201);}
  if(path==='/admin/discover'&&method==='POST'){await admin(request,env);return json(await discover(env));}

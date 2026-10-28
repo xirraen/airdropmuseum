@@ -1,16 +1,16 @@
 import {address,https,iso,effectiveStatus,evidence} from '../dist/aggregator-core.js';
 // Per-isolate cache is an optimization only; no wallet responses enter shared HTTP caches.
 const cache=new Map();
-export async function readJSON(url,{body,headers={},fetcher=fetch,ttl=0,cacheKey=url}={}){
+export async function readJSON(url,{body,headers={},fetcher=fetch,ttl=0,cacheKey=url,asText=false}={}){
  url=https(url);const old=cache.get(cacheKey);if(ttl&&old&&old.until>Date.now())return structuredClone(old.value);
  for(let attempt=0;attempt<3;attempt++){
   try{
    const r=await fetcher(url,{method:body?'POST':'GET',redirect:'error',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{}),...headers},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(8000)});
    if(!r.ok){if(r.status!==429&&r.status<500)throw Object.assign(Error('UPSTREAM_REJECTED'),{permanent:true});throw Error('UPSTREAM_UNAVAILABLE')}
    if(Number(r.headers.get('content-length'))>262144)throw Object.assign(Error('UPSTREAM_TOO_LARGE'),{permanent:true});
-   const reader=r.body.getReader();let size=0,text='';const decoder=new TextDecoder();for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>262144){await reader.cancel();throw Object.assign(Error('UPSTREAM_TOO_LARGE'),{permanent:true})}text+=decoder.decode(value,{stream:true})}text+=decoder.decode();const value=JSON.parse(text);
+   const reader=r.body.getReader();let size=0,text='';const decoder=new TextDecoder();for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>262144){await reader.cancel();throw Object.assign(Error('UPSTREAM_TOO_LARGE'),{permanent:true})}text+=decoder.decode(value,{stream:true})}text+=decoder.decode();const value=asText?text:JSON.parse(text);
    if(ttl){if(cache.size>=200)cache.delete(cache.keys().next().value);cache.set(cacheKey,{value,until:Date.now()+ttl})}return structuredClone(value);
-  }catch(e){if(e.permanent||attempt===2)throw e;await new Promise(resolve=>setTimeout(resolve,100*2**attempt));}
+  }catch(e){if(e.permanent||e.name==='AbortError'||e.name==='TimeoutError'||attempt===2)throw e;await new Promise(resolve=>setTimeout(resolve,100*2**attempt));}
  }
 }
 export function allowed(url,env,key='AGGREGATOR_ALLOWED_HOSTS'){
@@ -41,7 +41,7 @@ export async function observations(env,c,wallet,fetcher=fetch){
  }catch{/* Provider failure yields unknown rules. */}}
  if(chain==='solana'||historical)return values;
  for(const r of c.eligibility_rules){if(values.some(o=>o.rule_id===r.id))continue;try{
-  let method,params;const p=r.parameters;
+  let method,params;const p=r.parameters;if(p.before||p.snapshot_at||p.block_tag||p.chain&&p.chain!==chain)continue;
   if(r.rule_type==='tx_count'){method='eth_getTransactionCount';params=[addr,'finalized'];}
   if(['token_balance','nft_holdings'].includes(r.rule_type)){
    if(r.rule_type==='token_balance'&&p.native===true){method='eth_getBalance';params=[addr,'finalized'];}
@@ -55,7 +55,7 @@ export async function observations(env,c,wallet,fetcher=fetch){
 export async function checkClaim(env,c,wallet,fetcher=fetch,now=iso()){
  const out={campaign_id:c.id,status:'manual_check',checked_at:now,evidence_refs:[],human_reason:'Perlu pemeriksaan manual',official_url:c.official_urls[0],distributor:c.distributor||null,chain:wallet.chain,deadline:c.claim_deadline_at};
  if(c.status!=='confirmed'||effectiveStatus(c,now)==='expired'||!c.claim_opens_at||Date.parse(c.claim_opens_at)>Date.parse(now)){out.status='unknown';out.human_reason='Campaign belum berada dalam periode claim terkonfirmasi.';return out;}
- if(!c.claim_endpoint||!c.chain.includes(wallet.chain))return out;
+ if(c.risk_flags.includes('source_changed_review_required')||!c.claim_endpoint||!c.chain.includes(wallet.chain))return out;
  try{
   const endpoint=allowed(c.claim_endpoint,env);if(!c.official_urls.some(u=>new URL(u).origin===new URL(endpoint).origin))return out;
   const u=new URL(endpoint);u.searchParams.set('address',address(wallet.address,wallet.chain));u.searchParams.set('chain',wallet.chain);const data=await readJSON(u.href,{fetcher});

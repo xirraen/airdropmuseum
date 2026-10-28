@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "curated_at": "2026-10-28T08:03:55.324Z",
+  "notice": "Metadata riset dari sumber resmi; bukan jaminan eligibility, keamanan, reward atau campaign token baru.",
+  "campaigns": [
+    {
+      "slug": "layer3-cube-research",
+      "name": "Layer3 — CUBE & Activations (riset)",
+      "project_id": "layer3",
+      "chain": [
+        "eip155:8453",
+        "eip155:42161",
+        "eip155:10"
+      ],
+      "category": "nft",
+      "status": "speculative",
+      "official_urls": [
+        "https://docs.layer3.xyz/",
+        "https://docs.layer3foundation.org/layer3-protocols"
+      ],
+      "description": "Pemantauan kredensial CUBE dan Activations Layer3. Kepemilikan CUBE hanya indikator aktivitas; tidak membuktikan alokasi token atau kelayakan campaign tertentu. Pilih dan tinjau ketentuan Activation resmi secara manual.",
+      "eligibility_rules": [
+        {
+          "id": "cube-indicator",
+          "rule_type": "nft_holdings",
+          "parameters": {
+            "contract": "0x1195cf65f83b3a5768f3c496d3a05ad6412c64b7",
+            "min": "1",
+            "purpose": "Indikator kepemilikan CUBE, bukan syarat alokasi token",
+            "indicator_only": true
+          }
+        },
+        {
+          "id": "review-activation",
+          "rule_type": "custom_manual_task",
+          "parameters": {
+            "instruction": "Periksa Activation, biaya, periode dan syarat reward pada aplikasi resmi. Jangan menganggap CUBE sebagai bukti alokasi token."
+          }
+        }
+      ],
+      "snapshot_at": null,
+      "activity_start_at": null,
+      "activity_end_at": null,
+      "claim_opens_at": null,
+      "claim_deadline_at": null,
+      "risk_flags": [
+        "Alokasi token baru belum dikonfirmasi oleh catatan ini",
+        "Biaya dan persyaratan berbeda per Activation",
+        "Tanggal snapshot dan claim belum ditetapkan pada catatan ini"
+      ],
+      "reward_type": "CUBE / reward per Activation",
+      "gas_cost_estimate": null,
+      "kyc_requirement": "unknown",
+      "estimated_effort": 30,
+      "source_evidence": [
+        {
+          "source_url": "https://docs.layer3.xyz/",
+          "source_type": "official_docs",
+          "captured_at": "2026-10-28T08:03:55.324Z",
+          "note": "Dokumentasi menjelaskan Activations, CUBE dan reward per aktivitas. Catatan ini tidak mengonfirmasi airdrop token baru.",
+          "verified_by": "system"
+        },
+        {
+          "source_url": "https://docs.layer3foundation.org/layer3-protocols",
+          "source_type": "official_docs",
+          "captured_at": "2026-10-28T08:03:55.324Z",
+          "note": "Dokumentasi protokol mencantumkan deployment CUBE di Base, Arbitrum dan Optimism. Alamat dipakai hanya untuk pembacaan kepemilikan.",
+          "verified_by": "system"
+        }
+      ]
+    },
+    {
+      "slug": "galxe-loyalty-research",
+      "name": "Galxe — Loyalty XP & GG (riset)",
+      "project_id": "galxe",
+      "chain": [
+        "offchain"
+      ],
+      "category": "points",
+      "status": "speculative",
+      "official_urls": [
+        "https://help.galxe.com/en/articles/13545714-galxe-loyalty-level-system",
+        "https://help.galxe.com/en/articles/12829115-understanding-claim-fees"
+      ],
+      "description": "Program loyalitas Galxe menggunakan XP dan Galxe Gold. Saldo poin terkait akun platform dan tidak dapat dibuktikan dari alamat wallet saja. Ini pemantauan program poin, bukan konfirmasi airdrop token.",
+      "eligibility_rules": [
+        {
+          "id": "galxe-quest-review",
+          "rule_type": "social_task",
+          "parameters": {
+            "instruction": "Periksa tugas aktif dan poin yang masih berlaku di akun Galxe Anda."
+          }
+        },
+        {
+          "id": "galxe-fees-review",
+          "rule_type": "custom_manual_task",
+          "parameters": {
+            "instruction": "Periksa biaya claim dan masa berlaku XP/GG di sumber resmi; jangan kirim data login ke Museum."
+          }
+        }
+      ],
+      "snapshot_at": null,
+      "activity_start_at": null,
+      "activity_end_at": null,
+      "claim_opens_at": null,
+      "claim_deadline_at": null,
+      "risk_flags": [
+        "XP dan GG dapat kedaluwarsa",
+        "Sebagian quest memiliki biaya claim",
+        "Dokumen sumber memuat rincian reward yang perlu diperiksa ulang; jumlah tidak diasumsikan sama untuk semua quest",
+        "Alamat saja tidak memverifikasi poin akun"
+      ],
+      "reward_type": "XP / Galxe Gold",
+      "gas_cost_estimate": null,
+      "kyc_requirement": "unknown",
+      "estimated_effort": 30,
+      "source_evidence": [
+        {
+          "source_url": "https://help.galxe.com/en/articles/13545714-galxe-loyalty-level-system",
+          "source_type": "official_docs",
+          "captured_at": "2026-10-28T08:03:55.324Z",
+          "note": "Dokumentasi resmi menjelaskan XP, GG dan masa berlaku loyalitas. Status token airdrop tidak ditetapkan dari program poin.",
+          "verified_by": "system"
+        },
+        {
+          "source_url": "https://help.galxe.com/en/articles/12829115-understanding-claim-fees",
+          "source_type": "official_docs",
+          "captured_at": "2026-10-28T08:03:55.324Z",
+          "note": "Dokumentasi biaya menjelaskan claim fee dan masa berlaku XP. Nominal tidak diubah menjadi estimasi keuntungan.",
+          "verified_by": "system"
+        }
+      ]
+    },
+    {
+      "slug": "jupiter-asr-2026-q1",
+      "name": "Jupiter ASR Jan–Mar 2026 — riwayat",
+      "project_id": "jupiter",
+      "chain": [
+        "solana"
+      ],
+      "category": "retroactive",
+      "status": "expired",
+      "official_urls": [
+        "https://jup.ag/rewards/asr-2026-q1"
+      ],
+      "description": "Catatan historis ASR Jan–Mar 2026. Halaman resmi menampilkan Ended. Aturan periode tersebut menyebut rata-rata stake tertimbang; saldo JUP saat ini tidak membuktikan kelayakan historis. Tidak ditampilkan sebagai claim aktif.",
+      "eligibility_rules": [
+        {
+          "id": "asr-history",
+          "rule_type": "custom_manual_task",
+          "parameters": {
+            "instruction": "Periksa riwayat stake dan ketentuan ASR Jan–Mar 2026 pada halaman resmi. Campaign tercatat berakhir."
+          }
+        }
+      ],
+      "snapshot_at": null,
+      "activity_start_at": null,
+      "activity_end_at": null,
+      "claim_opens_at": null,
+      "claim_deadline_at": null,
+      "risk_flags": [
+        "Campaign historis sudah berakhir",
+        "Tidak ada endpoint claim terverifikasi yang diaktifkan untuk catatan ini",
+        "Deadline UTC tidak ditentukan karena belum didukung sumber yang ditinjau"
+      ],
+      "reward_type": "Staked JUP (historis)",
+      "gas_cost_estimate": null,
+      "kyc_requirement": "unknown",
+      "estimated_effort": 30,
+      "source_evidence": [
+        {
+          "source_url": "https://jup.ag/rewards/asr-2026-q1",
+          "source_type": "official_docs",
+          "captured_at": "2026-10-28T08:03:55.324Z",
+          "note": "Halaman resmi ASR Jan–Mar 2026 menampilkan Ended. Catatan kedaluwarsa tidak menganggap saldo sekarang sebagai bukti rata-rata stake periode lama.",
+          "verified_by": "system"
+        }
+      ]
+    }
+  ]
+}

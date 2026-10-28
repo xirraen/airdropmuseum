@@ -30,8 +30,9 @@
     "RPC_1": "https://ethereum-rpc.publicnode.com",
     "RPC_8453": "https://base-rpc.publicnode.com",
     "PUBLIC_APP_URL": "https://airdrop-museum.xirraen.workers.dev",
-    "AGGREGATOR_ALLOWED_HOSTS": "",
-    "AGGREGATOR_DISCOVERY_URLS": ""
+    "AGGREGATOR_ALLOWED_HOSTS": "airdrop-museum.xirraen.workers.dev,docs.layer3.xyz,docs.layer3foundation.org,help.galxe.com,jup.ag",
+    "AGGREGATOR_DISCOVERY_URLS": "https://airdrop-museum.xirraen.workers.dev/official-registry.json",
+    "AGGREGATOR_MONITOR_SOURCES": "1"
   },
   "queues": {
     "producers": [

@@ -36,7 +36,7 @@ Array dan objek disimpan sebagai JSON. Semua tanggal memakai ISO 8601 UTC. UI me
 
 ## Sumber dan adapter yang didukung
 
-Core sengaja tidak menyimpulkan campaign aktif dari daftar demo atau berita tanpa URL resmi. Tidak ada feed fiktif yang diaktifkan. Operator harus memasukkan feed yang diizinkan dan melakukan tinjauan sumber resmi. Konfigurasi kosong menampilkan registry kosong dengan alasan yang jelas.
+Core sengaja tidak menyimpulkan campaign aktif dari daftar demo atau berita tanpa URL resmi. Feed kurasi awal `/official-registry.json` berisi catatan riset Layer3, Galxe dan riwayat ASR Jupiter dari sumber resmi. Ini bukan daftar klaim aktif atau konfirmasi alokasi token baru. Operator dapat menambah feed yang diizinkan setelah melakukan tinjauan sumber resmi. Konfigurasi kosong menampilkan registry kosong dengan alasan yang jelas.
 
 - Beberapa feed JSON HTTPS berformat `{ "campaigns": [...] }`. Setiap elemen mengikuti schema campaign di `dist/aggregator-core.js`. Feed dapat berupa feed resmi proyek atau hasil kurasi operator yang menunjuk ke dokumen/blog/kontrak resmi. Ini bukan scraper HTML/RSS universal. Hanya metadata dan note singkat maksimal 500 karakter per evidence disimpan; konten artikel penuh tidak disalin.
 - RPC EVM: saldo native, transaction count, ERC-20/ERC-721 `balanceOf(address)` melalui `eth_call`, menggunakan tag finalized. Nilai selalu integer dalam unit terkecil; `parameters.min` harus memakai unit sama. RPC tidak mendukung finalized akan menghasilkan unknown.
@@ -163,10 +163,11 @@ URL hanya HTTPS tanpa credential, port nonstandar, IP literal, localhost/domain 
 | RPC_1, RPC_8453, RPC_42161, RPC_10, RPC_<chainId> | HTTPS RPC EVM. Pakai Worker secret jika URL memiliki API key. RPC tidak pernah diteruskan utuh ke UI; evidence RPC hanya origin provider |
 | RPC_SOLANA | HTTPS RPC Solana; pakai secret untuk endpoint privat |
 | AGGREGATOR_ALLOWED_HOSTS | Daftar host tepat, dipisahkan koma, untuk feed/official URL/claim endpoint. Tidak mencakup wildcard |
+| AGGREGATOR_MONITOR_SOURCES | Set `1` untuk memeriksa fingerprint teks sumber resmi secara berkala; perubahan menambahkan risk flag dan memaksa pemeriksaan manual sampai operator meninjau ulang |
 | AGGREGATOR_DISCOVERY_URLS | Daftar URL feed JSON HTTPS, dipisahkan koma; maksimum 10 feed per sweep |
 | PUBLIC_APP_URL | Origin aplikasi publik untuk tautan detail dalam alert |
 
-Bawaan repo: RPC Ethereum dan Base publik yang sudah ada; discovery/allowlist kosong sampai operator menambahkan sumber yang telah ditinjau. Tidak diperlukan private key wallet, signer, relayer, approval key atau Telegram session pengguna. Secret VAPID/EMAIL lama tidak diperlukan Core dan harus dipertahankan saat deploy untuk fitur lama.
+Bawaan repo: RPC Ethereum dan Base publik yang sudah ada; discovery memakai feed kurasi internal dengan host resmi yang telah ditinjau. Monitor sumber diaktifkan untuk host tersebut. Tidak diperlukan private key wallet, signer, relayer, approval key atau Telegram session pengguna. Secret VAPID/EMAIL lama tidak diperlukan Core dan harus dipertahankan saat deploy untuk fitur lama.
 
 ## Build, test dan deploy
 
@@ -201,5 +202,15 @@ Jika rollback schema memang diperlukan, ekspor D1 dahulu dan hentikan seluruh pe
 - Cron `*/15 * * * *` sudah dipasang.
 - Endpoint capabilities terverifikasi: version 2.0, address_only=true, local_default=true, queue=true, Telegram sync=false, discovery_configured=false, RPC Ethereum/Base tersedia dalam konfigurasi.
 - Endpoint registry merespons 200 dengan daftar kosong. Belum ada feed resmi/operator yang disetujui; ini tidak ditampilkan sebagai data airdrop aktif.
-- npm ci, npm run build dan npm test lulus (115 tests). Browser produksi juga diperiksa: halaman utama, registry kosong yang jujur, penyimpanan alamat uji lokal, serta persistensi setelah reload berjalan. Browser lokal tidak berhasil mengunduh Chromium; pemeriksaan ini memakai cloud browser desktop, bukan emulasi viewport mobile.
+- npm ci, npm run build dan npm test lulus (119 tests). Browser produksi juga diperiksa: halaman utama, registry kosong yang jujur, penyimpanan alamat uji lokal, serta persistensi setelah reload berjalan. Browser lokal tidak berhasil mengunduh Chromium; pemeriksaan ini memakai cloud browser desktop, bukan emulasi viewport mobile.
 - Masih perlu konfigurasi operator: TELEGRAM_BOT_TOKEN dan AGGREGATOR_ADMIN_TOKEN; host/URL feed resmi yang diizinkan; indexer historis beserta token bila diperlukan; RPC tambahan sesuai chain. Alert nyata dan klaim campaign tertentu belum diuji terhadap akun atau endpoint produksi.
+
+### Lanjutan registry dan monitor sumber
+
+Feed kurasi awal kini diaktifkan. Layer3 CUBE/Activations dan Galxe XP/GG berstatus speculative untuk peluang airdrop; ASR Jupiter Jan–Mar 2026 berstatus expired berdasarkan halaman resmi yang menampilkan Ended. Tidak ada snapshot, deadline, nominal alokasi atau endpoint claim yang ditebak. Galxe menggunakan chain `offchain` karena poin akun platform tidak dapat dibuktikan dari alamat wallet. Scan wallet EVM/Solana tetap dapat menampilkan tugas manual lintas akun tersebut.
+
+Monitor memproses maksimal 10 URL resmi per Cron dengan cursor bergilir, membuang script/style/tag untuk fingerprint teks, dan hanya menyimpan hash, URL, waktu dan note singkat. Perubahan menambahkan `source_changed_review_required` secara atomik dengan evidence dan fingerprint. Rule eligibility serta claim monitor kemudian menghasilkan manual_check sampai operator meninjau dan mengirim metadata/evidence baru. Monitor tidak otomatis menjadikan perubahan halaman sebagai campaign confirmed atau bukti kelayakan wallet. Sumber gagal dibaca dicatat maksimal sekali per hari tanpa mengubah status menjadi gagal/eligible. Redirect dan respons terlalu besar tetap gagal aman.
+
+Rule dengan cutoff pada parameter `before`/`snapshot_at` atau `block_tag` juga memerlukan observasi historis yang cocok; current RPC tidak digunakan sebagai pengganti histori. Cutoff masa depan tidak bisa dinilai sebagai snapshot yang sudah final.
+
+Rule `indicator_only` pada catatan riset tidak diperlakukan sebagai syarat alokasi token: temuan on-chain tetap menghasilkan manual_check dengan alasan eksplisit. Scan address-only memproses portfolio dan evaluasi secara paralel; pembacaan eligibility/claim mempunyai budget total 20 detik dan timeout tidak dicoba ulang setelah abort.

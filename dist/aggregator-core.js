@@ -40,7 +40,7 @@ export function campaign(input,now=iso()) {
  if(!/^[a-z0-9][a-z0-9-]{0,79}$/.test(input.slug)||!string(input.name,120).trim())throw Error('INVALID_CAMPAIGN');
  const urls=[...new Set(input.official_urls.slice(0,10).map(https))],sources=(input.source_evidence||[]).slice(0,30).map(e=>evidence(e,now));
  if(!sources.some(e=>urls.includes(e.source_url)&&['official_docs','official_blog','contract'].includes(e.source_type)))throw Error('OFFICIAL_EVIDENCE_REQUIRED');
- const chain=[...new Set(input.chain)];for(const c of chain)if(c!=='solana'&&!/^eip155:[1-9]\d{0,9}$/.test(c))throw Error('INVALID_CHAIN');
+ const chain=[...new Set(input.chain)];for(const c of chain)if(c!=='solana'&&c!=='offchain'&&!/^eip155:[1-9]\d{0,9}$/.test(c))throw Error('INVALID_CHAIN');
  const rules=(input.eligibility_rules||[]).slice(0,40).map((r,i)=>{if(!RULE_TYPES.includes(r.rule_type))throw Error('INVALID_RULE');const p=r.parameters||{};if(typeof p!=='object'||Array.isArray(p))throw Error('INVALID_RULE_PARAMETERS');return {id:string(r.id,80)||'rule-'+i,rule_type:r.rule_type,parameters:JSON.parse(JSON.stringify(p))}});
  if(new Set(rules.map(r=>r.id)).size!==rules.length)throw Error('DUPLICATE_RULE_ID');
  const out={id:input.slug,slug:input.slug,name:string(input.name,120),project_id:string(input.project_id,80),chain,category:input.category,status:input.status,official_urls:urls,description:string(input.description,2000),eligibility_rules:rules,risk_flags:(input.risk_flags||[]).slice(0,20).map(v=>string(v,200)),source_evidence:sources,created_at:now,updated_at:now,last_verified_at:sources.map(e=>e.captured_at).sort().at(-1),reward_type:string(input.reward_type,50),gas_cost_estimate:input.gas_cost_estimate==null?null:Number(input.gas_cost_estimate),kyc_requirement:['required','not_required','unknown'].includes(input.kyc_requirement)?input.kyc_requirement:'unknown',estimated_effort:Math.max(0,Math.min(100,Number(input.estimated_effort)||0))};
@@ -54,11 +54,11 @@ export function campaign(input,now=iso()) {
 export function effectiveStatus(c,now=iso()){return c.status!=='archived'&&c.claim_deadline_at&&Date.parse(c.claim_deadline_at)<Date.parse(now)?'expired':c.status;}
 export function aggregateEligibility(results){if(!results.length)return 'unknown';for(const s of ['failed','action_required','manual_check','unknown'])if(results.some(r=>r.evaluation_status===s))return s;return 'passed';}
 export function evaluateRule(rule,observations=[],context={}) {
- const now=context.now||iso(),p=rule.parameters||{};let status='unknown',reason='Data terverifikasi belum tersedia untuk menilai syarat ini.',refs=[];
+ const now=context.now||iso(),p=rule.parameters||{},cutoff=context.snapshot_at||p.before||p.snapshot_at;let status='unknown',reason='Data terverifikasi belum tersedia untuk menilai syarat ini.',refs=[];
  if(!RULE_TYPES.includes(rule.rule_type))throw Error('INVALID_RULE');
  if(['social_task','kyc_or_geo_restriction','custom_manual_task'].includes(rule.rule_type)){status=rule.rule_type==='social_task'?'action_required':'manual_check';reason=rule.rule_type==='kyc_or_geo_restriction'?'Ketentuan KYC atau wilayah perlu diperiksa manual; data identitas tidak dikumpulkan.':'Quest belum diverifikasi; periksa dan selesaikan secara manual.';}
  else {
-  const observation=observations.find(o=>o.rule_id===rule.id&&o.rule_type===rule.rule_type&&o.chain===context.chain&&o.address===context.address&&o.verified===true&&Array.isArray(o.evidence_refs)&&o.evidence_refs.length&&o.evidence_refs.every(e=>{try{evidence(e,now);return true}catch{return false}})&&Number.isFinite(Date.parse(o.observed_at))&&Date.parse(o.observed_at)<=Date.parse(now)&&Date.parse(now)-Date.parse(o.observed_at)<=900000&&(!context.snapshot_at||(o.snapshot_at===context.snapshot_at&&o.historical===true)));
+  const observation=observations.find(o=>o.rule_id===rule.id&&o.rule_type===rule.rule_type&&o.chain===context.chain&&(!p.chain||p.chain===context.chain)&&o.address===context.address&&o.verified===true&&Array.isArray(o.evidence_refs)&&o.evidence_refs.length&&o.evidence_refs.every(e=>{try{evidence(e,now);return true}catch{return false}})&&Number.isFinite(Date.parse(o.observed_at))&&Date.parse(o.observed_at)<=Date.parse(now)&&Date.parse(now)-Date.parse(o.observed_at)<=900000&&(!cutoff||(Number.isFinite(Date.parse(cutoff))&&Date.parse(cutoff)<=Date.parse(now)&&o.snapshot_at===cutoff&&o.historical===true))&&(!p.block_tag||(o.block_tag===p.block_tag&&o.historical===true)));
   if(observation){
    refs=observation.evidence_refs.map(e=>evidence(e,now));
    if(rule.rule_type==='snapshot_date'){
@@ -70,13 +70,14 @@ export function evaluateRule(rule,observations=[],context={}) {
    }
   }
  }
+ if(p.indicator_only===true&&['passed','failed'].includes(status)){reason=status==='passed'?'Indikator aktivitas ditemukan; ini bukan bukti kelayakan alokasi token.':'Indikator aktivitas belum ditemukan; ini tidak menetapkan wallet tidak eligible untuk alokasi token.';status='manual_check';}
  return {rule_id:rule.id,rule_type:rule.rule_type,parameters:p,evaluation_status:status,evaluated_at:now,evidence_refs:refs,human_reason:reason};
 }
 export function priority(c,results=[],interests=[],now=iso()){
  if(['expired','archived'].includes(effectiveStatus(c,now)))return {label:'Prioritas Rendah',score:0};
  const hours=c.claim_deadline_at?(Date.parse(c.claim_deadline_at)-Date.parse(now))/3600000:Infinity;
  const progress=results.length?results.filter(r=>r.evaluation_status==='passed').length/results.length:0;
- const official=(c.source_evidence||[]).filter(e=>['official_docs','official_blog','contract'].includes(e.source_type));const freshness=official.length?Math.max(...official.map(e=>Date.parse(e.captured_at))):0;const confidence=official.length?(Date.parse(now)-freshness<=30*86400000?15:7):0;
+ const official=(c.source_evidence||[]).filter(e=>['official_docs','official_blog','contract'].includes(e.source_type));const freshness=official.length?Math.max(...official.map(e=>Date.parse(e.captured_at))):0;const confidence=c.risk_flags?.includes('source_changed_review_required')?0:official.length?(Date.parse(now)-freshness<=30*86400000?15:7):0;
  const score=(hours<=72?30:hours<=168?20:0)+progress*25+confidence+(interests.includes(c.category)?10:0)+Math.max(0,10-c.estimated_effort/10)+(c.gas_cost_estimate==null?0:Math.max(0,10-c.gas_cost_estimate));
  return {label:score>=60?'Prioritas Tinggi':score>=35?'Prioritas Sedang':'Prioritas Rendah',score:Math.round(score)};
 }
