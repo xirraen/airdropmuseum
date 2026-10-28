@@ -44,6 +44,7 @@ export function cleanQuest(b,previous={}){
  official_url:httpsURL(b.official_url??previous.official_url),
  required:integer(b.required??previous.required??1,0,1,'REQUIRED'),
  rule_id:b.rule_id===null?null:(b.rule_id??previous.rule_id)?string(b.rule_id??previous.rule_id,80,'RULE_ID'):null};
+ if(['social','kyc'].includes(q.quest_type)&&q.verification_method==='wallet_activity')err('SOCIAL_AUTO_VERIFICATION_FORBIDDEN');
  if(q.starts_at&&q.ends_at&&q.starts_at>q.ends_at)err('INVALID_DATE_RANGE');
  return q;
 }
