@@ -51,8 +51,7 @@ async function showNextActions(){
  }catch(error){list.textContent=error.message}
 }
 function mountTab(){
- const body=$('detail-body'),mount=$('quest-mount');if(!body||!mount||body.dataset.questTabs)return;
- body.dataset.questTabs='1';const slug=mount.dataset.campaign;
+ const body=$('detail-body'),mount=$('quest-mount');if(!body||!mount||body.querySelector('.detail-quest-tabs'))return;const slug=mount.dataset.campaign;
  const nav=document.createElement('div');nav.className='detail-quest-tabs';
  const summary=document.createElement('button'),quest=document.createElement('button');
  summary.textContent='Ringkasan & bukti';quest.textContent='Quest';nav.append(summary,quest);
