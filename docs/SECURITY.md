@@ -26,6 +26,12 @@ Review date: 2026-10-28. Code review of inspected Sprint 9 service modules and i
 | Maintenance | Existing Sprint 9 mode stays in generated fetchCore | Staging fail-safe drill |
 | Data leakage | Public API must project only curated data; request logging excludes PII | Privacy/red-team review required |
 
+## Dependency audit — release blocker
+
+At commit `0350419248fe04e69880b8722604f15264bcfcdd`, GitHub Actions `npm audit --omit=dev --audit-level=critical` completed successfully **but reported 11 high-severity vulnerabilities** stemming from transitive `zod <4.6.6` and the WalletConnect / Reown / Coinbase SDK dependency chain, including advisory `GHSA-mrhx-c7xc-m3w5`. A suggested forced downgrade/change to `@walletconnect/ethereum-provider@2.19.4` is potentially breaking. **Do not automatically run `npm audit fix --force` in production.** Investigate supported patched dependency ranges, apply a reviewed lockfile/package update and run wallet-connection regression tests, or document a formal risk acceptance and compensating controls before launch. CI's critical-only gate is not an assertion that high vulnerabilities are remediated.
+
+Audit evidence: GitHub Actions run `40676616614` on PR #8. The production launch checklist remains unchecked.
+
 ## Important remaining risks
 
 1. **DNS rebinding and webhooks:** filtering URL hostnames does not prove resolved DNS answers are public; protect partner outbound networking using vetted destinations, external allowlists and egress controls where available. Do not claim fully solved.
