@@ -35,7 +35,8 @@
     "TRUST_PUBLIC_ORIGIN": "https://airdrop-museum.xirraen.workers.dev",
     "PUBLIC_API_ORIGIN": "https://airdrop-museum.xirraen.workers.dev",
     "PUBLIC_API_ALLOWED_ORIGINS": "https://airdrop-museum.xirraen.workers.dev",
-    "REQUIRE_RATE_LIMIT_BINDINGS": "1"
+    "REQUIRE_RATE_LIMIT_BINDINGS": "1",
+    "REQUIRE_PRODUCTION_SECRETS": "1"
   },
   "queues": {
     "producers": [
