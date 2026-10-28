@@ -1,5 +1,6 @@
 import {sql,fail,body,bool,safeJson,text,hash} from './types.ts';
 import {audit} from './auditService.ts';
+import {EVENTS} from '../publicApi/types.ts';
 export async function webhooksAdminRoute(request,env,actor){
  const db=env.DB,p=new URL(request.url).pathname,id=/^\/api\/admin\/webhooks\/([a-f0-9-]{36})(?:\/(test))?$/.exec(p);
  if(p==='/api/admin/webhooks'&&request.method==='GET'){
@@ -12,7 +13,7 @@ export async function webhooksAdminRoute(request,env,actor){
   if(!env.WEBHOOK_MASTER_SECRET||env.WEBHOOK_MASTER_SECRET.length<32)fail('WEBHOOK_SECRET_NOT_CONFIGURED',503);
   let url;try{url=new URL(b.url);}catch{fail('HTTPS_REQUIRED');}
   if(url.protocol!=='https:'||url.username||url.password||url.href.length>1500||url.hostname===new URL(request.url).hostname)fail('INVALID_WEBHOOK_URL');
-  const allowed=['campaign.created','campaign.updated','campaign.status_changed','campaign.claim_open','campaign.claim_closed','source.conflict_detected'];
+  const allowed=EVENTS;
   if(!Array.isArray(b.events)||!b.events.length||b.events.some(e=>!allowed.includes(e)))fail('INVALID_WEBHOOK_EVENTS');
   const id=crypto.randomUUID(),encoder=new TextEncoder();
   const key=await crypto.subtle.importKey('raw',encoder.encode(env.WEBHOOK_MASTER_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);

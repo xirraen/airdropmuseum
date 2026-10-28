@@ -74,7 +74,7 @@ Analytics Engine \`ANALYTICS\` dataset \`airdropmuseum_operations\` memakai \`wr
 npm ci
 npm run build
 npm test
-npx wrangler d1 migrations apply air-drop-museum --remote
+npx wrangler d1 migrations apply airdrop-museum --remote
 npx wrangler deploy
 \`\`\`
 

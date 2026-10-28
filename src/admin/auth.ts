@@ -12,10 +12,10 @@ export async function adminAuth(request,env,permission='dashboard.read'){
  if(!row||!row.enabled||!PERMISSIONS[row.role])fail('ADMIN_FORBIDDEN',403);
  if(!PERMISSIONS[row.role].includes('*')&&!PERMISSIONS[row.role].includes(permission))fail('PERMISSION_DENIED',403);
  const now=new URL(request.url),write=!['GET','HEAD'].includes(request.method);
+ const expected=await hash('admin-csrf:v1:'+match[1]+':'+(env.ADMIN_CSRF_PEPPER||''));
  if(write){
   if(request.headers.get('Origin')!==now.origin||request.headers.get('Sec-Fetch-Site')==='cross-site')fail('CSRF_ORIGIN_DENIED',403);
   const received=request.headers.get('X-CSRF-Token')||'';
-  const expected=await hash('admin-csrf:v1:'+match[1]+':'+(env.ADMIN_CSRF_PEPPER||''));
   if(!/^[a-f0-9]{64}$/.test(received)||!secureEqual(received,expected))fail('CSRF_TOKEN_INVALID',403);
  }
  const limiterKey='admin:'+await hash(user.id+':'+(request.headers.get('CF-Connecting-IP')||''))+':'+Math.floor(Date.now()/60000)+':'+(write?'w':'r');
