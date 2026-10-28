@@ -1,159 +1,177 @@
 const $=id=>document.getElementById(id);
-const make=(tag,value,className)=>{const e=document.createElement(tag);if(value!==undefined)e.textContent=String(value);if(className)e.className=className;return e;};
-const add=(parent,...children)=>{parent.append(...children);return parent;};
-const card=(title)=>add(make('article',undefined,'card'),make('h3',title));
-const stat=(value)=>make('span',value,'tag');
-const notice=(error)=>{$('message').textContent=error||'';};
-const date=(value)=>value?new Date(value).toLocaleString('id-ID',{timeZone:'UTC'})+' UTC':'Tidak tersedia';
-const formatUSD=(v)=>Number(v||0).toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2});
-const $form=(form,name)=>form.elements.namedItem(name);
-const asNumber=(form,name)=>Number($form(form,name).value);
-const external=(url,label)=>{const a=make('a',label);try{const u=new URL(url);if(u.protocol!=='https:')throw Error('INVALID_URL');a.href=u.href;a.rel='noopener noreferrer';a.target='_blank';}catch{a.textContent='URL tidak valid';}return a;};
+const el=(tag,text,cl)=>{const x=document.createElement(tag);if(text!==undefined)x.textContent=String(text);if(cl)x.className=cl;return x;};
+const append=(p,...children)=>{p.append(...children);return p;};
+const box=title=>append(el('article',undefined,'card'),el('h3',title));
+const badge=t=>el('span',t,'tag');
+const date=t=>t?new Date(t).toLocaleString('id-ID',{timeZone:'UTC'})+' UTC':'Belum tersedia';
+const message=t=>{$('message').textContent=t||'';};
+const formValue=(f,k)=>f.elements.namedItem(k).value;
+const num=(f,k)=>Number(formValue(f,k));
 const token=()=>window.Telegram?.WebApp?.initData||'';
-async function call(path,method='GET',data){
+let current=null;
+async function api(path,method='GET',payload){
  const headers={'Accept':'application/json'};
  if(token())headers['X-Telegram-Init-Data']=token();
- const options={method,headers,credentials:'same-origin'};
- if(data!==undefined){headers['Content-Type']='application/json';options.body=JSON.stringify(data);}
- const result=await fetch(path,options),body=await result.json().catch(()=>({error:'INVALID_SERVER_RESPONSE'}));
- if(!result.ok)throw Error(body.error||'REQUEST_FAILED');
- return body;
+ const init={method,headers,credentials:'same-origin'};
+ if(payload!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(payload);}
+ const response=await fetch(path,init);
+ const result=await response.json().catch(()=>({error:'INVALID_RESPONSE'}));
+ if(!response.ok)throw Error(result.error||'SERVICE_UNAVAILABLE');return result;
 }
-async function refreshDecisions(){
- const root=$('decision-list');root.replaceChildren(make('p','Memuat keputusan…','muted'));
- try{
-  const {items}=await call('/api/decisions');root.replaceChildren();
-  if(!items.length)return root.append(make('p','Belum ada keputusan tersimpan. Catat alasan sebelum mengikuti campaign.','muted'));
-  for(const item of items){
-   const e=card(item.campaign_id);add(e,make('p','Dibuat '+date(item.created_at)+' · '+(item.outcome||'Outcome belum dicatat'),'muted'),
-    make('p','Alasan: '+item.reason),make('p','Batas biaya USD '+formatUSD(item.cost_ceiling_usd)+' · Waktu '+item.time_budget_minutes+' menit'),
-    external(item.primary_evidence_url,'Bukti utama'));
-   const form=make('form');form.className='grid';form.style.marginTop='16px';
-   const l1=make('label','Hasil');const select=make('select');select.name='outcome';
-   for(const [value,name] of [['unknown','Tidak diketahui'],['allocated','Mendapat alokasi'],['not_allocated','Tidak mendapat alokasi']]){
-    const option=make('option',name);option.value=value;option.selected=item.outcome===value;select.append(option);
-   }
-   l1.append(select);const l2=make('label','Pelajaran');l2.className='wide';
-   const input=make('textarea');input.required=true;input.maxLength=2000;input.rows=2;input.value=item.lessons||'';l2.append(input);
-   const submit=make('button','Simpan Outcome Review','primary wide');submit.type='submit';
-   form.append(l1,l2,submit);
-   form.addEventListener('submit',async ev=>{ev.preventDefault();submit.disabled=true;try{await call('/api/decisions/'+encodeURIComponent(item.id)+'/outcome','PUT',{outcome:select.value,lessons:input.value});notice('Outcome Review disimpan dan terhubung ke keputusan.');await refreshDecisions();}catch(error){notice(error.message);}finally{submit.disabled=false;}});
-   e.append(form);root.append(e);
+async function execute(task){try{message('');await task();}catch(error){message(error.message);}}
+const base='/api/autopsy';
+const refs=()=>current?.evidence?.slice(0,20).map(x=>x.id)||[];
+const meta=()=>({expected_version:current.version,knowledge_cutoff_at:new Date().toISOString(),evidence_refs:refs()});
+async function send(operation,payload){
+ if(!current)throw Error('Pilih keputusan terlebih dahulu');
+ const id=current.aggregate_id;
+ const result=await api(base+'/'+encodeURIComponent(id)+'/'+operation,'POST',{...meta(),...payload});
+ current=result.state;renderState();
+ message('Event berhasil ditambahkan. Versi terbaru: '+result.version);
+}
+function external(url,label){const a=el('a',label);try{const u=new URL(url);if(u.protocol!=='https:')throw Error();a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';}catch{a.textContent='URL tidak valid';}return a;}
+function stateTitle(s){
+ const d=box('Ringkasan aggregate');
+ append(d,el('p','Campaign '+s.campaign_id+' · '+s.status+' · v'+s.version),
+ el('p','Cutoff keputusan: '+date(s.decision_cutoff_at)),
+ el('p','Cutoff hasil: '+date(s.outcome_cutoff_at)),
+ el('p','Outcome: '+(s.outcome||'Belum ditetapkan')+' · Hipotesis: '+(s.hypothesis||'Belum dicatat')),
+ el('p','Analisis pribadi: '+(s.analysis_consent?'Diizinkan':'Tidak diizinkan'),'muted'));
+ if(s.decision)d.append(external(s.decision.primary_evidence_url,'Buka bukti utama'));
+ return d;
+}
+function renderState(){
+ const root=$('event-timeline');root.replaceChildren();
+ $('active-aggregate').textContent=current?'Aggregate '+current.aggregate_id:'Pilih keputusan dari jurnal.';
+ $('autopsy-actions').hidden=!current;
+ if(!current)return;
+ $('analysis-consent').checked=!!current.analysis_consent;
+ const summary=$('state-summary');summary.replaceChildren(badge('v'+current.version),badge(current.status),badge(current.outcome||'outcome belum ada'));
+ root.append(stateTitle(current));
+ const header=el('h3','Riwayat event (immutable)');root.append(header);
+ for(const event of current.timeline){
+  const card=box('#'+event.version+' · '+event.type);
+  append(card,el('p','Dicatat '+date(event.recorded_at)),el('p','Knowledge cutoff '+date(event.knowledge_cutoff_at),'muted'),
+   el('p','Evidence refs: '+(event.evidence_refs.join(', ')||'Tidak berlaku'),'muted'));
+  if(event.compensated)card.append(badge('Dikompensasi'));
+  const allowed=['decision_created','activity_recorded','hypothesis_updated','evidence_added','outcome_recorded','outcome_revised','autopsy_finalized'];
+  if(allowed.includes(event.type)&&!event.compensated){
+   const b=el('button','Batalkan melalui compensating event');b.type='button';
+   b.addEventListener('click',()=>execute(async()=>{
+    const reason=prompt('Alasan pembatalan (wajib):');if(!reason?.trim())return;
+    await send('compensate',{target_event_id:event.id,reason:reason.trim()});
+   }));card.append(b);
   }
- }catch(error){root.replaceChildren(make('p',error.message,'muted'));}
+  root.append(card);
+ }
+ const actions=$('autopsy-actions');
+ actions.querySelectorAll('form input,form select,form textarea,form button').forEach(x=>{x.disabled=current.status!=='open';});
+ $('finalize').disabled=current.status!=='open'||current.outcome===null;
+ $('save-consent').disabled=current.status==='cancelled';
 }
-async function refreshAutopsy(){
- const root=$('autopsy-list');
- try{const {items}=await call('/api/autopsy');root.replaceChildren();
-  if(!items.length)return root.append(make('p','Belum ada Claim Autopsy.','muted'));
-  for(const r of items){const a=card(r.campaign_id);
-   add(a,make('p','Hasil: '+r.outcome+' · '+date(r.created_at)),
-    add(make('div',undefined,'kv'),stat('Quest '+r.quest_count),stat('Chain '+r.chain_count),stat('Gas USD '+formatUSD(r.gas_cost_usd)),stat('Bridge USD '+formatUSD(r.bridge_cost_usd))),
-    make('p','Hipotesis: '+(r.hypothesis||'Belum ditulis')),    make('p',r.consent_to_analysis?'Analisis pribadi diizinkan':'Tidak disertakan dalam Pattern Review','muted'));
-   const actions=make('div',undefined,'kv');
-   const consent=make('button',r.consent_to_analysis?'Cabut izin analisis':'Izinkan analisis');consent.type='button';
-   consent.onclick=async()=>{try{await call('/api/autopsy/'+encodeURIComponent(r.id)+'/consent','PUT',{consent_to_analysis:!r.consent_to_analysis});notice('Izin analisis diperbarui.');refreshAutopsy();}catch(e){notice(e.message);}};
-   const del=make('button','Hapus catatan privat');del.type='button';
-   del.onclick=async()=>{if(!confirm('Hapus Claim Autopsy ini secara permanen?'))return;try{await call('/api/autopsy/'+encodeURIComponent(r.id),'DELETE');notice('Catatan dihapus.');refreshAutopsy();}catch(e){notice(e.message);}};
-   actions.append(consent,del);a.append(actions);root.append(a);
+async function loadState(id){
+ const {state}=await api(base+'/'+encodeURIComponent(id));
+ current=state;renderState();selectTab('autopsy');
+}
+async function loadDecisions(){
+ const root=$('decision-list');root.replaceChildren(el('p','Memuat…','muted'));
+ try{const {items}=await api(base+'/decisions');root.replaceChildren();
+  if(!items.length)root.append(el('p','Belum ada keputusan. Buat Decision Entry sebelum mengikuti campaign.','muted'));
+  for(const d of items){
+   const card=box(d.campaign_id);append(card,el('p',d.reason),el('p','Sumber: '+d.decision_source+' · '+date(d.knowledge_cutoff_at),'muted'),
+    external(d.primary_evidence_url,'Lihat bukti utama'));
+   const b=el('button','Buka timeline autopsy','primary');b.type='button';
+   b.addEventListener('click',()=>execute(()=>loadState(d.aggregate_id)));card.append(b);root.append(card);
   }
- }catch(err){root.replaceChildren(make('p',err.message,'muted'));}
+ }catch(e){root.replaceChildren(el('p',e.message,'muted'));}
 }
-function sampleInfo(d){
- const container=make('div',undefined,'kv');
- add(container,stat('Sampel '+d.sample_count),stat('Dari '+date(d.period?.from)),stat('Sampai '+date(d.period?.to)));
- return container;
+function overview(root,data){
+ const c=box('Batasan dan cakupan');append(c,el('p','Sampel: '+data.sample_size),el('p','Periode: '+date(data.period?.from)+' — '+date(data.period?.to)),
+  el('p',data.notice||'Statistik deskriptif saja'),el('p',data.limitations,'muted'));root.append(c);
 }
-async function refreshPatterns(){
+async function loadPatterns(){
  const root=$('pattern-results');root.replaceChildren();
- try{
-  const data=await call('/api/insights/patterns');
-  const overview=card('Dasar analisis');add(overview,sampleInfo(data),make('p',data.notice),make('p',data.limitations,'muted'));root.append(overview);
-  for(const insight of data.insights){const e=card(insight.label);add(e,sampleInfo(insight),make('p',insight.description),make('p',insight.limitations,'muted'));root.append(e);}
- }catch(err){root.append(make('p',err.message,'muted'));}
+ try{const data=await api(base+'/insights/patterns');overview(root,data);
+  for(const cohort of data.cohorts){
+   const c=box(cohort.label);
+   append(c,append(el('div',undefined,'kv'),badge('Sampel '+cohort.sample_size),badge('Hasil diketahui '+cohort.known_outcomes),badge(cohort.confidence_label)),
+    el('p',cohort.description),el('p','Periode: '+date(cohort.period.from)+' — '+date(cohort.period.to),'muted'),
+    el('p',cohort.limitations,'muted'));root.append(c);
+  }
+ }catch(e){root.append(el('p',e.message,'muted'));}
 }
-async function refreshWeekly(){
+async function loadWeekly(){
  const root=$('weekly-results');root.replaceChildren();
- try{
-  const d=await call('/api/insights/weekly');
-  const intro=card('Minggu berjalan');add(intro,sampleInfo(d),
-   make('p','Ikut '+d.campaigns_followed.length+' campaign · Alokasi '+d.outcomes.allocated+' · Tidak alokasi '+d.outcomes.not_allocated+' · Tidak diketahui '+d.outcomes.unknown+' · Belum ditinjau '+d.outcomes.pending),
-   make('p','Bukti utama dari sumber resmi (menurut catatan): '+d.evidence_quality.primary_source_decisions),
-   make('p',d.notice),make('p',d.evidence_quality.notice,'muted'),make('p',d.limitations,'muted'));root.append(intro);
-  const revisit=card('Perlu ditinjau ulang');
-  if(!d.revisit.length)revisit.append(make('p','Tidak ada item yang perlu ditinjau ulang minggu ini.','muted'));
-  for(const r of d.revisit)revisit.append(make('p',r.campaign_id+' — '+r.reason));
-  root.append(revisit);
-  const lessons=card('Pelajaran');
-  if(!d.lessons.length)lessons.append(make('p','Belum ada pelajaran yang dicatat.','muted'));
-  for(const l of d.lessons)lessons.append(make('p',l.lesson));
-  root.append(lessons);
- }catch(err){root.append(make('p',err.message,'muted'));}
+ try{const data=await api(base+'/insights/weekly');
+  const c=box('Minggu UTC');append(c,append(el('div',undefined,'kv'),badge('Sampel '+data.sample_size),badge('Diketahui '+data.known_outcomes),badge(data.confidence_label)),
+   el('p','Periode: '+date(data.period.from)+' — '+date(data.period.to)),
+   el('p','Alokasi '+data.outcomes.allocated+' · Tidak alokasi '+data.outcomes.not_allocated+' · Unknown '+data.outcomes.unknown+' · Menunggu '+data.outcomes.pending),
+   el('p',data.notice),el('p',data.limitations,'muted'));root.append(c);
+  const pending=box('Perlu ditinjau ulang');for(const d of data.pending_review)pending.append(el('p',d.campaign_id+' · '+d.reason));root.append(pending);
+  const lessons=box('Hipotesis dan pelajaran');for(const l of data.lessons)lessons.append(el('p',l.hypothesis));root.append(lessons);
+ }catch(e){root.append(el('p',e.message,'muted'));}
 }
-async function displayCard(slug){
+async function loadEvidence(slug){
  const root=$('evidence-result');root.replaceChildren();
  try{
-  const d=await call('/api/evidence-card/'+encodeURIComponent(slug));
-  const e=card(d.campaign_slug);add(e,make('p',d.claim),add(make('div',undefined,'kv'),stat(d.status),stat('Sumber '+d.source_count),stat('Konflik '+d.conflicts.length)),
-   sampleInfo(d),make('p','Terakhir diperiksa: '+date(d.last_checked_at)));
-  const sources=card('Sumber primer');for(const s of d.primary_sources) sources.append(add(make('p'),external(s.url,s.url),make('span',' · '+date(s.last_checked_at),'muted')));
-  const confirm=card('Konfirmasi');for(const s of d.confirmations)confirm.append(add(make('p'),external(s.url,s.url),make('span',' · '+s.tier,'muted')));
-  if(!d.confirmations.length)confirm.append(make('p','Belum ada konfirmasi tambahan yang tercatat.','muted'));
-  const conflicts=card('Konflik');for(const c of d.conflicts)conflicts.append(make('p',c.field+' · '+c.severity+' · '+c.status));
-  if(!d.conflicts.length)conflicts.append(make('p','Tidak ada konflik terbuka yang tercatat (bukan bukti tidak ada risiko).','muted'));
-  const caution=card('Batasan');add(caution,make('p',d.limitations),make('p',d.disclaimer));
-  const button=make('button','Bagikan kartu tanpa data pribadi','primary');
-  button.addEventListener('click',async()=>{const text=[d.claim,'Status: '+d.status,'Sumber primer: '+d.primary_sources.map(x=>x.url).join(', '),
-   'Konfirmasi tambahan: '+(d.confirmations.map(x=>x.url).join(', ')||'Belum ada'),
-   'Konflik terbuka: '+(d.conflicts.map(x=>x.field+' ('+x.severity+')').join(', ')||'Tidak ada yang tercatat'),
-   'Terakhir diperiksa: '+(d.last_checked_at||'Belum diketahui'),'Sampel sumber: '+d.sample_count,
-   'Periode: '+(d.period?.from||'Tidak tersedia')+' — '+(d.period?.to||'Tidak tersedia'),
-   d.limitations,d.disclaimer].join('\n');
-   try{if(navigator.share)await navigator.share({title:'Evidence Chain: '+d.campaign_slug,text});else if(navigator.clipboard){await navigator.clipboard.writeText(text);notice('Isi kartu publik disalin.');}else notice('Fitur berbagi tidak tersedia.');}catch(err){if(err.name!=='AbortError')notice('Gagal membagikan kartu.');}});
-  caution.append(button);root.append(e,sources,confirm,conflicts,caution);
- }catch(err){root.append(make('p',err.message,'muted'));}
+  const d=await api(base+'/evidence-card/'+encodeURIComponent(slug));
+  const c=box(d.campaign_slug);append(c,el('p',d.claim),append(el('div',undefined,'kv'),badge(d.status),badge('Sampel sumber '+d.sample_count),badge('Konflik '+d.conflicts.length)),
+   el('p','Terakhir diperiksa: '+date(d.last_checked_at)),el('p',d.limitations,'muted'));root.append(c);
+  const primary=box('Sumber primer');for(const s of d.primary_sources)primary.append(append(el('p'),external(s.url,s.url)));root.append(primary);
+  const confirmations=box('Konfirmasi terdaftar');for(const s of d.confirmations)confirmations.append(append(el('p'),external(s.url,s.url)));root.append(confirmations);
+  const conflicts=box('Konflik belum selesai');for(const s of d.conflicts)conflicts.append(el('p',s.field+' · '+s.severity));root.append(conflicts);
+  const warning=box('Peringatan dan berbagi');warning.append(el('p',d.disclaimer));
+  const share=el('button','Bagikan kartu sumber publik','primary');share.type='button';
+  share.addEventListener('click',()=>execute(async()=>{
+   const content=[d.claim,'Status: '+d.status,'Sampel sumber: '+d.sample_count,
+    'Periode: '+(d.period?.from||'—')+' — '+(d.period?.to||'—'),
+    'Primer: '+d.primary_sources.map(x=>x.url).join(', '),
+    'Konfirmasi: '+d.confirmations.map(x=>x.url).join(', '),
+    'Konflik: '+d.conflicts.map(x=>x.field).join(', '),
+    'Terakhir diperiksa: '+d.last_checked_at,d.limitations,d.disclaimer].join('\n');
+   if(navigator.share)await navigator.share({title:'Evidence Chain '+d.campaign_slug,text:content});
+   else if(navigator.clipboard){await navigator.clipboard.writeText(content);message('Kartu publik disalin.');}
+  }));warning.append(share);root.append(warning);
+ }catch(e){root.append(el('p',e.message,'muted'));}
 }
-const sections=['decisions','autopsy','insights','weekly','evidence'];
-function tab(id){
- if(!sections.includes(id))id='decisions';
- for(const section of sections)$(section).hidden=section!==id;
- for(const b of document.querySelectorAll('[data-tab]')){const active=b.dataset.tab===id;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));}
- notice('');
- if(id==='decisions')refreshDecisions();
- if(id==='autopsy')refreshAutopsy();
- if(id==='insights')refreshPatterns();
- if(id==='weekly')refreshWeekly();
- history.replaceState(null,'',location.pathname+'?tab='+encodeURIComponent(id));
+const tabs=['decisions','autopsy','insights','weekly','evidence'];
+function selectTab(tab){
+ if(!tabs.includes(tab))tab='decisions';
+ for(const t of tabs)$(t).hidden=t!==tab;
+ for(const b of document.querySelectorAll('[data-tab]'))b.classList.toggle('active',b.dataset.tab===tab);
+ history.replaceState(null,'',location.pathname+'?tab='+encodeURIComponent(tab));
+ if(tab==='decisions')loadDecisions();
+ if(tab==='insights')loadPatterns();
+ if(tab==='weekly')loadWeekly();
 }
-for(const b of document.querySelectorAll('[data-tab]'))b.addEventListener('click',()=>tab(b.dataset.tab));
-$('decision-form').addEventListener('submit',async event=>{
- event.preventDefault();const form=event.currentTarget,button=form.querySelector('button[type=submit]');button.disabled=true;
- try{
-  const body={campaign_id:$form(form,'campaign_id').value.trim(),reason:$form(form,'reason').value,
-   primary_evidence_url:$form(form,'primary_evidence_url').value,decision_source:$form(form,'decision_source').value,
-   time_budget_minutes:asNumber(form,'time_budget_minutes'),cost_ceiling_usd:asNumber(form,'cost_ceiling_usd'),
-   realistic_expectations:$form(form,'realistic_expectations').value};
-  await call('/api/decisions','POST',body);form.reset();notice('Keputusan disimpan. Campaign telah ditandai “diikuti” di jurnal keputusan.');refreshDecisions();
- }catch(err){notice(err.message);}finally{button.disabled=false;}
+for(const b of document.querySelectorAll('[data-tab]'))b.onclick=()=>selectTab(b.dataset.tab);
+function submit(form,handler){
+ form.addEventListener('submit',event=>{event.preventDefault();execute(async()=>{
+  const button=form.querySelector('button[type=submit]');button.disabled=true;
+  try{await handler(form);}finally{button.disabled=false;}
+ });});
+}
+submit($('decision-form'),async form=>{
+ const body={campaign_id:formValue(form,'campaign_id'),reason:formValue(form,'reason'),
+  primary_evidence_url:formValue(form,'primary_evidence_url'),decision_source:formValue(form,'decision_source'),
+  time_budget_minutes:num(form,'time_budget_minutes'),cost_ceiling_usd:num(form,'cost_ceiling_usd'),
+  realistic_expectations:formValue(form,'realistic_expectations'),knowledge_cutoff_at:new Date().toISOString(),expected_version:0};
+ const r=await api(base+'/decisions','POST',body);form.reset();message('Keputusan disimpan. Cutoff pengetahuan tercatat.');await loadState(r.aggregate_id);
 });
-$('autopsy-form').addEventListener('submit',async event=>{
- event.preventDefault();const form=event.currentTarget,button=form.querySelector('button[type=submit]');button.disabled=true;
- try{
-  const evidence=[];for(const [kind,name] of [['tx_hash','tx_hash'],['screenshot','screenshot'],['official_link','official_link']]){
-   const value=$form(form,name).value.trim();if(value)evidence.push({kind,value});
-  }
-  const body={campaign_id:$form(form,'campaign_id').value.trim(),wallet_address:$form(form,'wallet_address').value.trim(),
-   activity_before_snapshot:$form(form,'activity_before_snapshot').checked,activity_after_snapshot:$form(form,'activity_after_snapshot').checked,
-   quest_count:asNumber(form,'quest_count'),chain_count:asNumber(form,'chain_count'),
-   gas_cost_usd:asNumber(form,'gas_cost_usd'),bridge_cost_usd:asNumber(form,'bridge_cost_usd'),
-   research_minutes:asNumber(form,'research_minutes'),decision_source:$form(form,'decision_source').value,
-   outcome:$form(form,'outcome').value,hypothesis:$form(form,'hypothesis').value,evidence,
-   consent_to_analysis:$form(form,'consent_to_analysis').checked};
-  await call('/api/autopsy','POST',body);form.reset();notice('Claim Autopsy tersimpan secara privat.');refreshAutopsy();
- }catch(err){notice(err.message);}finally{button.disabled=false;}
+submit($('evidence-form'),async form=>{
+ await send('evidence',{kind:formValue(form,'kind'),value:formValue(form,'value')});form.reset();
 });
-$('evidence-form').addEventListener('submit',e=>{e.preventDefault();displayCard(e.currentTarget.elements.namedItem('slug').value.trim());});
-$('refresh-decisions').onclick=refreshDecisions;
-$('refresh-insights').onclick=refreshPatterns;
-$('refresh-weekly').onclick=refreshWeekly;
-tab(new URL(location.href).searchParams.get('tab')||'decisions');
+submit($('activity-form'),async form=>{
+ await send('activity',{phase:formValue(form,'phase'),quest_count:num(form,'quest_count'),chain_count:num(form,'chain_count'),
+  gas_cost_usd:num(form,'gas_cost_usd'),bridge_cost_usd:num(form,'bridge_cost_usd'),research_minutes:num(form,'research_minutes')});form.reset();
+});
+submit($('hypothesis-form'),async form=>await send('hypothesis',{hypothesis:formValue(form,'hypothesis')}));
+submit($('outcome-form'),async form=>await send('outcome',{outcome:formValue(form,'outcome'),revision_reason:formValue(form,'revision_reason')}));
+$('save-consent').onclick=()=>execute(()=>send('consent',{enabled:$('analysis-consent').checked}));
+$('finalize').onclick=()=>execute(async()=>{if(!confirm('Finalisasi autopsy ini? Riwayat tidak dapat diubah langsung.'))return;await send('finalize',{note:''});});
+$('refresh-state').onclick=()=>execute(()=>current&&loadState(current.aggregate_id));
+$('reload-decisions').onclick=loadDecisions;
+$('reload-insights').onclick=loadPatterns;
+$('reload-weekly').onclick=loadWeekly;
+submit($('evidence-card-form'),async form=>loadEvidence(formValue(form,'slug')));
+selectTab(new URL(location.href).searchParams.get('tab')||'decisions');
