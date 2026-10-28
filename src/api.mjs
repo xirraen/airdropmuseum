@@ -10,8 +10,8 @@ import {backup} from '../dist/model.js';
 import {projects} from '../dist/catalog.js';
 export const VERSION='1.2.0';
 const LIMIT=1000000;
-const PUBLIC_CAMPAIGN_FIELDS=['name','title','symbol','chain','chains','category','desc','description','project_name','status','official_urls','slug','visibility','claim_deadline_at','snapshot_at','activity_start_at','activity_end_at','claim_opens_at'];
-const publicCampaignData=payload=>Object.fromEntries(PUBLIC_CAMPAIGN_FIELDS.filter(k=>Object.hasOwn(payload,k)).map(k=>[k,payload[k]]));
+const PUBLIC_CAMPAIGN_FIELDS=['name','title','symbol','chain','chains','category','desc','description','project_name','status','official_urls','slug','visibility','claim_deadline_at','snapshot_at','activity_start_at','activity_end_at','claim_opens_at','tasks'];
+const publicCampaignData=payload=>Object.fromEntries(PUBLIC_CAMPAIGN_FIELDS.filter(k=>Object.hasOwn(payload,k)).map(k=>[k,k==='tasks'?(Array.isArray(payload.tasks)?payload.tasks.filter(t=>typeof t==='string'&&t.length<=200).slice(0,30):[]):payload[k]]));
 export async function limitedText(request){if(Number(request.headers.get('Content-Length'))>LIMIT)throw Error('BODY_TOO_LARGE');if(!request.body)return '';const reader=request.body.getReader();const chunks=[];let size=0;for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>LIMIT){await reader.cancel();throw Error('BODY_TOO_LARGE')}chunks.push(value)}const out=new Uint8Array(size);let offset=0;for(const v of chunks){out.set(v,offset);offset+=v.byteLength}return new TextDecoder().decode(out)}
 export async function api(request,env={},headers={}){
  const url=new URL(request.url),path=url.pathname,head=request.method==='HEAD';

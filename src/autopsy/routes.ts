@@ -31,6 +31,14 @@ export async function autopsyRoutes(request,env){
   const user=await platformUser(request,env,false);
   if(!user)fail('LOGIN_REQUIRED',401);
   const scope=user.id;
+  if(path==='/api/autopsy/decision-status'){
+   if(!['GET','HEAD'].includes(method))fail('METHOD_NOT_ALLOWED',405);
+   const campaign=requiredId(url.searchParams.get('campaign_id'));
+   const row=await sql(env.DB,'SELECT aggregate_id FROM decision_entries WHERE user_scope=? AND campaign_id=?',scope,campaign).first();
+   const state=row?await rebuild(env.DB,scope,row.aggregate_id):null;
+   if(!state||state.status==='cancelled'||!state.decision)fail('DECISION_REQUIRED',409);
+   return json({decision_status:'ready',aggregate_id:state.aggregate_id,private:true},200,head);
+  }
   if(path==='/api/autopsy/export'){if(!['GET','HEAD'].includes(method))fail('METHOD_NOT_ALLOWED',405);return json(await exportJournal(env.DB,scope,url.searchParams),200,head);}
   if(path==='/api/autopsy/decisions'){
    if(method==='POST'){

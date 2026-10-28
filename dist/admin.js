@@ -4,7 +4,7 @@ let csrf='',role='',selected=new Set(),active='overview';
 const permissions={readonly:['overview','audit','health'],moderator:['overview','campaigns','discovery','conflicts','audit','health'],admin:['overview','campaigns','discovery','conflicts','keys','webhooks','flags','settings','audit','health'],super_admin:nav.map(n=>n[1])};
 async function api(path,opts={}){
  const r=await fetch('/api/admin/'+path,{credentials:'same-origin',...opts,headers:{'X-CSRF-Token':csrf,...(opts.body?{'Content-Type':'application/json'}:{}),...opts.headers}});
- const out=await r.json();if(!r.ok)throw Error(out.error||'REQUEST_FAILED');return out;
+ const out=await r.json();if(!r.ok)throw Error(out.error==='SOURCE_CAMPAIGN_EDIT_REQUIRED'?'Ubah data sumber campaign melalui Aggregator. Registry hanya mengatur publikasi dan reviewer.':out.error||'REQUEST_FAILED');return out;
 }
 function notify(msg){$('feedback').textContent=msg;}
 function btn(text,cb,kind=''){const b=el('button',text);if(kind)b.className=kind;b.addEventListener('click',cb);return b;}

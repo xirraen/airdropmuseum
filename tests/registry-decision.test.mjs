@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
+import {campaignsRoute} from '../src/admin/campaignAdminService.ts';
 import {putCampaign} from '../src/aggregator-store.mjs';
 import {requireDecision,followCampaign,unfollowCampaign} from '../src/aggregator/decisionGuard.mjs';
 import {createDecision} from '../src/autopsy/decisionService.ts';
@@ -43,3 +44,5 @@ test('registry namespace collision never overwrites existing records or links th
  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM campaign_registry_links').get().n,0);
  await assert.rejects(()=>requireDecision(db,'tg:1','example'),/DECISION_REQUIRED/);db.sqlite.close();
 });
+
+test('canonical Aggregator source fields cannot drift through central admin edits',async()=>{const db=fixture();await putCampaign(db,input());const env={DB:db};const req=(data)=>new Request('https://museum.example.org/api/admin/campaigns/agg_example',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});await assert.rejects(()=>campaignsRoute(req({name:'Projection-only change'}),env,{role:'admin'}),/SOURCE_CAMPAIGN_EDIT_REQUIRED/);assert.equal(JSON.parse(db.sqlite.prepare("SELECT payload FROM am_core_exhibits WHERE id='agg_example'").get().payload).name,'Example');db.sqlite.close();});

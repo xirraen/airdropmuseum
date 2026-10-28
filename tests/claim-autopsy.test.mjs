@@ -209,3 +209,5 @@ test('private journal export is owner-scoped, paginated and cannot write history
  assert.equal((await api(e,'/api/autopsy/export?cursor=invalid')).status,400);
  assert.equal((await api(e,'/api/autopsy/export',cookieA,'POST',{})).status,405);e.DB.sqlite.close();
 });
+
+test('decision readiness requires the requesting owner immutable journal',async()=>{const e=await fixture();assert.equal((await api(e,'/api/autopsy/decision-status?campaign_id=ended')).status,409);const c=await create(e);assert.equal(c.status,201);const r=await api(e,'/api/autopsy/decision-status?campaign_id=ended');assert.equal(r.status,200);assert.equal((await r.json()).aggregate_id,c.data.aggregate_id);assert.equal((await api(e,'/api/autopsy/decision-status?campaign_id=ended',cookieB)).status,409);assert.equal((await api(e,'/api/autopsy/decision-status?campaign_id=ended','')).status,401);});

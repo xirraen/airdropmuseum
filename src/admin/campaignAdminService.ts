@@ -26,6 +26,9 @@ function validate(data,moderator=false){
 }
 async function mutate(db,row,changes,reviewStatus=row.review_status){
  const data=safeJson(row.payload),next={...data,...changes};
+ // Aggregator owns these source fields; publication consent and reviewer are local metadata.
+ // Editing a projection would be silently overwritten on the next source refresh.
+ if(data.registry_source==='aggregator'&&Object.keys(changes).some(k=>!['visibility','reviewer'].includes(k)))fail('SOURCE_CAMPAIGN_EDIT_REQUIRED',409);
  if(next.visibility==='public'&&(!next.source_url&&!row.source_url||['draft','pending_review'].includes(reviewStatus)))fail('PUBLICATION_REVIEW_REQUIRED',409);
  const result=await sql(db,'UPDATE am_core_exhibits SET payload=?,source_url=?,review_status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND updated_at=?',
   JSON.stringify(next),changes.source_url||row.source_url,reviewStatus,row.id,row.updated_at).run();
