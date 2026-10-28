@@ -55,3 +55,7 @@ Consolidates navigation into Beranda, Jelajahi, Portofolio and Profil. Invitatio
 ## Version 0.7 — progression, missions and bounty workbench
 
 Portfolio is now inside Profile. Misi & Bounty adds seven local XP missions, daily activity XP, levels/streaks, eight badges, a three-question wallet-safety lesson, glossary, four planning templates and external resource cards. A separate D1 ledger implements verified Telegram referral/learning XP with idempotent rewards, self-referral rejection and a daily inviter cap. See `docs/XP_AND_REFERRALS.md` for exact rules and activation requirements. Referral rewards remain inactive until the project bot secret/session are configured; browser XP is always explicitly local and non-financial.
+
+## Platform 1.0
+
+The supplied aggregator/community blueprint now has a complete implementation map in [docs/BLUEPRINT_COVERAGE.md](docs/BLUEPRINT_COVERAGE.md). Network pages are nested under Jelajahi; token records and authenticated profile settings are also available from Profil. Run `npm ci`, `npm run build`, `npm test`. `npm run dev` uses an isolated in-memory SQLite database and is not a production data store. Apply migrations through `0003_platform.sql` before deploying this release. Configure exact moderator IDs, this project's bot/email credentials and WalletConnect project ID before enabling those services. Generated delivery/AI behavior always honors account opt-in and server-side quotas.

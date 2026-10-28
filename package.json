@@ -1,10 +1,20 @@
 {
   "name": "airdrop-museum",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "build": "node scripts/build-worker.mjs"
+    "build": "node scripts/build-worker.mjs",
+    "dev": "node scripts/dev-server.mjs"
+  },
+  "dependencies": {
+    "@scure/bip39": "^2.4.0",
+    "@walletconnect/ethereum-provider": "^2.26.0",
+    "viem": "^2.57.12",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

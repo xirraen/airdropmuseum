@@ -14,5 +14,20 @@
       "database_id": "4e75c8b9-6c58-4bac-a180-01e5bec0d0a3",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "triggers": {
+    "crons": [
+      "17 * * * *"
+    ]
+  },
+  "vars": {
+    "RPC_1": "https://ethereum-rpc.publicnode.com",
+    "RPC_8453": "https://base-rpc.publicnode.com"
+  }
 }

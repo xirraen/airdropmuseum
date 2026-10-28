@@ -10,7 +10,7 @@ export function cleanProject(p){
  let website=text(p.website,500);if(website){const u=new URL(website);if(u.protocol!=='https:')throw Error('Gunakan URL HTTPS.');website=u.href;}
  const tasks=Array.isArray(p.tasks)?p.tasks.filter(t=>typeof t==='string'&&t.trim()).map(t=>t.trim().slice(0,200)).slice(0,30):[];
  if(!tasks.length)throw Error('Tambahkan minimal satu tugas.');
- return {id:text(p.id,80),name,website,tasks,category:['Testnet','DeFi','Gaming','AI','Infra','NFT','Layer 2','RWA','GameFi'].includes(p.category)?p.category:'Infra',chain:text(p.chain,40)||'Other',desc:text(p.desc,500),symbol:'◈',kind:['airdrop','bounty','testnet','community'].includes(p.kind)?p.kind:'airdrop',custom:true};
+ return {id:text(p.id,80),name,website,tasks,category:['Testnet','DeFi','Gaming','AI','Infra','NFT','Layer 2','RWA','GameFi'].includes(p.category)?p.category:'Infra',chain:text(p.chain,40)||'Other',desc:text(p.desc,500),symbol:'◈',kind:['airdrop','bounty','testnet','community'].includes(p.kind)?p.kind:'airdrop',sourceId:text(p.sourceId,80),custom:true};
 }
 export function normalize(raw={},catalog=[]){
  const custom=Array.isArray(raw.custom)?raw.custom.map(cleanProject):[];
