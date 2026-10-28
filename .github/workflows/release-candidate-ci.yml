@@ -1,0 +1,33 @@
+name: Sprint 11 Production Release Gate
+on:
+  push:
+    branches: ["release/sprint11-production-candidate"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: airdropmuseum-release-candidate
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Security scan (repository)
+        run: node scripts/security-scan.mjs
+      - name: Validate full migration chain
+        run: node --experimental-sqlite scripts/validate-migrations.mjs
+      - name: Build production Worker
+        run: npm run build
+      - name: Check browser syntax
+        run: node --check dist/decision-lab.js
+      - name: All unit/integration tests
+        run: npm test
+      - name: Production dependency advisory gate
+        run: npm audit --omit=dev --audit-level=high

@@ -1,0 +1,30 @@
+name: Sprint 8 Public API
+on:
+  push:
+    branches:
+      - feat/sprint-8-public-api
+  pull_request:
+    paths:
+      - "src/publicApi/**"
+      - "migrations/0012_public_api.sql"
+      - "docs/openapi.json"
+      - "tests/public-api.test.mjs"
+      - "wrangler.jsonc"
+      - "scripts/build-worker.mjs"
+      - ".github/workflows/sprint8-public-api.yml"
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: npm ci
+        run: npm ci
+      - name: npm run build
+        run: npm run build
+      - name: npm test
+        run: npm test

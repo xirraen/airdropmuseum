@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light"><meta name="referrer" content="no-referrer"><title>Admin Console — Airdrop Museum</title>
+<link rel="stylesheet" href="/admin.css"></head>
+<body>
+<header class="top"><a href="/">◈ AIRDROP <b>MUSEUM</b></a><span>ADMIN / OPERATIONS</span><span id="role"></span></header>
+<div class="shell"><aside class="sidebar"><h1>Ruang Kendali</h1><p>Moderasi dan operasi terverifikasi.</p><nav id="tabs" aria-label="Menu admin"></nav><a href="/">Kembali ke Museum</a></aside>
+<main><div class="intro"><div><small>CONSOLE / SPRINT 9</small><h2 id="title">Overview</h2><p id="description">Status layanan dan tindakan terotorisasi.</p></div><span id="mode" class="badge">Memuat</span></div>
+<div id="feedback" role="status" aria-live="polite"></div>
+<section id="panel" aria-live="polite"><p>Memuat data...</p></section></main></div>
+<dialog id="confirm"><form method="dialog"><h3>Konfirmasi dua langkah</h3><p id="confirm-description"></p><label>Ketik <b>KONFIRMASI</b> untuk melanjutkan<input id="confirm-text" autocomplete="off" placeholder="KONFIRMASI"></label><div class="actions"><button value="cancel">Batal</button><button id="confirm-submit" value="confirm" class="danger">Jalankan</button></div></form></dialog>
+<script type="module" src="/admin.js"></script></body></html>

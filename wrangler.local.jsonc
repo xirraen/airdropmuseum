@@ -1,0 +1,29 @@
+{
+  "name": "airdrop-museum-local",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-10-27",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "airdrop-museum-local",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "local",
+    "SIDE_EFFECTS_ENABLED": "0",
+    "TELEGRAM_BOT_TOKEN": "local-synthetic-bot-token",
+    "REQUIRE_RATE_LIMIT_BINDINGS": "0"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "JOURNAL_ERASURE_LEDGER",
+      "id": "00000000000000000000000000000002"
+    }
+  ]
+}
