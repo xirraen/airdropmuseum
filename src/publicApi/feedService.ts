@@ -8,8 +8,8 @@ export async function feed(env,origin,kind){
  const link=origin+'/v1/campaigns/'+encodeURIComponent(c.slug);
  const title=kind==='deadlines'?c.name+' — claim deadline':c.name;
  const summary=str(c.description,300)+' | '+DISCLAIMER+(kind==='deadlines'?' | Claim deadline: '+(c.claim_deadline_at||'unknown'):'');
- const published=kind==='deadlines'?c.claim_deadline_at:c.updated_at;
+ const published=c.updated_at;
  return '<item><title>'+xml(title)+'</title><link>'+xml(link)+'</link><guid isPermaLink="false">'+xml('airdropmuseum:'+kind+':'+c.slug)+'</guid><pubDate>'+xml(date(published))+'</pubDate><description>'+xml(summary)+'</description><category>'+xml(c.category)+'</category><source url="'+xml(c.source_url)+'">'+xml(new URL(c.source_url).hostname)+'</source></item>';
  }).join('');
- return '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>Airdrop Museum — '+xml(kind)+'</title><link>'+xml(origin)+'</link><description>'+xml(DISCLAIMER)+'</description><language>id</language><lastBuildDate>'+xml(date(new Date().toISOString()))+'</lastBuildDate>'+items+'</channel></rss>';
+ return '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>Airdrop Museum — '+xml(kind)+'</title><link>'+xml(origin)+'</link><description>'+xml(DISCLAIMER)+'</description><language>id</language><lastBuildDate>'+xml(date(result.items[0]?.updated_at||'1970-01-01T00:00:00Z'))+'</lastBuildDate>'+items+'</channel></rss>';
 }
