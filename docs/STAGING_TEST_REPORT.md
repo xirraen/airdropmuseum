@@ -1,21 +1,15 @@
 # Direct Cloudflare staging verification
 
-Updated 29 October 2026 (Asia/Jakarta). GitHub Actions bypass authorized by the user due to limits.
+Updated 29 October 2026, Asia/Jakarta. User authorized direct deployment while skipping GitHub Actions.
 
-## Production backup and isolated restore
+Synthetic Worker: https://airdrop-museum-e2e-direct.xirraen.workers.dev/
 
-Complete production SQL export: 49 tables, integrity OK, foreign keys OK, schema marker 5, five migration checkpoints. Export/checkpoint/manifest and row counts are kept privately outside Git. Fresh private remote D1 restore: all 49 counts matched. Wrangler applied missing migrations and verified all 15 filenames; schema 14, FK clean and immutable UPDATE/DELETE triggers present. No public Worker is bound to this user-data clone.
+An isolated synthetic D1 received all 17 migrations through 0019, schema 16. Fourteen real Worker/remote D1 API scenarios passed on the privacy candidate before the latest UI and payload-immutability refinements. Final bundle is built, but upload and final remote rerun are pending: the Cloudflare connector returned tool unavailable. WALLETCONNECT_PROJECT_ID was verified present after the user installed it. Preserve secret_text and secret_key bindings when uploading.
 
-## Synthetic application staging
+Normal event UPDATE and DELETE were rejected with EVENT_IMMUTABLE. Local tests additionally verify vault immutability, guarded privacy deletion, immutable receipts, owner isolation, stale confirmations, atomic rollback, pending external-ledger retries, missing-payload failures and idempotent erasure replay.
 
-Worker: https://airdrop-museum-e2e-direct.xirraen.workers.dev/
+Actual old-snapshot recovery used only synthetic owners: erased owner payloads and links were removed, the other owner's payload and projection survived, and foreign keys remained clean. Replaying again was idempotent. Source writes were frozen for the ledger completeness barrier and restored to normal afterward.
 
-A separate empty D1 received all 15 migrations via Wrangler, then a synthetic ended-campaign fixture. The uploaded candidate uses only that DB and an isolated synthetic authentication secret, with no production bot token, queues, cron or AI. Twelve real Worker/remote D1 API scenarios passed. Direct SQL UPDATE and DELETE against synthetic immutable events were rejected with EVENT_IMMUTABLE. Synthetic account/session tests do not certify actual Telegram or wallet interoperability.
+Separate production backup recovery matched all 49 original table counts. Its temporary private clone was removed after verification; it was never bound to a public Worker. The original historical staging database was preserved because its migration history is unreliable.
 
-Browser checks: Registry and Decision Journal load; 390×844 viewport has document width 375, no horizontal overflow. Production data was not used in the UI.
-
-The original historical staging database lacks reliable d1_migrations history and was not reused or overwritten. No production migration or Worker deployment occurred. Real mobile/wallet/Telegram sessions and complete historical personal-data erasure remain outstanding.
-
-## Telegram bot identity
-
-The user supplied @airdropmuseum_bot. Browser verification of https://t.me/airdropmuseum_bot showed Airdrop Museum 🏛️, the matching username and Start Bot. The public landing page does not establish Mini App menu configuration, launch target, a valid Telegram initData session, or wallet interoperability. No message or /start was sent by the agent. Actual user/device launch remains unverified.
+Browser checks on the prior candidate: Registry and Journal rendered at 390×844 without horizontal overflow. User video confirms the old production Mini App launch/watchlist flow, not the new candidate's sessions or WalletConnect connection. Final browser and real WalletConnect checks remain pending.

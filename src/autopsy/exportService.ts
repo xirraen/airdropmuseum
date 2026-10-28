@@ -11,7 +11,8 @@ export async function exportJournal(db,scope,params){
  const cutoff=cursor?.cutoff||new Date().toISOString();
  const after=cursor?' AND (recorded_at>? OR (recorded_at=? AND id>?))':'';
  const args=cursor?[scope,cutoff,cursor.t,cursor.t,cursor.id,limit+1]:[scope,cutoff,limit+1];
- const rows=(await sql(db,'SELECT id,user_scope,aggregate_id,campaign_id,event_version,event_type,knowledge_cutoff_at,evidence_refs,payload_json,recorded_at FROM autopsy_events WHERE user_scope=? AND recorded_at<=?'+after+' ORDER BY recorded_at,id LIMIT ?',...args).all()).results||[];
+ const rows=(await sql(db,'SELECT e.id,e.user_scope,e.aggregate_id,e.campaign_id,e.event_version,e.event_type,e.knowledge_cutoff_at,e.evidence_refs,p.payload_json,e.recorded_at FROM autopsy_events e LEFT JOIN journal_private_payloads p ON p.event_id=e.id AND p.user_scope=e.user_scope WHERE e.user_scope=? AND e.recorded_at<=?'+after.replaceAll('recorded_at','e.recorded_at').replaceAll('id>?','e.id>?')+' ORDER BY e.recorded_at,e.id LIMIT ?',...args).all()).results||[];
+ if(rows.some(row=>row.payload_json==null))fail('PRIVATE_PAYLOAD_UNAVAILABLE',503);
  const items=rows.slice(0,limit),last=items.at(-1);
  const next_cursor=rows.length>limit&&last?btoa(JSON.stringify({t:last.recorded_at,id:last.id,cutoff})).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,''):null;
  return {schema:'airdrop-museum-journal-events-v1',private:true,export_cutoff_at:cutoff,events:items,next_cursor,notice:'Personal export of immutable history. Import does not overwrite events. Keep this file private.'};

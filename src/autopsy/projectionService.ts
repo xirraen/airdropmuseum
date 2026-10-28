@@ -39,8 +39,8 @@ export function replay(rows){
  return state;
 }
 export async function readEvents(db,scope,aggregate){
- const r=await sql(db,'SELECT id,user_scope,aggregate_id,campaign_id,event_version,event_type,knowledge_cutoff_at,evidence_refs,payload_json,recorded_at FROM autopsy_events WHERE user_scope=? AND aggregate_id=? ORDER BY event_version ASC',scope,aggregate).all();
- return r.results||[];
+ const r=await sql(db,'SELECT e.id,e.user_scope,e.aggregate_id,e.campaign_id,e.event_version,e.event_type,e.knowledge_cutoff_at,e.evidence_refs,p.payload_json,e.recorded_at FROM autopsy_events e LEFT JOIN journal_private_payloads p ON p.event_id=e.id AND p.user_scope=e.user_scope WHERE e.user_scope=? AND e.aggregate_id=? ORDER BY e.event_version ASC',scope,aggregate).all();
+ const rows=r.results||[];if(rows.some(row=>row.payload_json==null))fail('PRIVATE_PAYLOAD_UNAVAILABLE',503);return rows;
 }
 export async function rebuild(db,scope,aggregate){
  const rows=await readEvents(db,scope,aggregate);return replay(rows);

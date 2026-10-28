@@ -2,7 +2,7 @@
 <meta name="theme-color" content="#f5f4ef"><title>Lab Keputusan · Airdrop Museum</title><link rel="stylesheet" href="/decision-lab.css"></head>
 <body><header class="top"><a href="/aggregator.html" class="back">← Registry</a><div><strong>◈ AIRDROP MUSEUM</strong><span>JURNAL KEPUTUSAN</span></div></header>
 <main><section class="hero"><small>CATAT. TINJAU. PELAJARI.</small>
-<h1>Keputusan. Bukti. Hasil.</h1><p>Jurnal keputusan dan pembelajaran retrospektif yang dapat diaudit. Setiap perubahan menjadi event baru; tidak ada riwayat yang ditimpa.</p>
+<h1>Keputusan. Bukti. Hasil.</h1><p>Jurnal keputusan dan pembelajaran retrospektif yang dapat diaudit. Perubahan keputusan dicatat sebagai event baru. Isi pribadi dapat dihapus melalui kontrol privasi.</p>
 <div class="chips"><span>Privat secara default</span><span>Riwayat terjaga</span><span>Waktu informasi tercatat</span><span>Tanpa prediksi</span></div></section>
 <p id="message" role="status" aria-live="polite"></p>
 <nav class="tabs" aria-label="Navigasi lab keputusan">
@@ -59,5 +59,11 @@
 <section id="evidence" class="panel" hidden><div class="section-head"><div><small>SUMBER PUBLIK SAJA</small><h2>Evidence Chain Card</h2><p>Tidak ada data wallet, jurnal, atau autopsy pribadi dalam kartu.</p></div></div>
 <form id="evidence-card-form" class="search card"><label>Slug campaign<input required maxlength="160" name="slug"></label><button class="primary">Buat kartu</button></form>
 <div id="evidence-result" class="stack"></div></section>
+<section class="card" aria-labelledby="journal-privacy-title"><h2 id="journal-privacy-title">Privasi jurnal</h2>
+<p>Ekspor jurnal sebelum menghapusnya. Penghapusan menghapus isi pribadi, proyeksi dan kaitan akun pada event. Metadata event minimal tetap tersimpan dengan identitas acak. Data akun, wallet dan quest memiliki kontrol penghapusan terpisah.</p>
+<p>Salinan pemulihan dapat bertahan hingga 30 hari sesuai kebijakan retensi; catatan penghapusan harus diterapkan sebelum database hasil restore digunakan. Salinan ekspor yang Anda unduh berada dalam kendali Anda.</p>
+<button id="export-journal" type="button">Unduh jurnal privat</button>
+<button id="preview-erasure" type="button">Tinjau penghapusan jurnal</button>
+<form id="erase-journal-form" hidden><p id="erasure-summary"></p><label>Ketik HAPUS JURNAL SAYA untuk menghapus isi pribadi seluruh jurnal Anda<input name="confirmation" autocomplete="off" required></label><button type="submit">Hapus isi pribadi jurnal saya</button></form></section>
 <p class="footnote">Jumlah sampel, periode, keterbatasan dan disclaimer menyertai seluruh insight. Bukti bukan jaminan alokasi. Jangan masukkan private key, seed phrase, token atau rahasia.</p>
 </main><script src="https://telegram.org/js/telegram-web-app.js"></script><script type="module" src="/decision-lab.js"></script></body></html>

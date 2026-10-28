@@ -19,3 +19,9 @@ Updated 29 October 2026 (Asia/Jakarta). The user authorized merge and production
 - Queue/KV preflight completed: TRUST_CACHE exists; four missing discovery/partner queues and DLQs were created empty without consumers. Full production binding validation, reviewed schema migration, final merge and direct deployment remain pending the remaining gates. Production is still schema marker 5 with migrations 0001–0005.
 
 Do not claim all original acceptance criteria passed. No token is needed in chat. The previous GitHub Actions-secret obstacle is superseded by the authorized direct Cloudflare path.
+
+## Current release checkpoint — 29 October 2026
+
+This checkpoint supersedes earlier schema/test/privacy status. Schema 16 / 17 forward migrations; 260 tests pass; syntax, typecheck and build pass; npm audit zero. Journal erasure, durable external receipts, replay barriers and encrypted export/recovery are implemented and verified locally; synthetic remote privacy replay and 14 API scenarios passed. See PRODUCTION_VERIFICATION.md and JOURNAL_PRIVACY.md for precise evidence and remaining checks.
+
+The user approved direct Cloudflare deployment with GitHub Actions skipped and identified the Telegram account in the supplied video as intended superadmin. Staging WalletConnect configuration is present. Production rollout, role bootstrap, internal security secrets and final candidate verification remain pending. The final upload attempt could not execute because the Cloudflare connector became unavailable. Do not claim merged or deployed from local build success.

@@ -19,5 +19,11 @@
     "SIDE_EFFECTS_ENABLED": "0",
     "TELEGRAM_BOT_TOKEN": "local-synthetic-bot-token",
     "REQUIRE_RATE_LIMIT_BINDINGS": "0"
-  }
+  },
+  "kv_namespaces": [
+    {
+      "binding": "JOURNAL_ERASURE_LEDGER",
+      "id": "00000000000000000000000000000002"
+    }
+  ]
 }

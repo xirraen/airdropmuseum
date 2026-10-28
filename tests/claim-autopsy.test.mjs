@@ -11,7 +11,7 @@ import {decisionBody,cutoff} from '../src/autopsy/types.ts';
 class D1 {
  constructor(){
   this.sqlite=new DatabaseSync(':memory:');this.sqlite.exec('PRAGMA foreign_keys=ON');
-  for(const file of ['0001_core.sql','0003_platform.sql','0010_discovery_automation.sql','0011_source_trust.sql','0012_public_api.sql','0013_admin_operations.sql','0014_claim_autopsy.sql'])
+  for(const file of ['0001_core.sql','0003_platform.sql','0010_discovery_automation.sql','0011_source_trust.sql','0012_public_api.sql','0013_admin_operations.sql','0014_claim_autopsy.sql','0018_journal_privacy_vault.sql','0019_journal_payload_immutability.sql'])
    this.sqlite.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
  }
  prepare(sql){const stmt=this.sqlite.prepare(sql);let params=[];const q={bind(...args){params=args;return q;},

@@ -50,12 +50,13 @@ export async function appendEvent(db,{scope,aggregate_id,campaign_id,event_type,
  if(!state)fail('REPLAY_FAILED',503);
  if(typeof db.batch!=='function')fail('D1_BATCH_REQUIRED',503);
  const write=sql(db,`INSERT INTO autopsy_events(id,user_scope,aggregate_id,campaign_id,event_version,event_type,knowledge_cutoff_at,evidence_refs,payload_json,recorded_at)
- VALUES(?,?,?,?,?,?,?,?,?,?)`,id,scope,aggregate_id,campaign_id,version+1,event_type,stamp,JSON.stringify(evidenceRefs),JSON.stringify(payload),recordedAt);
+ VALUES(?,?,?,?,?,?,?,?,?,?)`,id,scope,aggregate_id,campaign_id,version+1,event_type,stamp,JSON.stringify(evidenceRefs),JSON.stringify({private_ref:id}),recordedAt);
+ const privatePayload=sql(db,'INSERT INTO journal_private_payloads(event_id,user_scope,payload_json) VALUES(?,?,?)',id,scope,JSON.stringify(payload));
  const projections=projectionStatements(db,scope,state,version);
  // A cohort snapshot can contain this autopsy even when attached to another aggregate.
  // Invalidate every cached cohort for this owner atomically with consent withdrawal.
  if(event_type==='analysis_consent_changed'&&payload.enabled===false)
   projections.push(sql(db,'DELETE FROM pattern_snapshots WHERE user_scope=?',scope));
- try{await db.batch([write,...projections]);}catch(error){dbError(error);}
+ try{await db.batch([privatePayload,write,...projections]);}catch(error){dbError(error);}
  return {id,version:version+1,state};
 }

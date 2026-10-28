@@ -25,4 +25,16 @@ await check('consent withdrawal removes cohort from future analysis',async()=>{a
 await check('admin scope and public evidence privacy are enforced',async()=>{assert.equal((await call('/api/admin/overview')).status,401);assert.equal((await call('/api/autopsy/evidence-card/'+aggregate,'GET',undefined,null)).status,404);});
 await check('private export is bounded and owner-scoped',async()=>{const r=await call('/api/autopsy/export?limit=2');assert.equal(r.status,200);assert.equal(r.data.events.length,2);assert.ok(r.data.events.every(e=>e.user_scope==='tg:'+user));});
 await check('large streamed journal payload is rejected',async()=>{const r=await call('/api/autopsy/decisions','POST',{reason:'x'.repeat(1048577)});assert.equal(r.status,413);});
-console.log(JSON.stringify({runtime:staging?'Cloudflare Worker + remote synthetic D1':'workerd + local D1',passed:results.length,failed:0,aggregate_id:aggregate}));
+await check('journal erasure requires explicit confirmation and preserves another owner',async()=>{
+ const preview=await call('/api/autopsy/privacy');assert.equal(preview.status,200);assert.ok(preview.data.event_count>0);
+ const wrong=await call('/api/autopsy/privacy','POST',{confirmation:'yes',expected_event_count:preview.data.event_count,expected_last_event_id:preview.data.last_event_id});assert.equal(wrong.status,400);
+ const other=await call('/api/autopsy/privacy','POST',{confirmation:'HAPUS JURNAL SAYA',expected_event_count:preview.data.event_count,expected_last_event_id:preview.data.last_event_id},user+1);assert.equal(other.status,409);
+});
+let erasureReceipt;
+await check('owner journal erasure removes private data and persists external restore protection',async()=>{
+ const preview=await call('/api/autopsy/privacy');
+ const erased=await call('/api/autopsy/privacy','POST',{confirmation:'HAPUS JURNAL SAYA',expected_event_count:preview.data.event_count,expected_last_event_id:preview.data.last_event_id});
+ assert.equal(erased.status,200,JSON.stringify(erased.data));assert.equal(erased.data.live_erased,true);assert.equal(erased.data.backup_replay_protected,true);erasureReceipt=erased.data.request_id;
+ assert.equal((await call('/api/autopsy/'+aggregate)).status,404);assert.equal((await call('/api/autopsy/export')).data.events.length,0);
+});
+console.log(JSON.stringify({runtime:staging?'Cloudflare Worker + remote synthetic D1':'workerd + local D1',passed:results.length,failed:0,aggregate_id:aggregate,erasure_request_id:erasureReceipt}));

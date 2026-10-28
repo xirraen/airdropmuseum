@@ -88,6 +88,10 @@
     {
       "binding": "TRUST_CACHE",
       "id": "bc8fc9f66cf7495f9ad2f2c4917e1674"
+    },
+    {
+      "binding": "JOURNAL_ERASURE_LEDGER",
+      "id": "cb0cc6c853a74270b23771ab35515d1b"
     }
   ],
   "analytics_engine_datasets": [
@@ -112,5 +116,11 @@
       "enabled": true,
       "head_sampling_rate": 1
     }
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "AGGREGATOR_BACKUP_BUCKET",
+      "bucket_name": "airdrop-museum-user-backups"
+    }
+  ]
 }

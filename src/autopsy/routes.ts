@@ -1,4 +1,5 @@
 import {exportJournal} from './exportService.ts';
+import {erasurePreview,eraseJournal} from './privacyService.ts';
 import {platformUser} from '../platform-api.mjs';
 import {JournalError,fail,sql,bodyJson,requiredId,json,cutoff,expected,refs} from './types.ts';
 import {createDecision,decisions} from './decisionService.ts';
@@ -31,6 +32,12 @@ export async function autopsyRoutes(request,env){
   const user=await platformUser(request,env,false);
   if(!user)fail('LOGIN_REQUIRED',401);
   const scope=user.id;
+  if(!await sql(env.DB,'SELECT version FROM am_core_schema WHERE version=16').first())fail('PRIVACY_MIGRATION_REQUIRED',503);
+  if(path==='/api/autopsy/privacy'){
+   if(['GET','HEAD'].includes(method))return json(await erasurePreview(env.DB,scope),200,head);
+   const result=await eraseJournal(env,scope,await bodyJson(request));
+   return json(result,result.backup_replay_protected?200:202);
+  }
   if(path==='/api/autopsy/decision-status'){
    if(!['GET','HEAD'].includes(method))fail('METHOD_NOT_ALLOWED',405);
    const campaign=requiredId(url.searchParams.get('campaign_id'));

@@ -17,7 +17,7 @@ async function api(path,method='GET',payload){
  if(payload!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(payload);}
  const response=await fetch(path,init);
  const result=await response.json().catch(()=>({error:'INVALID_RESPONSE'}));
- if(!response.ok){const labels={LOGIN_REQUIRED:'Buka melalui Telegram atau masuk akun di Museum untuk menggunakan jurnal privat.',VERSION_CONFLICT:'Catatan berubah di sesi lain. Perbarui halaman lalu coba kembali.',INVALID_HTTPS_URL:'Gunakan tautan HTTPS publik tanpa kredensial.',DECISION_REQUIRED:'Simpan keputusan sebelum melanjutkan aktivitas campaign.',SERVICE_UNAVAILABLE:'Layanan sementara tidak tersedia. Coba kembali nanti.',CAMPAIGN_NOT_FOUND:'Campaign belum terdaftar. Pilih campaign dari Registry.'};throw Error(labels[result.error]||result.error||labels.SERVICE_UNAVAILABLE);}return result;
+ if(!response.ok){const labels={LOGIN_REQUIRED:'Buka melalui Telegram atau masuk akun di Museum untuk menggunakan jurnal privat.',VERSION_CONFLICT:'Catatan berubah di sesi lain. Perbarui halaman lalu coba kembali.',INVALID_HTTPS_URL:'Gunakan tautan HTTPS publik tanpa kredensial.',DECISION_REQUIRED:'Simpan keputusan sebelum melanjutkan aktivitas campaign.',ERASURE_CONFIRMATION_REQUIRED:'Ketik HAPUS JURNAL SAYA dengan tepat.',ERASURE_LEDGER_UNAVAILABLE:'Penghapusan belum tersedia karena pencatatan pemulihan belum siap. Tidak ada data yang dihapus.',SERVICE_UNAVAILABLE:'Layanan sementara tidak tersedia. Coba kembali nanti.',CAMPAIGN_NOT_FOUND:'Campaign belum terdaftar. Pilih campaign dari Registry.'};throw Error(labels[result.error]||result.error||labels.SERVICE_UNAVAILABLE);}return result;
 }
 async function execute(task){try{message('');await task();}catch(error){message(error.message);}}
 const base='/api/autopsy';
@@ -181,3 +181,28 @@ selectTab(new URL(location.href).searchParams.get('tab')||'decisions');
 
 const requestedCampaign=new URLSearchParams(location.search).get('campaign');
 if(requestedCampaign&&/^[a-zA-Z0-9_-]{1,160}$/.test(requestedCampaign))$('decision-form').elements.namedItem('campaign_id').value=requestedCampaign;
+
+let erasureSnapshot=null;
+$('export-journal').onclick=()=>execute(async()=>{
+ const events=[];let cursor=null;
+ for(let page=0;page<100;page++){
+  const result=await api(base+'/export?limit=100'+(cursor?'&cursor='+encodeURIComponent(cursor):''));
+  events.push(...result.events);cursor=result.next_cursor;if(!cursor)break;
+ }
+ if(cursor)throw Error('Jurnal terlalu besar untuk satu unduhan. Hubungi pengelola untuk ekspor lengkap.');
+ const url=URL.createObjectURL(new Blob([JSON.stringify({schema:'airdrop-museum-journal-events-v1',private:true,events},null,2)],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download='jurnal-privat-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ message('Ekspor privat diunduh. Simpan di tempat yang aman.');
+});
+$('preview-erasure').onclick=()=>execute(async()=>{
+ erasureSnapshot=await api(base+'/privacy');
+ $('erasure-summary').textContent=erasureSnapshot.aggregate_count+' jurnal / '+erasureSnapshot.event_count+' event. Isi pribadi akan dihapus permanen dari layanan aktif. Metadata event minimal tetap tersimpan tanpa kaitan akun; ini bukan penghapusan akun penuh.';
+ $('erase-journal-form').hidden=false;
+});
+submit($('erase-journal-form'),async form=>{
+ if(!erasureSnapshot)throw Error('Tinjau penghapusan terlebih dahulu.');
+ const result=await api(base+'/privacy','POST',{confirmation:formValue(form,'confirmation'),expected_event_count:erasureSnapshot.event_count,expected_last_event_id:erasureSnapshot.last_event_id});
+ current=null;erasureSnapshot=null;document.querySelectorAll('form').forEach(f=>f.reset());form.hidden=true;renderState();for(const id of ['state-summary','pattern-results','weekly-results'])$(id).replaceChildren();$('analysis-consent').checked=false;
+ await loadDecisions();
+ message(result.backup_replay_protected?'Isi pribadi jurnal dihapus. Metadata event minimal dipertahankan tanpa kaitan akun. Catatan pencegahan pemulihan sudah tersimpan.':'Isi pribadi di layanan aktif sudah dihapus. Penyimpanan catatan pencegahan pemulihan masih tertunda; pengelola perlu memastikan antrean selesai. Nomor permintaan: '+(result.request_id||'lihat permintaan penghapusan sebelumnya'));
+});

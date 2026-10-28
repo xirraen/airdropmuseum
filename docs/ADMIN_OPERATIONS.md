@@ -2,7 +2,9 @@
 
 ## Baseline dan dependensi
 
-Sprint ini berbasis branch \`feat/sprint-8-public-api\`, bukan \`main\`, karena Sprint 8 belum digabung. Terapkan migrasi \`0001\`, \`0003\`, \`0010\`, \`0011\`, \`0012\` **sebelum** \`0013_admin_operations.sql\`. Sprint 2–5 yang berada di branch lain tetap perlu direkonsiliasi sebelum deployment lengkap; jangan deploy migrasi ke produksi tanpa memverifikasi riwayatnya. Admin UI di \`/admin\` menggunakan cookie \`am_session\` (HTTPOnly/Secure/SameSite=Strict) dari login platform. Telegram admin initData langsung tidak membuat sesi admin; login dengan sesi platform terlebih dahulu.
+Kandidat rilis saat ini memerlukan seluruh 17 migrasi sampai `0019_journal_payload_immutability.sql`, schema 16. Admin UI di `/admin` menggunakan cookie `am_session` (HttpOnly/Secure/SameSite=Strict) dari login platform. Di Mini App, buka Akun & privasi lalu pilih **Aktifkan sesi Telegram** sebelum membuka konsol admin. Header Telegram saja tidak menggantikan sesi admin. Endpoint memverifikasi initData di server; role dan CSRF tetap diperiksa terpisah.
+
+Pada 29 Oktober 2026 pemilik mengonfirmasi akun Telegram dalam video sebagai penerima superadmin. Konfirmasi ini belum berarti role sudah ditulis: bootstrap produksi masih menunggu migrasi dan verifikasi principal yang tepat. Jangan memilih principal pertama secara otomatis bila ada lebih dari satu kandidat.
 
 ## Bootstrap / Role / least privilege
 
