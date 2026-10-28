@@ -12,7 +12,7 @@ function originGuard(req){
 }
 const overview=state=>({aggregate_id:state.aggregate_id,campaign_id:state.campaign_id,version:state.version,
  status:state.status,decision:state.decision,decision_cutoff_at:state.decision_cutoff_at,
- outcome:state.outcome,outcome_cutoff_at:state.outcome_cutoff_at,analysis_consent:state.analysis_consent,
+ outcome:state.outcome,outcome_cutoff_at:state.outcome_cutoff_at,first_outcome_at:state.first_outcome_at,analysis_consent:state.analysis_consent,
  activities:state.activities,hypothesis:state.hypothesis,evidence:state.evidence,timeline:state.timeline,
  finalized_at:state.finalized_at,created_at:state.created_at,updated_at:state.updated_at,insights:state.insights});
 export async function autopsyRoutes(request,env){
