@@ -1,4 +1,4 @@
-import {evidenceBody,cutoff,expected,refs,text,requiredId,fail} from './types.ts';
+import {evidenceBody,activityBody,cutoff,expected,refs,text,requiredId,fail} from './types.ts';
 import {appendEvent} from './eventStore.ts';
 export async function addEvidence(db,scope,state,body){
  const entry=evidenceBody(body),id=crypto.randomUUID();
@@ -7,7 +7,6 @@ export async function addEvidence(db,scope,state,body){
   knowledge_cutoff_at:cutoff(body.knowledge_cutoff_at),evidence_refs:[id],payload:{id,...entry}});
 }
 export async function addActivity(db,scope,state,body){
- const {activityBody}=await import('./types.ts');
  const activity=activityBody(body);
  return appendEvent(db,{scope,aggregate_id:state.aggregate_id,campaign_id:state.campaign_id,
   event_type:'activity_recorded',expected_version:expected(body.expected_version),
