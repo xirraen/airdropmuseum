@@ -50,7 +50,9 @@ export async function publishPartnerEvent(env,eventType,slug,{eventId,occurredAt
 }
 export async function scanPartnerEvents(env){
  if(!env.DB||!env.PARTNER_WEBHOOK_QUEUE)return;
- const now=Date.now(),start=new Date(now-10*60000).toISOString(),end=new Date(now+24*3600000).toISOString();
+ const now=Date.now();
+ // Bounded retention for pseudonymous usage counters and delivery metadata.
+ await env.DB.batch([sql(env.DB,"DELETE FROM api_usage_log WHERE minute_bucket<?",Math.floor(now/60000)-30*1440),sql(env.DB,"DELETE FROM webhook_deliveries WHERE created_at<datetime('now','-90 days')")]);
  // Poll only recent published changes; no webhook-triggered changes to source registry.
  const rows=await sql(env.DB,"SELECT e.id,e.updated_at,e.payload FROM am_core_exhibits e WHERE e.updated_at >= datetime('now','-10 minutes') AND json_extract(e.payload,'$.visibility')='public' AND e.review_status NOT IN ('draft','pending_review','private_draft','unreviewed') ORDER BY e.updated_at DESC LIMIT 100").all();
  for(const r of rows.results||[]){
@@ -82,7 +84,8 @@ export async function deliverPartnerWebhook(message,env,fetcher=fetch){
  if(!row||row.status==='delivered'||row.status==='dead'||!row.enabled||!row.key_enabled||row.revoked_at){message.ack();return;}
  if(row.attempts>=5){await sql(db,"UPDATE webhook_deliveries SET status='dead',error='MAX_ATTEMPTS' WHERE id=?",id).run();message.ack();return;}
  const attempts=row.attempts+1;
- await sql(db,"UPDATE webhook_deliveries SET attempts=?,status='retrying',last_attempt_at=CURRENT_TIMESTAMP WHERE id=?",attempts,id).run();
+ const claim=await sql(db,"UPDATE webhook_deliveries SET attempts=?,status='retrying',last_attempt_at=CURRENT_TIMESTAMP WHERE id=? AND attempts=? AND status IN ('queued','retrying')",attempts,id,row.attempts).run();
+ if(claim.meta?.changes!==1){message.ack();return;}
  try{
   const target=targetUrl(row.url,env.PUBLIC_API_ORIGIN||'https://airdrop-museum.xirraen.workers.dev');
   const raw=row.payload;if(enc.encode(raw).length>16384)throw Error('PAYLOAD_TOO_LARGE');
