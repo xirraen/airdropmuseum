@@ -60,7 +60,7 @@ export async function scanStoredWallet(env,id,fetcher=fetch){
  // Manual/social quests are never auto-completed by scanning.
  if(await s(env.DB,'SELECT version FROM am_core_schema WHERE version=8').first()){
   const onchain=(await s(env.DB,`SELECT q.id FROM campaign_quests q
-  JOIN eligibility_results e ON e.campaign_id=q.campaign_id AND e.rule_id=q.id AND e.wallet_id=?
+  JOIN eligibility_results e ON e.campaign_id=q.campaign_id AND e.rule_id=coalesce(q.verification_rule_id,q.id) AND e.wallet_id=?
   WHERE q.verification_method='wallet_activity' AND e.evaluation_status='passed'
   AND e.rule_type NOT IN ('social_task','custom_manual_task','kyc_or_geo_restriction')
   GROUP BY q.id LIMIT 100`,w.id).all()).results;
