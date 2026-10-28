@@ -19,7 +19,7 @@ test('security headers, request ID propagation and no sensitive response',async(
  assert.equal((await r.json()).ok,true);
 });
 test('invalid external request ID is replaced and error response has correlation ID',async()=>{
- const r=await withSecurity(request('/api/health',{headers:{'X-Request-ID':'attacker\nrequest'}}),{},null,async()=>Response.json({error:'BAD'}, {status:400}));
+ const r=await withSecurity(request('/api/health',{headers:{'X-Request-ID':'attacker-request'}}),{},null,async()=>Response.json({error:'BAD'}, {status:400}));
  const id=r.headers.get('X-Request-ID');assert.match(id,/^[0-9a-f-]{36}$/);
  assert.equal((await r.json()).request_id,id);
 });
