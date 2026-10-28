@@ -9,9 +9,9 @@ import {localTime,weeklyReport,REPORT_DISCLAIMER} from '../src/aggregator/report
 globalThis.crypto ||= webcrypto;
 const scope='tg:123';
 class FakeDB {
- constructor(){this.writes=[];}
- prepare(sql){const db=this;return {params:[],bind(...params){this.params=params;return this;},async first(){if(sql.includes('SUM(points)'))return {n:12};if(sql.includes('COUNT(*)'))return {n:1};return null;},async all(){return {results:[]};},async run(){db.writes.push({sql,params:this.params});return {meta:{changes:1}};}};}
- async batch(stmts){return stmts.map(()=>({results:[],meta:{changes:1}}));}
+ constructor(){this.writes=[];this.ledger=new Set();}
+ prepare(sql){const db=this;return {sql,params:[],bind(...params){this.params=params;return this;},async first(){if(sql.includes('SUM(points)'))return {n:12};if(sql.includes('COUNT(*)'))return {n:1};return null;},async all(){return {results:[]};},async run(){db.writes.push({sql,params:this.params});return {meta:{changes:1}};}};}
+ async batch(stmts){for(const stmt of stmts)if(stmt.sql?.includes('INSERT OR IGNORE INTO user_points_ledger'))this.ledger.add(stmt.params[0]);return stmts.map(()=>({results:[],meta:{changes:1}}));}
 }
 const sample={campaigns:[{id:'one',status:'confirmed',claim_deadline_at:'2026-11-01T00:00:00Z',kyc_requirement:'unknown',official_urls:'["https://project.example"]'}],progress:[{quest_id:'quest',campaign_id:'one',status:'verified',verification_method:'admin_review',ends_at:null}],availableQuests:[{id:'quest'},{id:'new'}],wallets:[{chain:'eip155:1'}],eligibility:[{evaluation_status:'passed'}],claims:[],points:120};
 test('portfolio summary',()=>{
@@ -59,4 +59,31 @@ test('migration is additive',()=>{
  const sql=readFileSync(new URL('../migrations/0009_portfolio_intelligence.sql',import.meta.url),'utf8');
  for(const table of ['user_portfolio_snapshots','portfolio_export_jobs','backup_metadata'])assert.ok(sql.includes('CREATE TABLE IF NOT EXISTS '+table));
  assert.doesNotMatch(sql,/DROP TABLE|DELETE FROM (?:campaigns|wallet_watchlist)/i);
+});
+
+
+test('repeated restore does not duplicate the same points ledger id',async()=>{
+ const db=new FakeDB(),bucket={async put(){},async delete(){}},secret='another-test-key';
+ const payload={schema_version:SCHEMA_VERSION,user_scope:scope,created_at:'2026-10-28T00:00:00Z',wallet_watchlist:[],campaign_subscriptions:[],quest_progress:[],points_ledger:[{id:'ledger-entry',campaign_id:'campaign-1',quest_id:null,wallet_address:null,points:12,reason:'quest_verified',created_at:1}],alert_preferences:null,evidence_refs:[],notice:''};
+ const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const token=Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(JSON.stringify(payload)))),b=>b.toString(16).padStart(2,'0')).join('');
+ const env={DB:db,AGGREGATOR_BACKUP_BUCKET:bucket,BACKUP_SIGNING_KEY:secret},envelope={payload,signature:token};
+ await restoreBackup(env,scope,{envelope});await restoreBackup(env,scope,{envelope});
+ assert.equal(db.ledger.size,1);assert.ok(db.writes.filter(x=>x.sql.includes('INSERT INTO backup_metadata')).length>=2);
+});
+test('migration executes on existing schema without deleting legacy data',async t=>{
+ let DatabaseSync;try{({DatabaseSync}=await import('node:sqlite'));}catch{t.skip('node:sqlite unavailable');return;}
+ const db=new DatabaseSync(':memory:');
+ db.exec([
+ 'CREATE TABLE am_core_schema(version INTEGER PRIMARY KEY);',
+ 'CREATE TABLE campaigns(id TEXT PRIMARY KEY);',
+ "CREATE TABLE alert_preferences(user_id TEXT PRIMARY KEY,enabled INTEGER,filters TEXT,event_types TEXT,updated_at TEXT);",
+ 'CREATE TABLE legacy_preserved(id INTEGER PRIMARY KEY,label TEXT);',
+ "INSERT INTO legacy_preserved(label) VALUES('tetap');"
+ ].join(''));
+ db.exec(readFileSync(new URL('../migrations/0009_portfolio_intelligence.sql',import.meta.url),'utf8'));
+ assert.equal(db.prepare('SELECT label FROM legacy_preserved').get().label,'tetap');
+ assert.equal(db.prepare('SELECT version FROM am_core_schema WHERE version=9').get().version,9);
+ assert.equal(db.prepare('SELECT weekly_enabled FROM alert_preferences LIMIT 1').all().length,0);
+ db.close();
 });
