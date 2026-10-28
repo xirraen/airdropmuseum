@@ -55,12 +55,14 @@ export async function withSecurity(request,env,ctx,next){
  try{
   if(request.url.length>4096||url.search.length>2048)response=safeError('INVALID_REQUEST',400,context.request_id);
   else if(!await bodyWithinLimit(request))response=safeError('BODY_TOO_LARGE',413,context.request_id);
-  else if((requireSecrets(env,context.route),false))response=safeError('SERVICE_UNAVAILABLE',503,context.request_id);
-  else if((requireSecrets(env,context.route),!(await rateLimit(request,env,context.route))))response=safeError('RATE_LIMITED',429,context.request_id,{'Retry-After':'60'});
-  else response=safeLegalPage(request)||await healthResponse(request,env)||await next();
+  else {
+   requireSecrets(env,context.route);
+   if(!await rateLimit(request,env,context.route))response=safeError('RATE_LIMITED',429,context.request_id,{'Retry-After':'60'});
+   else response=safeLegalPage(request)||await healthResponse(request,env)||await next();
+  }
  }catch(error){
   const error_class=classifyError(error);
-  const status=error_class==='rate_limit'?503:503;
+  const status=503;
   logEvent({level:'error',event:'uncaught_error',request_id:context.request_id,component:'gateway',status:'failed',metadata:{route:context.route,error_class}});
   response=safeError('SERVICE_UNAVAILABLE',status,context.request_id);
  }
