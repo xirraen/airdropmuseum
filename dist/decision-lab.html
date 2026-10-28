@@ -1,0 +1,63 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f4ef"><title>Lab Keputusan · Airdrop Museum</title><link rel="stylesheet" href="/decision-lab.css"></head>
+<body><header class="top"><a href="/#profile" class="back">← Museum</a><div><strong>◈ AIRDROP MUSEUM</strong><span>CLAIM AUTOPSY · EVENT JOURNAL</span></div></header>
+<main><section class="hero"><small>EVENT-SOURCED INTELLIGENCE / SPRINT 11</small>
+<h1>Keputusan. Bukti. Hasil.</h1><p>Jurnal keputusan dan pembelajaran retrospektif yang dapat diaudit. Setiap perubahan menjadi event baru; tidak ada riwayat yang ditimpa.</p>
+<div class="chips"><span>Privat secara default</span><span>Append-only</span><span>Cutoff pengetahuan</span><span>Tanpa prediksi</span></div></section>
+<p id="message" role="status" aria-live="polite"></p>
+<nav class="tabs" aria-label="Navigasi lab keputusan">
+<button class="active" data-tab="decisions">Jurnal Keputusan</button>
+<button data-tab="autopsy">Timeline Autopsy</button>
+<button data-tab="insights">Pattern Insights</button>
+<button data-tab="weekly">Review Mingguan</button>
+<button data-tab="evidence">Evidence Card</button></nav>
+<section id="decisions" class="panel"><div class="section-head"><div><small>SEBELUM MENGIKUTI CAMPAIGN</small><h2>Decision Journal</h2>
+<p>Simpan alasan, batas biaya, dan bukti utama sebelum menandai campaign sebagai diikuti dalam jurnal.</p></div></div>
+<form id="decision-form" class="grid card">
+<label>ID atau slug campaign<input name="campaign_id" maxlength="160" required placeholder="campaign-id"></label>
+<label>Sumber keputusan<select name="decision_source"><option value="official">Sumber resmi</option><option value="community">Komunitas</option><option value="aggregator">Aggregator</option><option value="social">Media sosial</option><option value="other">Lainnya</option><option value="unknown">Tidak diketahui</option></select></label>
+<label class="wide">Alasan keputusan<textarea name="reason" required maxlength="1500" rows="3"></textarea></label>
+<label class="wide">Bukti utama HTTPS<input name="primary_evidence_url" required type="url" placeholder="https://sumber-resmi.example/"></label>
+<label>Alokasi waktu (menit)<input name="time_budget_minutes" type="number" min="0" step="1" value="60" required></label>
+<label>Batas biaya (USD)<input name="cost_ceiling_usd" type="number" min="0" step="0.01" value="0" required></label>
+<label class="wide">Ekspektasi realistis<textarea name="realistic_expectations" required maxlength="1500" rows="2"></textarea></label>
+<button type="submit" class="primary wide">Buat Decision Entry (v1)</button></form>
+<div class="section-head"><h2>Keputusan saya</h2><button type="button" id="reload-decisions">Perbarui</button></div><div id="decision-list" class="stack"></div></section>
+<section id="autopsy" class="panel" hidden><div class="section-head"><div><small>CATATAN IMMUTABLE</small><h2>Timeline Autopsy</h2>
+<p>Data yang dimasukkan setelah outcome tidak akan dianggap sebagai pengetahuan sebelum outcome.</p></div><button type="button" id="refresh-state">Perbarui</button></div>
+<div class="card"><p id="active-aggregate">Pilih campaign dari Jurnal Keputusan.</p><div id="state-summary" class="kv"></div>
+<div id="event-timeline" class="stack"></div></div>
+<div id="autopsy-actions" hidden>
+<div class="section-head"><h2>Tambahkan event</h2></div>
+<form id="evidence-form" class="grid card">
+<h3 class="wide">Bukti baru</h3>
+<label>Jenis bukti<select name="kind"><option value="official_link">Tautan resmi HTTPS</option><option value="screenshot">Screenshot (URL HTTPS)</option><option value="tx_hash">Hash transaksi EVM</option></select></label>
+<label>Nilai bukti<input name="value" required placeholder="https://... atau 0x..."></label>
+<button class="primary wide" type="submit">Rekam evidence_added</button></form>
+<form id="activity-form" class="grid card">
+<h3 class="wide">Aktivitas</h3>
+<label>Fase<select name="phase"><option value="before_snapshot">Sebelum snapshot</option><option value="after_snapshot">Sesudah snapshot</option></select></label>
+<label>Jumlah quest<input name="quest_count" type="number" min="0" step="1" value="0" required></label>
+<label>Jumlah chain<input name="chain_count" type="number" min="0" step="1" value="1" required></label>
+<label>Gas USD<input name="gas_cost_usd" type="number" min="0" step="0.01" value="0" required></label>
+<label>Bridge USD<input name="bridge_cost_usd" type="number" min="0" step="0.01" value="0" required></label>
+<label>Waktu riset (menit)<input name="research_minutes" type="number" min="0" step="1" value="0" required></label>
+<button class="primary wide" type="submit">Rekam activity_recorded</button></form>
+<form id="hypothesis-form" class="grid card"><h3 class="wide">Hipotesis</h3>
+<label class="wide">Hipotesis / refleksi<textarea name="hypothesis" maxlength="2000" rows="3" required></textarea></label>
+<button class="primary wide" type="submit">Rekam hypothesis_updated</button></form>
+<form id="outcome-form" class="grid card"><h3 class="wide">Hasil / Revisi</h3>
+<label>Hasil<select name="outcome"><option value="unknown">Belum diketahui</option><option value="allocated">Mendapat alokasi</option><option value="not_allocated">Tidak mendapat alokasi</option></select></label>
+<label>Alasan revisi (wajib bila sudah ada outcome)<input name="revision_reason" maxlength="500" placeholder="Bukti baru menunjukkan..."></label>
+<button class="primary wide" type="submit">Rekam outcome (campaign harus selesai)</button></form>
+<div class="card"><label class="check"><input id="analysis-consent" type="checkbox"> Izinkan agregasi pola pribadi dari autopsy yang telah difinalisasi</label>
+<p class="muted">Persetujuan berubah lewat event baru dan dapat dicabut. Tidak ada data dikirim ke partner.</p>
+<div class="kv"><button type="button" id="save-consent">Rekam persetujuan</button>
+<button type="button" class="primary" id="finalize">Finalisasi autopsy</button></div></div></div></section>
+<section id="insights" class="panel" hidden><div class="section-head"><div><small>DESKRIPTIF SAJA</small><h2>Pattern Insights</h2><p>Minimal 5 autopsy per cohort dan minimal 2 outcome diketahui.</p></div><button id="reload-insights">Perbarui</button></div><div id="pattern-results" class="stack"></div></section>
+<section id="weekly" class="panel" hidden><div class="section-head"><div><small>SENIN–MINGGU / UTC</small><h2>Weekly Decision Review</h2></div><button id="reload-weekly">Perbarui</button></div><div id="weekly-results" class="stack"></div></section>
+<section id="evidence" class="panel" hidden><div class="section-head"><div><small>SUMBER PUBLIK SAJA</small><h2>Evidence Chain Card</h2><p>Tidak ada data wallet, jurnal, atau autopsy pribadi dalam kartu.</p></div></div>
+<form id="evidence-card-form" class="search card"><label>Slug campaign<input required maxlength="160" name="slug"></label><button class="primary">Buat kartu</button></form>
+<div id="evidence-result" class="stack"></div></section>
+<p class="footnote">Jumlah sampel, periode, keterbatasan dan disclaimer menyertai seluruh insight. Bukti bukan jaminan alokasi. Jangan masukkan private key, seed phrase, token atau rahasia.</p>
+</main><script src="https://telegram.org/js/telegram-web-app.js"></script><script type="module" src="/decision-lab.js"></script></body></html>

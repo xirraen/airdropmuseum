@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --experimental-strip-types --test",
     "build": "node scripts/build-worker.mjs",
     "dev": "node scripts/dev-server.mjs"
   },
