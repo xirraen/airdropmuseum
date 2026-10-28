@@ -1,0 +1,45 @@
+name: Isolated preview
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  preview:
+    if: github.event.pull_request.head.repo.full_name == github.repository && vars.PREVIEW_D1_DATABASE_ID != '' && vars.PREVIEW_RATE_LIMIT_NAMESPACE_ID != ''
+    environment: preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: Generate least-privilege isolated preview config
+        env:
+          PREVIEW_D1_DATABASE_ID: ${{ vars.PREVIEW_D1_DATABASE_ID }}
+          PREVIEW_RATE_LIMIT_NAMESPACE_ID: ${{ vars.PREVIEW_RATE_LIMIT_NAMESPACE_ID }}
+          PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node scripts/create-preview-config.mjs
+      - name: Apply migrations to preview D1 only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PREVIEW_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 d1 migrations apply airdrop-museum-preview --remote --config .wrangler-preview.jsonc
+      - name: Seed non-public preview samples
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PREVIEW_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 d1 execute airdrop-museum-preview --remote --config .wrangler-preview.jsonc --file scripts/seed-preview.sql
+      - name: Deploy preview worker without production secrets or queue bindings
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PREVIEW_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 deploy --config .wrangler-preview.jsonc

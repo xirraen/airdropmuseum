@@ -1,0 +1,319 @@
+/* Airdrop Museum · responsive blue reference UX
+   Mobile-first shell; functional controls remain connected to existing app state.
+   No example card is represented as a verified active airdrop. */
+:root{--amu-blue:#0878ed;--amu-ink:#10233f;--amu-soft:#6b7a94;--amu-paper:#fff;--amu-border:#e5ebf4;--amu-bg:#f5f8fd;--amu-green:#08a579;--amu-shadow:0 3px 18px #123e7109;color-scheme:light}
+html{scroll-behavior:smooth;overflow-x:clip}
+body{background:var(--amu-bg)!important;color:var(--amu-ink)!important;font-family:'DM Sans',system-ui,sans-serif}
+body,main,#app,.workspace{min-width:0}
+header{height:64px;background:#fff!important;border-bottom:1px solid var(--amu-border);padding:0 24px;gap:18px}
+header .breadcrumb{display:none}
+header .header-right{margin-left:auto;gap:12px}
+header .header-status{display:none}
+header .header-right>a{color:#30658f!important;font-size:11px!important}
+#profile-top{background:#0d294a;border:2px solid #d9eaff;color:#fff;width:36px;height:36px;border-radius:50%}
+.amu-global-search{display:flex;align-items:center;position:relative;flex:1;max-width:575px;min-width:200px}
+.amu-global-search span{position:absolute;left:15px;font-size:24px;color:#8193a9;line-height:1}
+.amu-global-search input{height:40px;width:100%;border:1px solid #e8edf4;border-radius:11px;background:#f5f8fc;color:#243953;padding:10px 18px 10px 44px;font-size:12px;box-shadow:none}
+.amu-global-search input:focus{background:white;border-color:#74b5f5;outline:2px solid #d7ecff}
+.amu-header-notify{border:0;background:#f5f8fd;color:#344d6e;width:36px;height:36px;display:grid;place-items:center;border-radius:11px}
+.amu-header-notify .ui-icon{width:19px;height:19px}
+.amu-header-notify:hover{background:#e4f0ff}
+aside{width:212px;background:linear-gradient(180deg,#0b1d37,#09182b)!important;border-color:#203551!important;padding:19px 14px}
+aside .brand{display:flex;align-items:center;gap:11px;font-size:16px;letter-spacing:-.5px;line-height:1.05;color:#fff;padding:2px 8px 17px;border-bottom:1px solid #223956}
+aside .brand img{height:41px;width:41px;object-fit:cover;border-radius:11px}
+aside .brand b{font-size:14px;font-weight:600;color:#7cd1ff;letter-spacing:0}
+aside .eyebrow{display:none}
+aside nav{margin-top:20px;gap:5px}
+aside nav button{display:flex;align-items:center;gap:12px;min-height:43px;padding:10px 13px;color:#b0bdd2!important;border-radius:11px;font-size:12px;transition:background .2s}
+aside nav button .ui-icon{width:18px;height:18px;flex-shrink:0}
+aside nav button.active{background:linear-gradient(90deg,#1965c4,#0b4388)!important;color:white!important;box-shadow:0 7px 18px #001a4440}
+aside nav button:not(.active):hover{background:#ffffff10;color:white!important}
+aside .aside-bottom{left:14px;right:14px;bottom:18px;border:1px solid #315079;background:linear-gradient(160deg,#173455,#0e2746);padding:13px}
+aside .aside-bottom .orb{display:none}
+aside .aside-bottom h3{font-size:13px;margin:0;color:#dff2ff}
+aside .aside-bottom .aside-overline{display:block;font-size:9px;color:#69bcf5;letter-spacing:1.4px;margin-bottom:7px}
+aside .aside-bottom p{font-size:10px;line-height:1.5;color:#abc4dc;margin:7px 0}
+aside .aside-bottom .network{font-size:9px;color:#61d6cb}
+.workspace{margin-left:212px}
+main{max-width:1680px;padding:19px 19px 48px}
+footer{border-color:#e4ebf3;background:transparent;color:#92a1b4}
+#app{max-width:100%}
+#mobile-nav{display:none}
+.primary{background:linear-gradient(125deg,#0a83f5,#0868d4);border:0;border-radius:10px;color:#fff;box-shadow:0 5px 15px #0676ea26;font-size:12px;font-weight:700;padding:11px 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.secondary{border:1px solid #dce7f5;background:#fff;border-radius:10px;color:#24527e;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.text-btn,.amu-link{display:inline-flex;align-items:center;gap:5px;background:transparent;border:0;color:var(--amu-blue);font-size:11px;font-weight:600;padding:5px}
+.amu-link .ui-icon,.amu-open-link .ui-icon{width:13px;height:13px}
+.amu-dashboard-shell{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:17px;align-items:start}
+.amu-primary-column{min-width:0}
+main .amu-right-rail{display:flex;flex-direction:column;gap:13px;min-width:0;position:static;width:auto;height:auto;padding:0;background:transparent!important;border:0!important;box-shadow:none}
+.amu-mobile-summary{display:none}
+.amu-hero{height:205px;background:radial-gradient(circle at 72% 22%,#2d99fd80 0,transparent 37%),linear-gradient(115deg,#0b2d5d 10%,#005bb7 68%,#1768b5);border-radius:15px;overflow:hidden;position:relative;display:flex;align-items:center;color:#fff;box-shadow:0 10px 30px #0a448c1a}
+.amu-hero:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 90% 72%,#c1e7ff22,transparent 28%),linear-gradient(150deg,transparent 40%,#cfeaff12)}
+.amu-hero-copy{z-index:2;padding:22px 29px;max-width:69%;min-width:0}
+.amu-eyebrow{font-size:9px;letter-spacing:2px;font-weight:700;color:#4398dd}
+.amu-hero .amu-eyebrow{color:#acd8ff}
+.amu-hero h1{font-family:'Space Grotesk',system-ui,sans-serif;font-size:clamp(25px,3.15vw,42px);font-weight:700;letter-spacing:-2px;margin:7px 0 1px;color:#fff}
+.amu-hero h1 em{color:#4bb1ff;font-style:normal}
+.amu-hero h2{font-size:14px;margin:0 0 8px;font-weight:600;color:#fff;letter-spacing:0}
+.amu-hero p{font-size:10px;line-height:1.6;max-width:430px;color:#d0e3fb;margin:0}
+.amu-hero-actions{display:flex;gap:10px;align-items:center;margin-top:14px}
+.amu-hero-actions button{border-radius:9px;min-height:37px;padding:9px 13px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-size:10px;font-weight:700}
+.amu-hero-actions .ui-icon{width:16px;height:16px}
+.amu-hero-btn{background:linear-gradient(130deg,#2997ff,#0076f5);color:#fff;border:1px solid #70baff;box-shadow:0 5px 15px #00275540}
+.amu-hero-outline{background:#0b275788;color:#fff;border:1px solid #84bcf866}
+.amu-hero-art{position:absolute;right:0;top:0;height:100%;width:37%;pointer-events:none;overflow:hidden}
+.amu-cloud{width:100px;height:26px;background:#b7ddff33;filter:blur(13px);position:absolute;border-radius:50%;bottom:40px}
+.amu-cloud.one{right:10px;bottom:60px}
+.amu-cloud.two{left:0;bottom:33px}
+.amu-parachute{position:absolute;top:20px;left:24%;width:150px;height:73px;border-radius:90px 90px 6px 6px;background:repeating-conic-gradient(from 205deg at 50% 110%,#247cf0 0deg 22deg,#56b8ff 23deg 41deg,#0b4aae 42deg 65deg);border:3px solid #a8e4ff6e;box-shadow:inset -17px 12px 22px #e4f8ff66,0 14px 36px #002c6d70;transform:rotate(-9deg)}
+.amu-ropes{position:absolute;top:85px;left:31%;width:119px;height:74px}
+.amu-ropes i{position:absolute;height:82px;width:1.5px;background:#b0dfffaa;transform-origin:top}
+.amu-ropes i:nth-child(1){left:6px;transform:rotate(-16deg)}
+.amu-ropes i:nth-child(2){left:38px;transform:rotate(-6deg)}
+.amu-ropes i:nth-child(3){left:82px;transform:rotate(8deg)}
+.amu-ropes i:nth-child(4){left:112px;transform:rotate(18deg)}
+.amu-crate{position:absolute;top:140px;left:43%;width:66px;height:62px;display:grid;place-items:center;background:linear-gradient(140deg,#49acff,#0c62dd);border:3px solid #8ad6ff;border-radius:10px;color:white;font:700 40px system-ui;transform:rotate(-9deg);box-shadow:13px 12px 0 #063a85,0 14px 40px #001e58a8}
+.amu-island{position:absolute;right:-18px;bottom:-27px;width:150px;height:60px;border-radius:50%;background:linear-gradient(#9dbfda,#235d91);transform:rotate(-15deg);opacity:.6}
+.amu-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0 16px}
+.amu-stat{background:white;min-width:0;display:flex;align-items:center;gap:10px;border:1px solid var(--amu-border);border-radius:12px;padding:12px 10px;box-shadow:var(--amu-shadow)}
+.amu-stat-icon{width:36px;height:36px;min-width:36px;border-radius:10px;display:grid;place-items:center;background:#e9f3ff;color:#0c73db}
+.amu-stat-icon.green{background:#e2f9f2;color:#00ad7e}
+.amu-stat-icon.orange{background:#fff1e3;color:#ed8d15}
+.amu-stat-icon.purple{background:#f0eaff;color:#8253d7}
+.amu-stat-icon .ui-icon{width:19px;height:19px}
+.amu-stat strong{display:block;font:700 20px/1.1 'Space Grotesk',sans-serif;color:#10233f}
+.amu-stat small{display:block;font-size:9px;color:#73839a;line-height:1.25;margin-top:5px}
+.amu-section-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:17px 0 10px}
+.amu-section-top h2{font-size:16px;letter-spacing:-.5px;margin:0;color:#10233f}
+.amu-filter-bar{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 0 13px;white-space:nowrap}
+.amu-filter-bar button{background:#f1f4fa;color:#62748e;border:1px solid #e8edf4;padding:8px 13px;border-radius:18px;font-size:10px;flex-shrink:0}
+.amu-filter-bar button.amu-filter-active{background:#007dff;color:white;border-color:#007dff;box-shadow:0 3px 9px #007dff22}
+.amu-campaign-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.amu-campaign-card{background:#fff;border:1px solid var(--amu-border);border-radius:12px;padding:12px 10px;min-width:0;min-height:168px;display:flex;flex-direction:column;box-shadow:var(--amu-shadow);transition:transform .15s,border-color .15s}
+.amu-campaign-card:hover{transform:translateY(-2px);border-color:#bad9fb}
+.amu-card-top{display:flex;justify-content:space-between;gap:5px;align-items:start}
+.amu-card-open{display:flex;align-items:center;gap:8px;text-align:left;padding:0;min-width:0;flex:1;border:0;background:none}
+.amu-project-mark{width:40px;height:40px;min-width:40px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(145deg,#0f345f,#132a53);border:2px solid #dbeafa;color:white;font:700 23px 'Space Grotesk';box-shadow:0 2px 7px #1d47751c}
+.amu-card-title{min-width:0}
+.amu-card-title strong{font-size:11px;color:#1b2b41;display:block;overflow-wrap:anywhere}
+.amu-status-label{font-size:7px;color:#078f73;background:#e5f8f0;border-radius:5px;padding:3px 5px;display:inline-block;margin-top:3px}
+.amu-save{display:grid;place-items:center;padding:4px;border:0;background:none;color:#8195ad}
+.amu-save .ui-icon{width:18px;height:18px}
+.amu-save.is-saved{color:#0479ec}
+.amu-campaign-card p{color:#66748a;font-size:10px;line-height:1.5;min-height:42px;margin:9px 0 12px}
+.amu-chain-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap;color:#567393;font-size:8px;line-height:1.4}
+.amu-chain-row .ui-icon{width:13px;height:13px;color:#117cf2}
+.amu-mini-dot{width:3px;height:3px;background:#a7b9ca;border-radius:50%;margin:0 3px}
+.amu-card-foot{margin-top:auto;border-top:1px solid #edf1f7;padding-top:11px;display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:9px;color:#7e8da0}
+.amu-card-foot>span{display:flex;align-items:center;gap:4px}
+.amu-card-foot .ui-icon{width:12px;height:12px}
+.amu-open-link{display:flex;align-items:center;gap:3px;color:#0876e5;background:none;border:0;font-size:9px;padding:0;white-space:nowrap}
+.amu-catalog-notice{display:flex;align-items:center;gap:8px;padding:11px 12px;border-radius:9px;background:#ecf5ff;border:1px solid #daeafa;color:#647e98;font-size:10px;line-height:1.55;margin-top:13px}
+.amu-catalog-notice .ui-icon{width:17px;height:17px;min-width:17px;color:#137bdd}
+.amu-rail-panel{background:white;border:1px solid var(--amu-border);border-radius:12px;padding:13px 12px;box-shadow:var(--amu-shadow)}
+.amu-rail-header{display:flex;align-items:center;justify-content:space-between;gap:7px;padding-bottom:10px}
+.amu-rail-header h3{display:flex;align-items:center;gap:7px;margin:0;font-size:12px;color:#203653}
+.amu-rail-header h3 .ui-icon{width:16px;height:16px;color:#066cdd}
+.amu-rail-header .amu-link{font-size:9px;white-space:nowrap}
+.amu-wallet-preview{display:flex;align-items:center;gap:9px;background:#f5f8fe;border:1px solid #eef2f9;padding:10px 9px;border-radius:10px;min-width:0}
+.amu-wallet-glyph{display:grid;place-items:center;width:38px;min-width:38px;height:38px;border-radius:50%;background:linear-gradient(145deg,#80bbff,#076be7);color:#fff}
+.amu-wallet-glyph .ui-icon{width:21px;height:21px}
+.amu-wallet-preview>span:nth-child(2){min-width:0;flex:1}
+.amu-wallet-preview strong,.amu-wallet-preview small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.amu-wallet-preview strong{font-size:10px;color:#1d304b}
+.amu-wallet-preview small{font-size:8px;color:#8392a5;margin-top:4px}
+.amu-wallet-badge{font-size:8px;background:#e6effb;color:#385c80;border-radius:12px;padding:5px 7px}
+.amu-rail-action{width:100%;background:none;border:0;color:#1479e2;margin-top:10px;font-size:9px;display:flex;align-items:center;justify-content:center;gap:6px}
+.amu-rail-action .ui-icon{width:13px;height:13px}
+.amu-rail-quest{width:100%;display:flex;gap:9px;align-items:center;border:0;border-top:1px solid #eef2f7;padding:10px 2px;background:transparent;text-align:left;color:#33465d;font-size:10px}
+.amu-rail-quest:hover{background:#f6faff}
+.amu-quest-check{display:grid;place-items:center;width:20px;min-width:20px;height:20px;background:#e7f6ee;color:#09a476;border-radius:6px}
+.amu-quest-check .ui-icon{width:13px;height:13px}
+.amu-rail-quest>span:nth-child(2){flex:1}
+.amu-rail-quest b{font-size:9px;color:#0eaa80;white-space:nowrap}
+.amu-mini-disclaimer{font-size:9px!important;color:#93a0b1!important;line-height:1.55!important;margin:8px 0 0}
+.amu-muted{font-size:10px;color:#8392a7;margin:5px 0;line-height:1.6}
+.amu-rail-event{display:flex;align-items:start;gap:9px;border-top:1px solid #eef2f7;padding:10px 0}
+.amu-rail-event-icon{width:28px;min-width:28px;height:28px;border-radius:9px;background:#eaf3ff;color:#2475d6;display:grid;place-items:center}
+.amu-rail-event-icon .ui-icon{width:15px;height:15px}
+.amu-rail-event strong,.amu-rail-event b{display:block;font-weight:600;font-size:10px;color:#30435c}
+.amu-rail-event small{display:block;font-size:8px;color:#9ba9b7;margin-top:3px}
+.amu-page-heading{margin:7px 0 18px}
+.amu-page-heading h1{font-size:27px;color:#142941;letter-spacing:-1px;margin:5px 0}
+.amu-page-heading p{font-size:11px;max-width:680px;color:#8391a6;line-height:1.7;margin:0}
+.amu-eligibility-panel{border:1px solid #e2ebf7;background:white;box-shadow:var(--amu-shadow);border-radius:13px;padding:14px;max-width:750px;margin-bottom:24px}
+.amu-eligibility-actions{display:flex;align-items:center;gap:15px;padding:13px 4px 2px}
+.amu-eligibility-actions span{font-size:10px;color:#8696ab;line-height:1.5}
+.amu-eligibility-list{display:grid;gap:9px}
+.amu-eligibility-row{display:flex;align-items:center;gap:12px;border:1px solid var(--amu-border);border-radius:11px;background:white;padding:11px 13px}
+.amu-eligibility-row>span:nth-child(2){flex:1;min-width:0}
+.amu-eligibility-row strong,.amu-eligibility-row small{display:block}
+.amu-eligibility-row strong{font-size:12px;color:#253953}
+.amu-eligibility-row small{font-size:9px;color:#91a0b3;margin-top:4px}
+.amu-review-status{background:#fff4e5;color:#b0711c;font-size:9px;padding:5px 7px;border-radius:8px;white-space:nowrap}
+.amu-eligibility-row button{border:0;background:#eff7ff;border-radius:8px;color:#147cec;padding:8px;font-size:10px;display:flex;align-items:center;gap:4px}
+.amu-eligibility-row button .ui-icon{width:12px;height:12px}
+.amu-notification-feed{background:white;border:1px solid var(--amu-border);border-radius:13px;overflow:hidden;box-shadow:var(--amu-shadow)}
+.amu-notification{display:flex;align-items:start;gap:12px;padding:16px;border-bottom:1px solid #edf2f8}
+.amu-notification:last-child{border:0}
+.amu-notification-symbol{width:35px;height:35px;display:grid;place-items:center;border-radius:10px;background:#e7f2ff;color:#1675dd}
+.amu-notification-symbol .ui-icon{width:18px;height:18px}
+.amu-notification strong{font-size:12px;color:#30415a}
+.amu-notification small{display:block;margin-top:5px;font-size:9px;color:#94a1b2}
+.amu-empty{text-align:center;padding:55px 20px}
+.amu-empty>span{width:55px;height:55px;border-radius:16px;background:#eaf5ff;color:#0a77e8;display:grid;place-items:center;margin:0 auto 15px}
+.amu-empty h2{margin:0;font-size:17px}
+.amu-empty p{font-size:11px;color:#8292a7}
+.amu-wallets-view{max-width:1000px}
+.amu-portfolio-overview{display:flex;align-items:center;justify-content:space-between;background:white;border:1px solid var(--amu-border);border-radius:13px;padding:19px 22px;box-shadow:var(--amu-shadow);margin-bottom:16px}
+.amu-portfolio-total>small{display:block;font-size:10px;color:#8593a8}
+.amu-portfolio-total>strong{display:block;color:#1e3555;font-size:32px;margin:5px 0}
+.amu-portfolio-total>span{font-size:9px;color:#90a0b5}
+.amu-portfolio-pills{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;margin-top:13px;color:#4b708f}
+.amu-portfolio-pills span:nth-child(2){color:#0ca98c}
+.amu-portfolio-pills span:nth-child(3){color:#8b5ce4}
+.amu-donut{width:95px;height:95px;min-width:95px;border-radius:50%;background:conic-gradient(#0a80f8 0 var(--slice-a),#0cbda4 var(--slice-a) var(--slice-b),#8058e9 var(--slice-b) 360deg);display:grid;place-items:center}
+.amu-donut:before{content:'';background:white;border-radius:50%;width:63px;height:63px;grid-area:1/1}
+.amu-donut span{position:relative;grid-area:1/1;font-size:20px;font-weight:700;color:#123c6a}
+.intro h1{font-family:'Space Grotesk',sans-serif;color:#182c47;font-weight:700;font-size:25px}
+.intro .eyeline{font-size:9px;color:#347fca}
+.intro p{font-size:11px;color:#7d90a7}
+.grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{border-radius:12px;box-shadow:var(--amu-shadow)}
+.directory-tools,.panel,.portfolio-summary,.gallery-overview{border-radius:12px;box-shadow:var(--amu-shadow)}
+.chip.active,.section-tabs>button.active{color:#0a78ed;border-color:#1c89fd}
+.chip.active{background:#eaf4ff}
+.view-switch button.active{color:#0a78ed}
+#detail{border:0;border-radius:16px;box-shadow:0 20px 70px #04193844;max-height:90dvh}
+#detail .exhibit-detail-head{background:linear-gradient(140deg,#0b2d5a,#176abd);color:white;border-radius:16px 16px 0 0}
+#detail .exhibit-detail-head h2,#detail .exhibit-detail-head .detail-stage,#detail .exhibit-detail-head .eyeline{color:white}
+#detail .detail-tabs button.active{color:#087aef;border-color:#087aef}
+#detail .close{background:#ffffffdf;border:0;color:#13467d}
+#toast{background:#0f3e77;border-color:#247ad4;color:#fff}
+@media(max-width:1420px){
+ .amu-dashboard-shell{grid-template-columns:minmax(0,1fr) 258px;gap:11px}
+ .amu-campaign-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .amu-stat{padding:10px 8px}
+}
+@media(max-width:1050px){
+ aside{width:184px}
+ .workspace{margin-left:184px}
+ main{padding:17px 14px 40px}
+ .amu-dashboard-shell{grid-template-columns:minmax(0,1fr) 230px}
+ .amu-hero-copy{max-width:72%;padding:18px}
+ .amu-hero-actions{gap:5px}
+ .amu-hero-actions button{font-size:9px;padding:8px}
+ .amu-parachute{transform:scale(.8) rotate(-9deg);transform-origin:top left}
+ .amu-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .amu-campaign-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:820px){
+ .amu-dashboard-shell{display:block}
+ main .amu-right-rail{display:none}
+ .amu-mobile-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:17px}
+ .amu-mobile-summary .amu-rail-panel:last-child{grid-column:1/-1}
+ aside{width:166px;padding:14px 9px}
+ .workspace{margin-left:166px}
+ aside nav button{padding:9px;font-size:11px;gap:8px}
+ .amu-global-search{min-width:125px}
+ header{padding:0 12px}
+}
+@media(max-width:700px){
+ html,body{width:100%;overflow-x:clip}
+ aside{display:none}
+ .workspace{margin:0;width:100%;min-height:100dvh}
+ header{height:58px;position:sticky;top:0;z-index:6;display:flex;align-items:center;padding:0 14px;background:white!important;box-shadow:0 2px 12px #234b7208}
+ header .mobile-brand{display:flex;align-items:center;gap:6px;font-size:13px;color:#152d4c;white-space:nowrap}
+ header .mobile-brand:first-letter{color:#147cf2}
+ header .header-right{gap:7px;margin-left:auto}
+ header .header-right>a{display:none}
+ .amu-global-search{display:none}
+ .amu-header-notify{width:32px;height:32px;border-radius:9px}
+ #profile-top{width:31px;height:31px;font-size:11px}
+ main{padding:14px 12px calc(106px + env(safe-area-inset-bottom));margin:0;width:100%;max-width:none}
+ .amu-dashboard-shell{display:block}
+ .amu-hero{height:198px;border-radius:14px}
+ .amu-hero-copy{padding:19px;max-width:78%}
+ .amu-hero .amu-eyebrow{font-size:7px;letter-spacing:1.4px}
+ .amu-hero h1{font-size:29px;letter-spacing:-1.3px;line-height:1.15}
+ .amu-hero h2{font-size:10px;margin-top:4px;max-width:210px}
+ .amu-hero p{font-size:9px;max-width:220px;line-height:1.55}
+ .amu-hero-actions{margin-top:12px;gap:6px}
+ .amu-hero-actions button{font-size:8px;min-height:31px;padding:7px 8px;max-width:155px}
+ .amu-hero-actions .ui-icon{width:13px;height:13px}
+ .amu-hero-art{right:-17px;width:42%;opacity:.84}
+ .amu-parachute{top:38px;left:9%;transform:scale(.63) rotate(-9deg);transform-origin:top left}
+ .amu-ropes{top:79px;left:19%;transform:scale(.65);transform-origin:top left}
+ .amu-crate{top:131px;left:38%;transform:scale(.65) rotate(-9deg)}
+ .amu-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 16px}
+ .amu-stat{min-height:64px;padding:10px 9px}
+ .amu-stat-icon{width:32px;min-width:32px;height:32px}
+ .amu-stat strong{font-size:18px}
+ .amu-stat small{font-size:9px}
+ .amu-section-top{margin:16px 0 10px}
+ .amu-section-top h2{font-size:15px}
+ .amu-filter-bar{gap:5px;padding-bottom:11px}
+ .amu-filter-bar button{font-size:9px;padding:7px 11px}
+ .amu-campaign-grid{display:grid;grid-template-columns:1fr;gap:8px}
+ .amu-campaign-card{min-height:139px;padding:13px}
+ .amu-card-title strong{font-size:13px}
+ .amu-status-label{font-size:8px}
+ .amu-campaign-card p{margin:8px 0;min-height:0;font-size:10px}
+ .amu-card-foot{padding-top:9px}
+ .amu-mobile-summary{display:block;margin-top:14px}
+ .amu-mobile-summary .amu-rail-panel{margin-bottom:12px}
+ .amu-catalog-notice{font-size:9px}
+ #mobile-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:9;justify-content:space-around;gap:0;background:#fff!important;border-top:1px solid #e3eaf2;padding:6px 7px calc(7px + env(safe-area-inset-bottom));box-shadow:0 -5px 25px #183e6910}
+ #mobile-nav button{display:flex;align-items:center;justify-content:center;flex:1;flex-direction:column;gap:4px;padding:8px 0;background:none;border:0;border-radius:11px;color:#8996aa;font-size:9px;line-height:1;min-width:0}
+ #mobile-nav button .ui-icon{width:22px;height:22px}
+ #mobile-nav button.active{background:#eff6ff;color:#067bf0;font-weight:700;text-shadow:none!important}
+ .intro{display:flex;gap:10px;flex-wrap:wrap;align-items:start}
+ .intro h1{font-size:22px}
+ .intro p{font-size:10px}
+ .intro .primary,.intro .secondary{font-size:10px}
+ .section-tabs{gap:14px;overflow-x:auto}
+ .section-tabs>button{font-size:10px}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .card .card-body{padding:11px}
+ .card .card-art{height:100px}
+ .card .card-body>h3{font-size:14px}
+ .card .card-evidence{flex-wrap:wrap}
+ .directory-tools{padding:11px 12px 0}
+ .toolbar select{width:auto;max-width:100%;flex:1}
+ .toolbar .search{flex-basis:100%;min-width:0}
+ .portfolio-summary{flex-wrap:wrap;gap:12px;padding:13px}
+ .portfolio-summary>div{min-width:calc(33.33% - 10px);gap:4px}
+ .portfolio-summary b{font-size:17px}
+ .portfolio-summary span{font-size:8px}
+ .portfolio-summary .view-switch{width:100%;margin:0;justify-content:center}
+ .kanban{grid-template-columns:1fr;gap:12px}
+ .lane{padding:12px}
+ .profile-columns,.privacy-panel,.dashboard-columns{grid-template-columns:1fr}
+ .amu-portfolio-overview{padding:14px}
+ .amu-portfolio-pills{gap:7px}
+ .amu-donut{width:78px;min-width:78px;height:78px}
+ .amu-donut:before{width:52px;height:52px}
+ .amu-page-heading h1{font-size:24px}
+ .amu-eligibility-actions{flex-wrap:wrap}
+ .amu-eligibility-row{gap:8px;padding:10px 7px}
+ .amu-eligibility-row .amu-project-mark{width:31px;min-width:31px;height:31px;font-size:17px}
+ .amu-eligibility-row strong{font-size:10px}
+ .amu-review-status{font-size:7px;padding:4px}
+ .amu-eligibility-row button{font-size:9px}
+ #detail{position:fixed;inset:0;width:100vw;max-width:none;height:100dvh;max-height:100dvh;margin:0;border-radius:0;padding:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom)}
+ #detail .exhibit-detail-head{border-radius:0}
+ #detail .detail-toolbar{padding-inline:15px}
+ #toast{bottom:calc(79px + env(safe-area-inset-bottom));max-width:calc(100% - 22px)}
+ footer{display:none}
+}
+@media(max-width:370px){
+ .amu-hero h1{font-size:25px}
+ .amu-hero-copy{max-width:83%;padding:14px}
+ .amu-hero-actions button{font-size:7.5px;padding:6px}
+ .amu-hero-art{opacity:.55;right:-34px}
+ .amu-stat{gap:5px}
+ .amu-stat strong{font-size:17px}
+ .amu-stat small{font-size:8px}
+ .amu-eligibility-row .amu-review-status{display:none}
+}
+@media(prefers-reduced-motion:reduce){.amu-campaign-card{transition:none}}

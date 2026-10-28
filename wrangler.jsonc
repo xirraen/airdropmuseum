@@ -23,11 +23,104 @@
   },
   "triggers": {
     "crons": [
-      "17 * * * *"
+      "17 * * * *",
+      "*/30 * * * *",
+      "37 */6 * * *",
+      "*/5 * * * *",
+      "*/15 * * * *"
     ]
   },
   "vars": {
     "RPC_1": "https://ethereum-rpc.publicnode.com",
-    "RPC_8453": "https://base-rpc.publicnode.com"
-  }
+    "RPC_8453": "https://base-rpc.publicnode.com",
+    "TRUST_PUBLIC_ORIGIN": "https://airdrop-museum.xirraen.workers.dev",
+    "PUBLIC_API_ORIGIN": "https://airdrop-museum.xirraen.workers.dev",
+    "PUBLIC_API_ALLOWED_ORIGINS": "https://airdrop-museum.xirraen.workers.dev",
+    "REQUIRE_RATE_LIMIT_BINDINGS": "1",
+    "AGGREGATOR_ALLOWED_HOSTS": "airdrop-museum.xirraen.workers.dev,docs.layer3.xyz,docs.layer3foundation.org,help.galxe.com,jup.ag",
+    "AGGREGATOR_DISCOVERY_URLS": "https://airdrop-museum.xirraen.workers.dev/official-registry.json",
+    "AGGREGATOR_MONITOR_SOURCES": "1",
+    "PUBLIC_APP_URL": "https://airdrop-museum.xirraen.workers.dev"
+  },
+  "queues": {
+    "producers": [
+      {
+        "queue": "airdrop-museum-discovery",
+        "binding": "DISCOVERY_QUEUE"
+      },
+      {
+        "queue": "airdrop-museum-partner-webhook",
+        "binding": "PARTNER_WEBHOOK_QUEUE"
+      },
+      {
+        "binding": "AGGREGATOR_QUEUE",
+        "queue": "airdrop-museum-aggregator"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "airdrop-museum-discovery",
+        "max_batch_size": 10,
+        "max_retries": 3,
+        "dead_letter_queue": "airdrop-museum-discovery-dlq"
+      },
+      {
+        "queue": "airdrop-museum-partner-webhook",
+        "max_batch_size": 10,
+        "max_retries": 4,
+        "dead_letter_queue": "airdrop-museum-partner-webhook-dlq"
+      },
+      {
+        "queue": "airdrop-museum-partner-webhook-dlq",
+        "max_batch_size": 10,
+        "max_retries": 0
+      },
+      {
+        "queue": "airdrop-museum-aggregator",
+        "max_batch_size": 5,
+        "max_batch_timeout": 10,
+        "max_retries": 3,
+        "dead_letter_queue": "airdrop-museum-aggregator-dlq"
+      }
+    ]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "TRUST_CACHE",
+      "id": "bc8fc9f66cf7495f9ad2f2c4917e1674"
+    },
+    {
+      "binding": "JOURNAL_ERASURE_LEDGER",
+      "id": "cb0cc6c853a74270b23771ab35515d1b"
+    }
+  ],
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "airdropmuseum_operations"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "PUBLIC_API_RATE_LIMITER",
+      "namespace_id": "1008",
+      "simple": {
+        "limit": 600,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "r2_buckets": [
+    {
+      "binding": "AGGREGATOR_BACKUP_BUCKET",
+      "bucket_name": "airdrop-museum-user-backups"
+    }
+  ]
 }

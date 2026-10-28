@@ -1,0 +1,48 @@
+name: Deploy production (approved)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-airdrop-museum
+  cancel-in-progress: false
+jobs:
+  production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm run typecheck --if-present
+      - run: node scripts/security-scan.mjs
+      - run: node --experimental-sqlite scripts/validate-migrations.mjs
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:runtime
+      - name: Audit production dependencies (fail closed)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify remote D1 event schema before deploying code
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: '9880cf2cc57c2096f8c3ae253d9852e6'
+        run: |
+          set -euo pipefail
+          test "$CLOUDFLARE_ACCOUNT_ID" = "9880cf2cc57c2096f8c3ae253d9852e6"
+          npx --yes wrangler@4 d1 execute airdrop-museum --remote --config wrangler.jsonc \
+            --command="SELECT CASE WHEN EXISTS(SELECT 1 FROM am_core_schema WHERE version=16) AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='campaign_registry_links') AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='autopsy_projection_rebuild_guards') AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='journal_private_payloads') AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='autopsy_events') AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='autopsy_events_immutable_update') AND EXISTS(SELECT 1 FROM sqlite_master WHERE type='trigger' AND name='autopsy_events_immutable_delete') THEN 'SPRINT11_SCHEMA_READY' ELSE 'MIGRATION_REQUIRED' END AS readiness" \
+            | tee /tmp/airdropmuseum-db-readiness.txt
+          grep -q 'SPRINT11_SCHEMA_READY' /tmp/airdropmuseum-db-readiness.txt
+      - name: Deploy only after production environment approval and migration check
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: '9880cf2cc57c2096f8c3ae253d9852e6'
+        run: |
+          test "$CLOUDFLARE_ACCOUNT_ID" = "9880cf2cc57c2096f8c3ae253d9852e6"
+          npx --yes wrangler@4 deploy --config wrangler.jsonc

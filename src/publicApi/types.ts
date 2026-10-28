@@ -1,0 +1,19 @@
+export const DISCLAIMER='Informasi ini merupakan kurasi platform, bukan jaminan eligibility, reward, atau keamanan. Verifikasi manual pada sumber resmi sebelum bertindak.';
+export const EVENTS=Object.freeze(['campaign.created','campaign.updated','campaign.status_changed','snapshot.upcoming','claim.opened','deadline.upcoming','source.conflict_detected']);
+export const TIER_LIMITS=Object.freeze({anonymous:30,free:60,partner:300,internal:600});
+export const TIER_DAILY=Object.freeze({free:2000,partner:20000,internal:100000});
+export class ApiError extends Error {constructor(code,status=400){super(code);this.status=status;}}
+export const fail=(code,status=400)=>{throw new ApiError(code,status);};
+export const sql=(db,query,...params)=>db.prepare(query).bind(...params);
+export const digest=async v=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)))).map(v=>v.toString(16).padStart(2,'0')).join('');
+export function fixedEqual(a,b){const x=new TextEncoder().encode(String(a)),y=new TextEncoder().encode(String(b));let diff=x.length^y.length;for(let i=0;i<Math.max(x.length,y.length);i++)diff|=(x[i]||0)^(y[i]||0);return diff===0;}
+export const str=(v,n=200)=>typeof v==='string'?v.trim().slice(0,n):'';
+export function https(v){const s=str(v,1500);let u;try{u=new URL(s);}catch{fail('HTTPS_URL_REQUIRED');}if(u.protocol!=='https:'||u.username||u.password||u.port&&u.port!=='443'||/^(localhost|.*\.localhost|.*\.local|.*\.internal|.*\.test)$/i.test(u.hostname)||/^[\d.]+$/.test(u.hostname)||u.hostname.includes(':')||!u.hostname.includes('.'))fail('HTTPS_URL_REQUIRED');u.hash='';return u.href;}
+export const iso=v=>{if(typeof v!=='string'&&!Number.isFinite(v))return null;const t=Date.parse(String(v));return Number.isFinite(t)?new Date(t).toISOString():null;};
+export async function bodyJson(req,max=8192){if(!req.headers.get('Content-Type')?.toLowerCase().startsWith('application/json'))fail('JSON_REQUIRED',415);if(Number(req.headers.get('Content-Length')||0)>max)fail('BODY_TOO_LARGE',413);if(!req.body)fail('INVALID_JSON');const reader=req.body.getReader(),parts=[];let size=0;for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>max){await reader.cancel();fail('BODY_TOO_LARGE',413);}parts.push(value);}const bytes=new Uint8Array(size);let n=0;for(const p of parts){bytes.set(p,n);n+=p.length;}let b;try{b=JSON.parse(new TextDecoder().decode(bytes));}catch{fail('INVALID_JSON');}if(!b||typeof b!=='object'||Array.isArray(b))fail('INVALID_JSON');return b;}
+export function json(value,status=200,headers={}){if(value&&typeof value==='object'&&!Array.isArray(value)&&!Object.hasOwn(value,'disclaimer'))value={...value,disclaimer:DISCLAIMER};return Response.json(value,{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'",...headers}});}
+export function allowOrigin(request,env){const origin=request.headers.get('Origin');const allowed=str(env.PUBLIC_API_ALLOWED_ORIGINS||'',2000).split(',').map(x=>x.trim()).filter(Boolean);return origin&&allowed.includes(origin)?origin:null;}
+export function cors(request,env){const origin=allowOrigin(request,env);return origin?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, HEAD, POST, DELETE, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, If-None-Match','Access-Control-Max-Age':'3600','Vary':'Origin'}:{'Vary':'Origin'};}
+export function method(req,...methods){if(!methods.includes(req.method))fail('METHOD_NOT_ALLOWED',405);}
+export const safeParse=(s,otherwise={})=>{try{const p=JSON.parse(s);return p&&typeof p==='object'?p:otherwise;}catch{return otherwise;}};
+export function publicUrl(url){try{return https(url);}catch{return null;}}

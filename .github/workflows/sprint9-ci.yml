@@ -1,0 +1,30 @@
+name: Sprint 9 Admin Operations CI
+on:
+  push:
+    branches: ["feat/sprint-9-admin-operations"]
+  pull_request:
+    paths:
+      - "src/admin/**"
+      - "migrations/0013_admin_operations.sql"
+      - "scripts/build-worker.mjs"
+      - "tests/**"
+      - "dist/admin*"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install lockfile dependencies
+        run: npm ci
+      - name: Build Worker assets
+        run: npm run build
+      - name: Verify admin console JavaScript syntax
+        run: node --check dist/admin.js
+      - name: Run tests
+        run: npm test
