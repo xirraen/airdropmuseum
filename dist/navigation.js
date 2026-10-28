@@ -1,4 +1,5 @@
-export const PRIMARY_NAV=[['home','home','Beranda'],['explore','compass','Jelajahi'],['missions','activity','Misi & Bounty'],['profile','user','Profil']];
-export const ROUTES=['home','explore','workspace','profile','calendar','archive','voices','referral','missions','hub'];
+export const PRIMARY_NAV=[['home','home','Beranda'],['explore','compass','Airdrop'],['missions','check','Quest'],['workspace','layers','Portofolio'],['profile','user','Profil']];
+export const SIDE_NAV=[['home','home','Beranda'],['explore','compass','Airdrop'],['hub','globe','Discovery'],['workspace','layers','Portofolio'],['eligibility','shield','Cek Eligibility'],['wallets','wallet','Wallets'],['missions','check','Quest'],['notifications','bell','Notifikasi'],['profile','user','Profil']];
+export const ROUTES=['home','explore','workspace','profile','calendar','archive','voices','referral','missions','hub','eligibility','wallets','notifications'];
 export function resolveRoute(value){return ROUTES.includes(value)?value:'home'}
-export function primaryRoute(value){if(['workspace','calendar','archive'].includes(value))return 'profile';if(value==='hub')return 'explore';if(value==='voices')return 'explore';if(value==='referral')return 'profile';return resolveRoute(value)}
+export function primaryRoute(value){if(['calendar','archive'].includes(value))return 'workspace';if(['hub','voices','eligibility'].includes(value))return 'explore';if(['referral','wallets','notifications'].includes(value))return 'profile';return resolveRoute(value)}
