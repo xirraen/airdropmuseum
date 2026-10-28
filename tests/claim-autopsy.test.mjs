@@ -4,166 +4,182 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {digest} from '../src/platform-api.mjs';
 import {autopsyRoutes} from '../src/autopsy/routes.ts';
-import {parseAutopsy,parseDecision,evidence,https} from '../src/autopsy/validation.ts';
-import {buildPatterns,buildWeekly,weekRange,INSUFFICIENT} from '../src/autopsy/patterns.ts';
-import {assembleEvidenceCard} from '../src/autopsy/evidenceCard.ts';
-class D1{
- constructor(with11=true){
+import {appendEvent} from '../src/autopsy/eventStore.ts';
+import {rebuild,replay,readEvents} from '../src/autopsy/projectionService.ts';
+import {cohorts,MIN_COHORT} from '../src/autopsy/patternService.ts';
+import {decisionBody,cutoff} from '../src/autopsy/types.ts';
+class D1 {
+ constructor(){
   this.sqlite=new DatabaseSync(':memory:');this.sqlite.exec('PRAGMA foreign_keys=ON');
-  const files=['0001_core.sql','0003_platform.sql','0010_discovery_automation.sql','0011_source_trust.sql','0012_public_api.sql','0013_admin_operations.sql',...(with11?['0014_claim_autopsy.sql']:[])];
-  for(const filename of files)this.sqlite.exec(readFileSync(new URL('../migrations/'+filename,import.meta.url),'utf8'));
+  for(const file of ['0001_core.sql','0003_platform.sql','0010_discovery_automation.sql','0011_source_trust.sql','0012_public_api.sql','0013_admin_operations.sql','0014_claim_autopsy.sql'])
+   this.sqlite.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
  }
- prepare(query){const stmt=this.sqlite.prepare(query);let p=[];const q={bind(...args){p=args;return q;},async first(){return stmt.get(...p)||null;},async all(){return {results:stmt.all(...p)};},async run(){return {meta:{changes:Number(stmt.run(...p).changes)}};}};return q;}
+ prepare(sql){const stmt=this.sqlite.prepare(sql);let params=[];const q={bind(...args){params=args;return q;},
+  async first(){return stmt.get(...params)||null;},async all(){return {results:stmt.all(...params)};},
+  async run(){return {meta:{changes:Number(stmt.run(...params).changes)}};}};return q;}
+ async batch(queries){
+  this.sqlite.exec('BEGIN IMMEDIATE');try{const result=[];for(const q of queries)result.push(await q.run());this.sqlite.exec('COMMIT');return result;}
+  catch(error){this.sqlite.exec('ROLLBACK');throw error;}
+ }
 }
-const origin='https://museum.example.org';
-const cookieA='a'.repeat(64),cookieB='b'.repeat(64);
-const req=(path,cookie,method='GET',body,extra={})=>new Request(origin+path,{method,headers:{...(cookie?{Cookie:'am_session='+cookie}:{}),'Content-Type':'application/json',...(body===undefined?{}:{Origin:origin}),...extra},...(body===undefined?{}:{body:JSON.stringify(body)})});
-async function fixture(with11=true){
- const DB=new D1(with11);
+const origin='https://museum.example.org',cookieA='a'.repeat(64),cookieB='b'.repeat(64);
+const req=(path,cookie,method='GET',data,extra={})=>new Request(origin+path,{method,
+ headers:{...(cookie?{Cookie:'am_session='+cookie}:{}),...(data===undefined?{}:{Origin:origin,'Content-Type':'application/json'}),...extra},
+ ...(data===undefined?{}:{body:JSON.stringify(data)})});
+const api=(e,path,cookie=cookieA,method='GET',data,extra={})=>autopsyRoutes(req(path,cookie,method,data,extra),e);
+const now=()=>new Date().toISOString();
+const decision={campaign_id:'ended',reason:'Dokumen resmi menjelaskan periode',primary_evidence_url:'https://official.example.org/info?access_token=secret',
+ decision_source:'official',time_budget_minutes:60,cost_ceiling_usd:5,realistic_expectations:'Tidak ada jaminan alokasi'};
+async function fixture(){
+ const DB=new D1();
  for(const [id,cookie] of [['tg:alice',cookieA],['tg:bob',cookieB]]){
   await DB.prepare('INSERT INTO am_users(id,username) VALUES(?,?)').bind(id,id).run();
   await DB.prepare('INSERT INTO am_sessions(token_hash,user_id,expires) VALUES(?,?,?)').bind(await digest(cookie),id,Math.floor(Date.now()/1000)+3600).run();
  }
- const e={DB};
- await campaign(e,'ended',{status:'ended',visibility:'public'},'confirmed',true);
- await campaign(e,'future',{status:'active',visibility:'public',claim_deadline_at:'2030-01-01T00:00:00Z'},'confirmed',true);
- await campaign(e,'hidden',{status:'ended',visibility:'private'},'confirmed',true);
- await campaign(e,'draft',{status:'ended',visibility:'public'},'draft',true);
- await campaign(e,'noverify',{status:'ended',visibility:'public'},'confirmed',false);
- return e;
-}
-async function campaign(e,id,more={},review='confirmed',verified=true){
- const payload={slug:id,name:'Example '+id,project_name:'Example',description:'Public status',status:'ended',visibility:'public',...more};
- await e.DB.prepare('INSERT INTO am_core_exhibits(id,payload,source_url,review_status) VALUES(?,?,?,?)').bind(id,JSON.stringify(payload),'https://official.example.org/claim',review).run();
- if(verified)await e.DB.prepare("INSERT INTO verification_runs(id,run_key,campaign_id,trigger_type,status,started_at,finished_at,confidence_label) VALUES(?,?,?,'manual','complete',?,?,?)").bind('run:'+id,'key:'+id,id,'2026-10-28T12:00:00Z','2026-10-28T12:00:00Z','medium_confidence').run();
-}
-const base={
- campaign_id:'ended',wallet_address:'0x'+'a'.repeat(40),
- activity_before_snapshot:true,activity_after_snapshot:false,
- quest_count:4,chain_count:2,gas_cost_usd:3.5,bridge_cost_usd:1.25,
- research_minutes:90,decision_source:'official',outcome:'allocated',
- hypothesis:'Penyebab sebenarnya belum dapat ditentukan',
- evidence:[{kind:'tx_hash',value:'0x'+'e'.repeat(64)},{kind:'official_link',value:'https://official.example.org/claim'}]
-};
-const decision={campaign_id:'ended',reason:'Dokumen primer dapat ditinjau',primary_evidence_url:'https://official.example.org/claim?secret=discard',decision_source:'official',time_budget_minutes:120,cost_ceiling_usd:10,realistic_expectations:'Tidak ada jaminan alokasi'};
-const run=async(e,path,cookie=cookieA,method='GET',body,extra)=>autopsyRoutes(req(path,cookie,method,body,extra),e);
-test('migration is additive and backward compatible with preceding trust/admin tables',async()=>{
- const e=await fixture();
- for(const t of ['claim_autopsies','decision_entries','outcome_reviews','user_pattern_snapshots','source_conflicts','admin_users']){
-  assert.ok(await e.DB.prepare('SELECT name FROM sqlite_master WHERE name=?').bind(t).first(),t);
+ for(const [id,status,visibility,verified] of [['ended','ended','public',true],['future','active','public',true],['hidden','ended','private',true],['draft','ended','public',false]]){
+  await DB.prepare('INSERT INTO am_core_exhibits(id,payload,source_url,review_status) VALUES(?,?,?,?)')
+   .bind(id,JSON.stringify({slug:id,name:id,status,visibility,claim_deadline_at:status==='ended'?'2026-01-01T00:00:00Z':'2030-01-01T00:00:00Z'}),'https://official.example.org/info',id==='draft'?'draft':'confirmed').run();
+  if(verified)await DB.prepare("INSERT INTO verification_runs(id,run_key,campaign_id,trigger_type,status,started_at,finished_at,confidence_label) VALUES(?,?,?,'manual','complete',?,?,?)")
+   .bind('v:'+id,'run:'+id,id,'2026-10-28T00:00:00Z','2026-10-28T00:00:00Z','needs_review').run();
  }
- assert.ok(await e.DB.prepare('SELECT version FROM am_core_schema WHERE version=11').first());
- assert.ok(await e.DB.prepare('SELECT id FROM am_core_exhibits WHERE id=?').bind('ended').first());
+ return {DB};
+}
+async function create(e,cookie=cookieA,extra={}){
+ const r=await api(e,'/api/autopsy/decisions',cookie,'POST',{...decision,expected_version:0,knowledge_cutoff_at:now(),...extra});
+ return {status:r.status,data:await r.json()};
+}
+async function call(e,id,op,data,cookie=cookieA){
+ const r=await api(e,'/api/autopsy/'+id+'/'+op,cookie,'POST',{knowledge_cutoff_at:now(),...data});
+ return {status:r.status,data:await r.json()};
+}
+test('0014 adds event and projection tables, preserves original campaign and admin schema',async()=>{
+ const e=await fixture();for(const name of ['autopsy_events','claim_autopsies','decision_entries','evidence_items','pattern_snapshots','admin_users','verification_runs']){
+  assert.ok(await e.DB.prepare('SELECT name FROM sqlite_master WHERE name=?').bind(name).first(),name);
+ }assert.equal((await e.DB.prepare('SELECT version FROM am_core_schema WHERE version=11').first()).version,11);
+ assert.ok(await e.DB.prepare("SELECT id FROM am_core_exhibits WHERE id='ended'").first());
 });
-test('validation rejects wallets, invalid expenses, secrets, non-HTTPS and fake tx hashes',()=>{
- assert.equal(parseAutopsy({...base,consent_to_analysis:false}).consent_to_analysis,0);
- assert.throws(()=>parseAutopsy({...base,wallet_address:'private key'}),/INVALID_PUBLIC_WALLET/);
- assert.throws(()=>parseAutopsy({...base,gas_cost_usd:-1}),/INVALID_NUMBER/);
- assert.throws(()=>parseAutopsy({...base,quest_count:1.7}),/INVALID_NUMBER/);
- assert.throws(()=>parseAutopsy({...base,outcome:'guaranteed'}),/INVALID_CHOICE/);
- assert.throws(()=>parseAutopsy({...base,hypothesis:'Please save my seed phrase'}),/SENSITIVE_INPUT_REFUSED/);
- assert.throws(()=>parseAutopsy({...base,hypothesis:'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'}),/SENSITIVE_INPUT_REFUSED/);
- assert.throws(()=>parseAutopsy({...base,evidence:[{kind:'tx_hash',value:'0x123'}]}),/INVALID_TX_HASH/);
- assert.throws(()=>parseDecision({...decision,primary_evidence_url:'https://localhost/token'}),/INVALID_HTTPS_URL/);
- assert.throws(()=>evidence([{kind:'screenshot',value:'http://site.example/a'}]),/INVALID_HTTPS_URL/);
- assert.equal(https('https://official.example.org/claim?token=secret#hash'),'https://official.example.org/claim');
+test('decision is event version 1 and every claim carries a real evidence reference',async()=>{
+ const e=await fixture(),c=await create(e);assert.equal(c.status,201);assert.equal(c.data.version,1);
+ const state=c.data.state;assert.equal(state.evidence.length,1);assert.equal(state.timeline[0].version,1);
+ assert.equal(state.decision.primary_evidence_url,'https://official.example.org/info');
+ assert.equal(state.timeline[0].evidence_refs[0],state.evidence[0].id);
+ assert.equal((await create(e)).status,409);
 });
-test('autopsy is available only after campaign ended, never public, never cross-user',async()=>{
- const e=await fixture();
- assert.equal((await run(e,'/api/autopsy',cookieA,'POST',{...base,campaign_id:'future'})).status,409);
- assert.equal((await run(e,'/api/autopsy',cookieA,'POST',{...base,campaign_id:'draft'})).status,409);
- const created=await run(e,'/api/autopsy',cookieA,'POST',{...base,consent_to_analysis:false});assert.equal(created.status,201);
- const data=await created.json(),list=await(await run(e,'/api/autopsy',cookieA)).json();
- assert.equal(list.items.length,1);assert.equal(list.items[0].consent_to_analysis,0);
- assert.equal((await run(e,'/api/autopsy/'+data.id,cookieB)).status,404);
- assert.equal((await(await run(e,'/api/autopsy',cookieB)).json()).items.length,0);
- assert.equal((await run(e,'/api/autopsy',null)).status,401);
- const text=JSON.stringify(await(await run(e,'/api/insights/patterns',cookieB)).json());
- assert.ok(!text.includes('0x'+'a'.repeat(40)));
- assert.equal((await run(e,'/api/autopsy',cookieA,'POST',base,{Origin:'https://evil.example'})).status,403);
- assert.match((await run(e,'/api/autopsy',cookieA)).headers.get('Cache-Control'),/private/);
+test('event row rejects UPDATE DELETE and gaps; version conflict does not alter projection',async()=>{
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id;
+ const event=c.data.state.timeline[0];
+ await assert.rejects(e.DB.prepare("UPDATE autopsy_events SET event_type='outcome_recorded' WHERE id=?").bind(event.id).run(),/EVENT_IMMUTABLE/);
+ await assert.rejects(e.DB.prepare('DELETE FROM autopsy_events WHERE id=?').bind(event.id).run(),/EVENT_IMMUTABLE/);
+ await assert.rejects(e.DB.prepare("INSERT INTO autopsy_events(id,user_scope,aggregate_id,campaign_id,event_version,event_type,knowledge_cutoff_at,evidence_refs,payload_json) VALUES(?,?,?,?,9,'hypothesis_updated',?,'[]','{}')")
+ .bind(crypto.randomUUID(),'tg:alice',id,'ended',now()).run(),/VERSION_CONFLICT/);
+ const bad=await call(e,id,'hypothesis',{expected_version:0,evidence_refs:[c.data.state.evidence[0].id],hypothesis:'outdated'});
+ assert.equal(bad.status,409);assert.equal(bad.data.error,'VERSION_CONFLICT');
+ assert.equal((await rebuild(e.DB,'tg:alice',id)).version,1);
 });
-test('pattern engine requires five opted-in notes and five per individual cohort; no predictions',()=>{
- const rows=Array.from({length:8},(_,i)=>({...base,consent_to_analysis:i<6?1:0,created_at:'2026-10-'+String(i+10)+' 13:00:00',outcome:i<4?'allocated':'not_allocated'}));
- const result=buildPatterns(rows);assert.equal(result.sample_count,6);
- assert.ok(result.insights.some(i=>i.field==='activity_before_snapshot'&&i.sample_count===6&&i.allocated===4));
- assert.ok(!JSON.stringify(result).includes('expected_value'));assert.match(result.limitations,/tidak menunjukkan sebab-akibat/);
- const small=buildPatterns(rows.slice(0,4));assert.equal(small.notice,INSUFFICIENT);assert.deepEqual(small.insights,[]);
- assert.equal(buildPatterns(rows.map(r=>({...r,consent_to_analysis:0}))).sample_count,0);
+test('activity and hypothesis replay deterministic before/after cutoff; citation is mandatory',async()=>{
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id,ref=c.data.state.evidence[0].id;
+ assert.equal((await call(e,id,'activity',{expected_version:1,phase:'before_snapshot',quest_count:4,chain_count:2,gas_cost_usd:1,bridge_cost_usd:0,research_minutes:30,evidence_refs:[]})).status,400);
+ const a=await call(e,id,'activity',{expected_version:1,phase:'before_snapshot',quest_count:4,chain_count:2,gas_cost_usd:1,bridge_cost_usd:0,research_minutes:30,evidence_refs:[ref]});
+ assert.equal(a.status,200);
+ const h=await call(e,id,'hypothesis',{expected_version:2,hypothesis:'Kemungkinan aktivitas awal relevan',evidence_refs:[ref]});
+ assert.equal(h.status,200);
+ const events=await readEvents(e.DB,'tg:alice',id);assert.deepEqual(replay(events),await rebuild(e.DB,'tg:alice',id));
+ assert.equal(replay(events).activities.length,1);assert.equal(replay(events).hypothesis,'Kemungkinan aktivitas awal relevan');
+ assert.equal(replay(events).decision_cutoff_at,c.data.state.decision_cutoff_at);
 });
-test('pattern endpoint only considers explicitly opted-in records and persists private snapshot',async()=>{
- const e=await fixture();
- for(let i=0;i<6;i++)assert.equal((await run(e,'/api/autopsy',cookieA,'POST',{...base,consent_to_analysis:i<5})).status,201);
- const a=await(await run(e,'/api/insights/patterns',cookieA)).json();
- const b=await(await run(e,'/api/insights/patterns',cookieB)).json();
- assert.equal(a.sample_count,5);assert.equal(b.sample_count,0);
- const snapshot=await e.DB.prepare('SELECT user_scope,sample_size FROM user_pattern_snapshots WHERE user_scope=?').bind('tg:alice').first();
- assert.equal(snapshot.sample_size,5);assert.equal(snapshot.user_scope,'tg:alice');
+test('compensating event reverses activity without deleting original event',async()=>{
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id,ref=c.data.state.evidence[0].id;
+ const a=await call(e,id,'activity',{expected_version:1,phase:'after_snapshot',quest_count:1,chain_count:1,gas_cost_usd:0,bridge_cost_usd:0,research_minutes:5,evidence_refs:[ref]});
+ const eventId=a.data.state.timeline.at(-1).id;
+ const undone=await call(e,id,'compensate',{expected_version:2,target_event_id:eventId,reason:'Pencatatan keliru'});
+ assert.equal(undone.status,200);assert.equal(undone.data.state.activities.length,0);
+ assert.equal(undone.data.state.timeline.length,3);assert.equal(undone.data.state.timeline[1].compensated,true);
+ assert.equal((await e.DB.prepare('SELECT count(*) AS n FROM autopsy_events WHERE aggregate_id=?').bind(id).first()).n,3);
+ assert.equal((await call(e,id,'compensate',{expected_version:3,target_event_id:eventId,reason:'Duplikat'})).status,409);
 });
-test('decision creation precedes follow marker, is unique per user/campaign, outcome is linked and scoped',async()=>{
- const e=await fixture();
- const c=await run(e,'/api/decisions',cookieA,'POST',decision);
- assert.equal(c.status,201);const created=await c.json();assert.equal(created.follow_status,'following');
- assert.equal((await run(e,'/api/decisions',cookieA,'POST',decision)).status,409);
- const before=await(await run(e,'/api/decisions',cookieA)).json();assert.equal(before.items.length,1);assert.equal(before.items[0].primary_evidence_url,'https://official.example.org/claim');
- assert.equal((await run(e,'/api/decisions/'+created.id+'/outcome',cookieB,'PUT',{outcome:'allocated',lessons:'secret'})).status,404);
- const outcome=await run(e,'/api/decisions/'+created.id+'/outcome',cookieA,'PUT',{outcome:'not_allocated',lessons:'Lebih kritis pada bukti'});assert.equal(outcome.status,200);
- assert.equal((await(await run(e,'/api/decisions',cookieA)).json()).items[0].outcome,'not_allocated');
- assert.equal((await run(e,'/api/decisions/'+created.id+'/outcome',cookieA,'PUT',{outcome:'unknown',lessons:'Revisi hasil'})).status,200);
- assert.equal((await e.DB.prepare('SELECT count(*) AS n FROM outcome_reviews WHERE user_scope=?').bind('tg:alice').first()).n,1);
+test('outcomes are gated by campaign end, revisions require reason, and knowledge cutoffs cannot regress',async()=>{
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id,ref=c.data.state.evidence[0].id;
+ const future=await create(e,cookieB,{campaign_id:'future'}),futureRef=future.data.state.evidence[0].id;
+ assert.equal((await call(e,future.data.aggregate_id,'outcome',{expected_version:1,outcome:'allocated',evidence_refs:[futureRef]},cookieB)).status,409);
+ const o=await call(e,id,'outcome',{expected_version:1,outcome:'unknown',evidence_refs:[ref]});
+ assert.equal(o.status,200);assert.equal(o.data.state.outcome,'unknown');
+ const missing=await call(e,id,'outcome',{expected_version:2,outcome:'allocated',evidence_refs:[ref]});assert.equal(missing.status,400);
+ const rev=await call(e,id,'outcome',{expected_version:2,outcome:'allocated',revision_reason:'Sumber baru terbit',evidence_refs:[ref]});
+ assert.equal(rev.status,200);
+ assert.equal(rev.data.state.outcome,'allocated');assert.ok(rev.data.state.outcome_cutoff_at);
+ const older=await api(e,'/api/autopsy/'+id+'/hypothesis',cookieA,'POST',{expected_version:3,knowledge_cutoff_at:'2026-01-01T00:00:00Z',
+  hypothesis:'backdated',evidence_refs:[ref]});
+ assert.equal(older.status,409);
 });
-test('weekly review displays UTC range, sample counts, evidence quality and lessons',()=>{
- const week=weekRange(new Date('2026-10-28T12:00:00Z'));assert.equal(week.start,'2026-10-26T00:00:00.000Z');
- const result=buildWeekly([{id:'d1',campaign_id:'ended',decision_source:'official',created_at:'2026-10-28 11:00:00',outcome:'allocated',lessons:'Belajar'},
- {id:'d2',campaign_id:'future',decision_source:'community',created_at:'2026-10-27 11:00:00',outcome:null,lessons:null}],week);
- assert.equal(result.sample_count,2);assert.equal(result.outcomes.allocated,1);assert.equal(result.outcomes.pending,1);
- assert.equal(result.evidence_quality.primary_source_decisions,1);assert.equal(result.revisit.length,1);
- assert.equal(result.notice,INSUFFICIENT);
+test('finalization and opt-in are events, insight is generated without prediction',async()=>{
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id,ref=c.data.state.evidence[0].id;
+ await call(e,id,'outcome',{expected_version:1,outcome:'allocated',evidence_refs:[ref]});
+ const opt=await call(e,id,'consent',{expected_version:2,enabled:true});assert.equal(opt.status,200);
+ const fin=await call(e,id,'finalize',{expected_version:3,evidence_refs:[ref]});
+ assert.equal(fin.status,200);assert.equal(fin.data.state.status,'finalized');
+ assert.ok(fin.data.state.timeline.some(x=>x.type==='autopsy_finalized'));
+ assert.ok(fin.data.state.timeline.some(x=>x.type==='insight_generated'));
+ assert.equal(fin.data.state.insights[0].confidence_label,'insufficient_data');
+ assert.equal((await e.DB.prepare('SELECT count(*) AS n FROM pattern_snapshots WHERE user_scope=?').bind('tg:alice').first()).n,1);
+ assert.equal((await call(e,id,'hypothesis',{expected_version:fin.data.version,hypothesis:'late',evidence_refs:[ref]})).status,409);
 });
-test('evidence card contains only vetted public fields and no personal autopsy or journal data',async()=>{
- const e=await fixture();
- await e.DB.prepare("INSERT INTO source_trust_profiles(id,source_url,host,tier) VALUES('s1','https://official.example.org/claim','official.example.org','primary_official')").run();
- await e.DB.prepare("INSERT INTO campaign_source_links(id,campaign_id,source_id,source_url,registered_by,enabled,official_domain_verified) VALUES('link','ended','s1','https://official.example.org/claim','moderator',1,1)").run();
- const card=await run(e,'/api/evidence-card/ended',null);assert.equal(card.status,200);
- const data=await card.json();assert.ok(data.primary_sources.length);
- assert.equal(data.sample_count,1);assert.ok(data.disclaimer.includes('bukan jaminan eligibility'));
- assert.ok(!JSON.stringify(data).includes('wallet_address'));
- assert.equal((await run(e,'/api/evidence-card/hidden',null)).status,404);
- assert.equal((await run(e,'/api/evidence-card/draft',null)).status,404);
- assert.equal((await run(e,'/api/evidence-card/noverify',null)).status,404);
- const standalone=assembleEvidenceCard({slug:'s',name:'S',status:'ended',source_url:'https://official.example.org',last_verified_at:'2026-10-28',source_count:2},[],[{field:'chain',severity:'material',status:'open'}]);
- assert.equal(standalone.status,'conflicted');
+test('thresholds: minimum five finalized consented autopsies and two known outcomes',()=>{
+ const state=(i,outcome,consent=true)=>({aggregate_id:String(i),campaign_id:'c'+i,version:4,status:'finalized',
+ analysis_consent:consent,decision:{decision_source:'official'},activities:[{phase:'before_snapshot',quest_count:4,chain_count:2,gas_cost_usd:1}],
+ outcome,finalized_at:'2026-10-'+String(i+10)+'T00:00:00Z',created_at:'2026-10-01T00:00:00Z',hypothesis:'',evidence:[]});
+ const few=cohorts(Array.from({length:4},(_,i)=>state(i,'allocated')));assert.equal(few.cohorts[0].confidence_label,'insufficient_data');
+ const unknown=cohorts(Array.from({length:5},(_,i)=>state(i,i?'unknown':'allocated')));assert.equal(unknown.cohorts[0].confidence_label,'insufficient_data');
+ const weak=cohorts(Array.from({length:5},(_,i)=>state(i,i<2?'allocated':'unknown')));assert.equal(weak.cohorts[0].confidence_label,'weak_pattern');
+ const moderate=cohorts(Array.from({length:12},(_,i)=>state(i,i<5?'allocated':'unknown')));assert.equal(moderate.cohorts[0].confidence_label,'moderate_pattern');
+ assert.equal(cohorts(Array.from({length:12},(_,i)=>state(i,'allocated',false))).sample_size,0);
+ assert.match(moderate.disclaimer,/bukan prediksi/);
 });
-test('schema not migrated rejects private endpoint without user data fallback',async()=>{
- const e=await fixture(false);
- assert.equal((await run(e,'/api/autopsy',cookieA)).status,503);
+test('privacy scope, private API, public evidence only, and old direct writes disabled',async()=>{
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id;
+ assert.equal((await api(e,'/api/autopsy/'+id,cookieB)).status,404);
+ assert.equal((await api(e,'/api/autopsy/'+id,null)).status,401);
+ assert.equal((await api(e,'/api/autopsy/decisions',cookieB).then(r=>r.json())).items.length,0);
+ assert.equal((await api(e,'/api/autopsy/decisions',cookieA,'POST',{...decision,expected_version:0,knowledge_cutoff_at:now()},{Origin:'https://evil.example'})).status,403);
+ assert.equal((await api(e,'/api/autopsy',cookieA,'POST',decision)).status,410);
+ assert.equal((await api(e,'/api/autopsy/evidence-card/hidden',null)).status,404);
+ const card=await api(e,'/api/autopsy/evidence-card/ended',null);assert.equal(card.status,200);
+ const text=await card.text();assert.ok(!text.includes(id));assert.ok(!text.includes('tg:alice'));assert.ok(!text.includes('cost_ceiling_usd'));
+});
+test('strict HTTPS evidence and version/cutoff validation',async()=>{
+ assert.throws(()=>decisionBody({...decision,primary_evidence_url:'http://bad.example/path'}),/INVALID_HTTPS_URL/);
+ assert.throws(()=>cutoff('2026-01-01'),/KNOWLEDGE_CUTOFF_REQUIRED/);
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id;
+ assert.equal((await call(e,id,'evidence',{expected_version:1,kind:'official_link',value:'https://localhost/admin'})).status,400);
+ assert.equal((await call(e,id,'evidence',{expected_version:1,kind:'tx_hash',value:'0x1234'})).status,400);
+ const good=await call(e,id,'evidence',{expected_version:1,kind:'screenshot',value:'https://evidence.example.org/image.png?token=erase'});
+ assert.equal(good.status,200);assert.equal(good.data.state.evidence[1].value,'https://evidence.example.org/image.png');
 });
 
-test('consent can be withdrawn and notes deleted only by owner; cached patterns are purged',async()=>{
- const e=await fixture();
- const created=await run(e,'/api/autopsy',cookieA,'POST',{...base,consent_to_analysis:true});
- assert.equal(created.status,201);
- const {id}=await created.json();
- assert.equal((await e.DB.prepare('SELECT sample_size FROM user_pattern_snapshots WHERE user_scope=?').bind('tg:alice').first()).sample_size,1);
- assert.equal((await run(e,'/api/autopsy/'+id+'/consent',cookieB,'PUT',{consent_to_analysis:false})).status,404);
- assert.equal((await run(e,'/api/autopsy/'+id,cookieB,'DELETE',undefined,{Origin:origin})).status,404);
- const revoked=await run(e,'/api/autopsy/'+id+'/consent',cookieA,'PUT',{consent_to_analysis:false});
- assert.equal(revoked.status,200);
- assert.equal((await(await run(e,'/api/insights/patterns',cookieA)).json()).sample_count,0);
- assert.equal(await e.DB.prepare('SELECT id FROM user_pattern_snapshots WHERE user_scope=?').bind('tg:alice').first(),null);
- assert.equal((await run(e,'/api/autopsy/'+id+'/consent',cookieA,'PUT',{consent_to_analysis:true})).status,200);
- assert.equal((await(await run(e,'/api/insights/patterns',cookieA)).json()).sample_count,1);
- assert.equal((await run(e,'/api/autopsy/'+id,cookieA,'DELETE',undefined,{Origin:origin})).status,200);
- assert.equal((await run(e,'/api/autopsy/'+id,cookieA)).status,404);
- assert.equal((await(await run(e,'/api/insights/patterns',cookieA)).json()).sample_count,0);
+test('post-outcome activity remains in timeline but is excluded from neutral pre-outcome cohorts',()=>{
+ const a={aggregate_id:'a',campaign_id:'ended',status:'finalized',analysis_consent:true,decision:{decision_source:'official'},
+  finalized_at:'2026-10-28T12:00:00Z',outcome:'allocated',created_at:'2026-10-28T10:00:00Z',
+  activities:[{phase:'before_snapshot',quest_count:9,chain_count:5,gas_cost_usd:90,knowledge_phase:'post_outcome'}]};
+ const records=Array.from({length:6},(_,i)=>({...a,aggregate_id:String(i)}));
+ const result=cohorts(records);
+ assert.equal(result.cohorts.find(c=>c.key==='pre_snapshot').sample_size,0);
+ assert.equal(result.cohorts.find(c=>c.key==='quests_4').sample_size,0);
+ assert.equal(result.cohorts.find(c=>c.key==='source_official').sample_size,6);
 });
-test('no disclosure of personal notes in shareable evidence cards after an autopsy exists',async()=>{
- const e=await fixture();
- await run(e,'/api/autopsy',cookieA,'POST',{...base,hypothesis:'A secret personal research note'});
- const response=await run(e,'/api/evidence-card/ended',null);
- const content=await response.text();
- assert.equal(response.status,200);
- assert.equal(content.includes('A secret personal research note'),false);
- assert.equal(content.includes(base.wallet_address),false);
- assert.equal(content.includes('tg:alice'),false);
+test('evidence compensation revokes its reference in replay, but immutable source event remains',async()=>{
+ const e=await fixture(),c=await create(e),id=c.data.aggregate_id,primary=c.data.state.evidence[0].id;
+ const added=await call(e,id,'evidence',{expected_version:1,kind:'official_link',value:'https://evidence.example.org/extra'});
+ assert.equal(added.status,200);const ref=added.data.state.evidence[1].id,event=added.data.state.timeline[1].id;
+ const removed=await call(e,id,'compensate',{expected_version:2,target_event_id:event,reason:'Bukti tidak relevan'});
+ assert.equal(removed.status,200);assert.deepEqual(removed.data.state.evidence.map(x=>x.id),[primary]);
+ assert.equal((await call(e,id,'hypothesis',{expected_version:3,hypothesis:'Tidak boleh pakai ref batal',evidence_refs:[ref]})).status,422);
+ assert.equal((await e.DB.prepare('SELECT revoked FROM evidence_items WHERE id=?').bind(ref).first()).revoked,1);
+ assert.equal((await e.DB.prepare('SELECT count(*) AS n FROM autopsy_events WHERE aggregate_id=?').bind(id).first()).n,3);
+});
+test('weekly report excludes decisions without explicit analysis consent',async()=>{
+ const e=await fixture(),c=await create(e);
+ const weekly=await api(e,'/api/autopsy/insights/weekly',cookieA);
+ assert.equal(weekly.status,200);assert.equal((await weekly.json()).sample_size,0);
+ const opt=await call(e,c.data.aggregate_id,'consent',{expected_version:1,enabled:true});assert.equal(opt.status,200);
+ const after=await api(e,'/api/autopsy/insights/weekly',cookieA);
+ assert.equal((await after.json()).sample_size,1);
 });

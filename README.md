@@ -109,3 +109,15 @@ A private, Indonesian-language **Lab Keputusan** is available at `/decision-lab.
 - **Integration warning:** this branch is based on Sprint 10, not `main`. Migrations 0005–0009 from earlier unmerged sprints must be reconciled before a production rollout.
 
 See **[docs/CLAIM_AUTOPSY.md](docs/CLAIM_AUTOPSY.md)** for route contracts, ownership/consent safeguards, scope boundaries, migrations, validation, testing and deployment.
+
+## Sprint 11 — Event-sourced Claim Autopsy Architecture
+
+The Sprint 11 implementation is being refactored to an **append-only immutable event store** on `feat/sprint-11-event-sourced-architecture`. The source of truth is now `autopsy_events`; `claim_autopsies`, `decision_entries`, and `evidence_items` are replayable projections rather than editable user records. Claims require evidence references, explicit `knowledge_cutoff_at`, and optimistic event versions. Reversal uses `event_compensated`, not SQL DELETE.
+
+User-facing APIs now live under `/api/autopsy/decisions`, `/api/autopsy/:id/*`, `/api/autopsy/insights/*`, and `/api/autopsy/evidence-card/:campaignSlug`. The Indonesian Lab Keputusan `/decision-lab.html` includes the replay timeline, source evidence, outcome revisions, consent, retrospectives, and shareable public-only Evidence Cards.
+
+Analysis needs **at least 5 autopsies and 2 known outcomes per cohort**; the confidence labels `insufficient_data`, `weak_pattern`, and `moderate_pattern` describe only sample sufficiency, **not probability or forecasting strength**. No reward prediction or expected-value calculation is performed.
+
+See [Claim Autopsy Architecture](docs/CLAIM_AUTOPSY_ARCHITECTURE.md) for the new canonical design. The older [Sprint 11 implementation notes](docs/CLAIM_AUTOPSY.md) describe the **superseded pre-event-sourcing draft** and are not deployment instructions.
+
+**Migration warning:** This branch replaces the original never-deployed `0014_claim_autopsy.sql`. If the prior 0014 migration was applied to persistent D1, a separate forward-only 0015 migration is required; do not rewrite applied migration history. Reconcile absent earlier 0005–0009 migrations and verify staging before a production rollout.
