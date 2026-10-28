@@ -1,9 +1,9 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f5f4ef"><title>Lab Keputusan · Airdrop Museum</title><link rel="stylesheet" href="/decision-lab.css"></head>
-<body><header class="top"><a href="/aggregator.html" class="back">← Registry</a><div><strong>◈ AIRDROP MUSEUM</strong><span>CLAIM AUTOPSY · EVENT JOURNAL</span></div></header>
-<main><section class="hero"><small>EVENT-SOURCED INTELLIGENCE / SPRINT 11</small>
+<body><header class="top"><a href="/aggregator.html" class="back">← Registry</a><div><strong>◈ AIRDROP MUSEUM</strong><span>JURNAL KEPUTUSAN</span></div></header>
+<main><section class="hero"><small>CATAT. TINJAU. PELAJARI.</small>
 <h1>Keputusan. Bukti. Hasil.</h1><p>Jurnal keputusan dan pembelajaran retrospektif yang dapat diaudit. Setiap perubahan menjadi event baru; tidak ada riwayat yang ditimpa.</p>
-<div class="chips"><span>Privat secara default</span><span>Append-only</span><span>Cutoff pengetahuan</span><span>Tanpa prediksi</span></div></section>
+<div class="chips"><span>Privat secara default</span><span>Riwayat terjaga</span><span>Waktu informasi tercatat</span><span>Tanpa prediksi</span></div></section>
 <p id="message" role="status" aria-live="polite"></p>
 <nav class="tabs" aria-label="Navigasi lab keputusan">
 <button class="active" data-tab="decisions">Jurnal Keputusan</button>
@@ -21,7 +21,7 @@
 <label>Alokasi waktu (menit)<input name="time_budget_minutes" type="number" min="0" step="1" value="60" required></label>
 <label>Batas biaya (USD)<input name="cost_ceiling_usd" type="number" min="0" step="0.01" value="0" required></label>
 <label class="wide">Ekspektasi realistis<textarea name="realistic_expectations" required maxlength="1500" rows="2"></textarea></label>
-<button type="submit" class="primary wide">Buat Decision Entry (v1)</button></form>
+<button type="submit" class="primary wide">Simpan keputusan</button></form>
 <div class="section-head"><h2>Keputusan saya</h2><button type="button" id="reload-decisions">Perbarui</button></div><div id="decision-list" class="stack"></div></section>
 <section id="autopsy" class="panel" hidden><div class="section-head"><div><small>CATATAN IMMUTABLE</small><h2>Timeline Autopsy</h2>
 <p>Data yang dimasukkan setelah outcome tidak akan dianggap sebagai pengetahuan sebelum outcome.</p></div><button type="button" id="refresh-state">Perbarui</button></div>

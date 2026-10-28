@@ -17,7 +17,7 @@ async function api(path,method='GET',payload){
  if(payload!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(payload);}
  const response=await fetch(path,init);
  const result=await response.json().catch(()=>({error:'INVALID_RESPONSE'}));
- if(!response.ok)throw Error(result.error||'SERVICE_UNAVAILABLE');return result;
+ if(!response.ok){const labels={LOGIN_REQUIRED:'Buka melalui Telegram atau masuk akun di Museum untuk menggunakan jurnal privat.',VERSION_CONFLICT:'Catatan berubah di sesi lain. Perbarui halaman lalu coba kembali.',INVALID_HTTPS_URL:'Gunakan tautan HTTPS publik tanpa kredensial.',DECISION_REQUIRED:'Simpan keputusan sebelum melanjutkan aktivitas campaign.',SERVICE_UNAVAILABLE:'Layanan sementara tidak tersedia. Coba kembali nanti.',CAMPAIGN_NOT_FOUND:'Campaign belum terdaftar. Pilih campaign dari Registry.'};throw Error(labels[result.error]||result.error||labels.SERVICE_UNAVAILABLE);}return result;
 }
 async function execute(task){try{message('');await task();}catch(error){message(error.message);}}
 const base='/api/autopsy';

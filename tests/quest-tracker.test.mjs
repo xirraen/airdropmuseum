@@ -1,7 +1,8 @@
+import {seedAdmin,adminHeaders,seedDecision} from '../test-support/auth.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync} from 'node:fs';
 import {createHmac} from 'node:crypto';
 import {putCampaign} from '../src/aggregator-store.mjs';
 import {questRoutes} from '../src/aggregator/questRoutes.mjs';
@@ -13,14 +14,15 @@ const bot='test-bot-secret',admin='test-admin-secret',scope='tg:42',official='ht
 const now=()=>Math.floor(Date.now()/1000);
 function db(){
  const sql=new DatabaseSync(':memory:');sql.exec('PRAGMA foreign_keys=ON');
- for(const f of ['0001_core','0002_rewards','0003_platform','0004_workbench','0005_aggregator_core','0008_quest_tracker'])
-  sql.exec(readFileSync(new URL('../migrations/'+f+'.sql',import.meta.url),'utf8'));
+ for(const f of readdirSync('migrations').filter(f=>f.endsWith('.sql')).sort())sql.exec(readFileSync('migrations/'+f,'utf8'));
+ seedAdmin(sql);
  const DB={sql,prepare(query){let values=[],statement=sql.prepare(query);return {bind(...args){values=args;return this},async first(){return statement.get(...values)||null},async all(){return {results:statement.all(...values)}},async run(){return {meta:{changes:Number(statement.run(...values).changes)}}}}},async batch(stmts){sql.exec('BEGIN');try{const result=[];for(const st of stmts)result.push(await st.run());sql.exec('COMMIT');return result}catch(e){sql.exec('ROLLBACK');throw e}}};
  return DB;
 }
 async function campaign(DB){
  const stamp=new Date(Date.now()-60000).toISOString();
- return (await putCampaign(DB,{slug:'demo',name:'Campaign aman',project_id:'a',chain:['eip155:1'],category:'testnet',status:'confirmed',official_urls:[official],source_evidence:[{source_url:official,source_type:'official_docs',captured_at:stamp,verified_by:'system',note:'Dokumentasi'}],eligibility_rules:[{id:'onchain-rule',rule_type:'tx_count',parameters:{min:'1'}}]},'research')).campaign;
+ const created=(await putCampaign(DB,{slug:'demo',name:'Campaign aman',project_id:'a',chain:['eip155:1'],category:'testnet',status:'confirmed',official_urls:[official],source_evidence:[{source_url:official,source_type:'official_docs',captured_at:stamp,verified_by:'system',note:'Dokumentasi'}],eligibility_rules:[{id:'onchain-rule',rule_type:'tx_count',parameters:{min:'1'}}]},'research')).campaign;
+ await seedDecision(DB);return created;
 }
 function auth(){
  const p=new URLSearchParams({auth_date:String(now()),user:JSON.stringify({id:42})}),message=[...p].sort(([a],[b])=>a.localeCompare(b)).map(([a,b])=>a+'='+b).join('\n');
@@ -28,7 +30,7 @@ function auth(){
  p.set('hash',createHmac('sha256',secret).update(message).digest('hex'));return p.toString();
 }
 async function api(DB,path,data,method='GET',role='user'){
- const request=new Request('https://museum.example.org/api/aggregator'+path,{method,headers:{...(data?{'Content-Type':'application/json'}:{}),...(role==='admin'?{Authorization:'Bearer '+admin}:role==='user'?{'X-Telegram-Init-Data':auth()}: {})},...(data?{body:JSON.stringify(data)}:{})});
+ const request=new Request('https://museum.example.org/api/aggregator'+path,{method,headers:{Origin:'https://museum.example.org',...(data?{'Content-Type':'application/json'}:{}),...(role==='admin'?adminHeaders():role==='user'?{'X-Telegram-Init-Data':auth()}: {})},...(data?{body:JSON.stringify(data)}:{})});
  const r=await questRoutes(request,{DB,TELEGRAM_BOT_TOKEN:bot,AGGREGATOR_ADMIN_TOKEN:admin});
  return {status:r.status,data:await r.json()};
 }
@@ -44,10 +46,10 @@ test('migration 0008 is additive and protects unbound wallet NULL uniqueness',as
 });
 test('quest CRUD is admin-only; public read omits user progress',async()=>{
  const DB=db();await campaign(DB);
- assert.equal((await api(DB,'/campaigns/demo/quests',payload(),'POST','anonymous')).status,403);
+ assert.equal((await api(DB,'/campaigns/demo/quests',payload(),'POST','anonymous')).status,401);
  const saved=await api(DB,'/campaigns/demo/quests',payload(),'POST','admin');
  assert.equal(saved.status,201);
- assert.equal((await api(DB,'/quests/'+saved.data.id,{title:'Changed'},'PUT','anonymous')).status,403);
+ assert.equal((await api(DB,'/quests/'+saved.data.id,{title:'Changed'},'PUT','anonymous')).status,401);
  const edit=await api(DB,'/quests/'+saved.data.id,{title:'Changed'},'PUT','admin');assert.equal(edit.data.title,'Changed');
  const listing=await api(DB,'/campaigns/demo/quests',undefined,'GET','anonymous');assert.equal(listing.data.quests.length,1);
  const removed=await api(DB,'/quests/'+saved.data.id,undefined,'DELETE','admin');assert.equal(removed.data.deleted,true);DB.sql.close();
@@ -141,4 +143,22 @@ test('quest + ledger pagination honors limit and offset',async()=>{
  assert.equal(all.data.quests.length,2);assert.equal(all.data.total,6);
  assert.equal((await api(DB,'/campaigns/demo/quests?limit=101',undefined,'GET','anonymous')).status,400);
  DB.sql.close();
+});
+
+test('legacy admin bearer tokens and missing CSRF cannot mutate quests',async()=>{
+ const DB=db();await campaign(DB);
+ const call=async headers=>questRoutes(new Request('https://museum.example.org/api/aggregator/campaigns/demo/quests',{method:'POST',headers:{Origin:'https://museum.example.org','Content-Type':'application/json',...headers},body:JSON.stringify(payload())}),{DB,AGGREGATOR_ADMIN_TOKEN:admin});
+ assert.equal((await call({Authorization:'Bearer '+admin})).status,401);
+ const headers=adminHeaders();delete headers['X-CSRF-Token'];assert.equal((await call(headers)).status,403);
+ seedAdmin(DB.sql,'readonly');assert.equal((await call(adminHeaders())).status,403);
+ assert.equal(DB.sql.prepare('SELECT COUNT(*) n FROM campaign_quests').get().n,0);DB.sql.close();
+});
+test('legacy progress remains readable but new quest activity requires a decision',async()=>{
+ const DB=db();await campaign(DB);const q=await createQuest(DB,'demo',payload());
+ // Compensating a lone decision preserves history while revoking participation authorization.
+ const row=DB.sql.prepare("SELECT id,aggregate_id FROM autopsy_events WHERE user_scope='tg:42' AND event_type='decision_created'").get();
+ const {appendEvent}=await import('../src/autopsy/eventStore.ts');
+ await appendEvent(DB,{scope,aggregate_id:row.aggregate_id,campaign_id:'agg_demo',event_type:'event_compensated',expected_version:1,knowledge_cutoff_at:new Date().toISOString(),evidence_refs:[],payload:{target_event_id:row.id,reason:'Decision withdrawn'}});
+ const result=await api(DB,'/quests/'+q.id+'/progress',{status:'in_progress'},'POST');
+ assert.equal(result.status,409);assert.equal(result.data.error,'DECISION_REQUIRED');DB.sql.close();
 });

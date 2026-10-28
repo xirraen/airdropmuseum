@@ -1,7 +1,8 @@
+import {exportJournal} from './exportService.ts';
 import {platformUser} from '../platform-api.mjs';
 import {JournalError,fail,sql,bodyJson,requiredId,json,cutoff,expected,refs} from './types.ts';
 import {createDecision,decisions} from './decisionService.ts';
-import {rebuild} from './projectionService.ts';
+import {rebuild,reconcile} from './projectionService.ts';
 import {addEvidence,addActivity,reviseHypothesis,compensate,consent} from './evidenceService.ts';
 import {recordOutcome,finalize} from './outcomeService.ts';
 import {patterns,weekly,recordGeneratedInsight} from './patternService.ts';
@@ -30,6 +31,7 @@ export async function autopsyRoutes(request,env){
   const user=await platformUser(request,env,false);
   if(!user)fail('LOGIN_REQUIRED',401);
   const scope=user.id;
+  if(path==='/api/autopsy/export'){if(!['GET','HEAD'].includes(method))fail('METHOD_NOT_ALLOWED',405);return json(await exportJournal(env.DB,scope,url.searchParams),200,head);}
   if(path==='/api/autopsy/decisions'){
    if(method==='POST'){
     const result=await createDecision(env.DB,scope,await bodyJson(request));
@@ -50,7 +52,7 @@ export async function autopsyRoutes(request,env){
   // Disable old direct-mutation routes. Existing private rows must be migrated separately.
   if(path==='/api/autopsy'||path==='/api/decisions'||path.startsWith('/api/decisions/'))
    fail('LEGACY_DIRECT_WRITES_DISABLED',410);
-  const match=/^\/api\/autopsy\/([a-zA-Z0-9_-]{1,160})(?:\/(evidence|activity|hypothesis|outcome|finalize|compensate|consent))?$/.exec(path);
+  const match=/^\/api\/autopsy\/([a-zA-Z0-9_-]{1,160})(?:\/(evidence|activity|hypothesis|outcome|finalize|compensate|consent|replay))?$/.exec(path);
   if(!match)fail('NOT_FOUND',404);
   const aggregate=requiredId(match[1]),operation=match[2];
   const state=await rebuild(env.DB,scope,aggregate);
@@ -59,6 +61,7 @@ export async function autopsyRoutes(request,env){
    return json({state:overview(state),private:true},200,head);}
   if(method!=='POST')fail('METHOD_NOT_ALLOWED',405);
   const body=await bodyJson(request);
+  if(operation==='replay'){if(body.expected_version!==state.version)fail('VERSION_CONFLICT',409);return json({state:overview(await reconcile(env.DB,scope,aggregate)),private:true});}
   const action={
    evidence:()=>addEvidence(env.DB,scope,state,body),
    activity:()=>addActivity(env.DB,scope,state,body),

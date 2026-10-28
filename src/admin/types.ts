@@ -1,7 +1,7 @@
 export const ROLES=['super_admin','admin','moderator','readonly'];
 export const PERMISSIONS={
  super_admin:['*'],
- admin:['dashboard.read','campaign.read','campaign.write','campaign.bulk','discovery.read','discovery.review','discovery.bulk','conflict.read','conflict.review','keys.read','keys.write','webhooks.read','webhooks.write','flags.read','flags.write','settings.read','audit.read','health.read'],
+ admin:['dashboard.read','campaign.read','campaign.write','quest.write','campaign.bulk','discovery.read','discovery.review','discovery.bulk','conflict.read','conflict.review','keys.read','keys.write','webhooks.read','webhooks.write','flags.read','flags.write','settings.read','audit.read','health.read'],
  moderator:['dashboard.read','campaign.read','campaign.limited','discovery.read','discovery.review','conflict.read','conflict.review','audit.read','health.read'],
  readonly:['dashboard.read','audit.read','health.read']
 };

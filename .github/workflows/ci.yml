@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   verify:
+    name: Release security, migrations and runtime
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -35,5 +36,7 @@ jobs:
         run: node --check dist/admin.js
       - name: Execute tests
         run: npm test
+      - name: Worker runtime, local D1 and immutability gate
+        run: npm run test:runtime
       - name: Production dependency audit (fail closed)
         run: npm audit --omit=dev --audit-level=high

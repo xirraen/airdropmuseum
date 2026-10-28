@@ -78,11 +78,11 @@ export async function restoreBackup(env,scope,{backup_id,envelope,mode='merge',c
  if(mode==='replace')stmts.push(
  q(d,'DELETE FROM user_points_ledger WHERE user_scope=?',scope),
  q(d,'DELETE FROM user_quest_progress WHERE user_scope=?',scope),
- q(d,'DELETE FROM user_campaign_subscriptions WHERE user_scope=?',scope),
+ q(d,'DELETE FROM user_campaign_subscriptions WHERE user_scope=? AND NOT EXISTS(SELECT 1 FROM campaign_registry_links l JOIN autopsy_events e ON e.campaign_id=l.canonical_id AND e.user_scope=user_campaign_subscriptions.user_scope WHERE l.aggregator_id=user_campaign_subscriptions.campaign_id AND e.event_type=\'activity_recorded\' AND json_extract(e.payload_json,\'$.activity_kind\')=\'follow_campaign\')',scope),
  q(d,'DELETE FROM wallet_watchlist WHERE user_id=?',scope),
  q(d,'DELETE FROM alert_preferences WHERE user_id=?',scope));
  for(const w of p.wallet_watchlist)stmts.push(q(d,'INSERT INTO wallet_watchlist(id,user_id,chain,address,label,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,chain,address) DO UPDATE SET label=excluded.label',id(),scope,w.chain,w.address,w.label,new Date().toISOString()));
- for(const x of p.campaign_subscriptions)stmts.push(q(d,'INSERT OR IGNORE INTO user_campaign_subscriptions(user_scope,campaign_id,updated_at) VALUES(?,?,?)',scope,x.campaign_id,Math.floor(Date.now()/1000)));
+ for(const x of p.campaign_subscriptions)stmts.push(q(d,`INSERT OR IGNORE INTO user_campaign_subscriptions(user_scope,campaign_id,updated_at) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM campaign_registry_links l JOIN autopsy_events e ON e.campaign_id=l.canonical_id WHERE l.aggregator_id=? AND e.user_scope=? AND e.event_type='activity_recorded' AND json_extract(e.payload_json,'$.activity_kind')='follow_campaign')`,scope,x.campaign_id,Math.floor(Date.now()/1000),x.campaign_id,scope));
  for(const x of p.quest_progress){
   const wallet=x.wallet_address||null;
   stmts.push(q(d,"UPDATE user_quest_progress SET status=?,completed_at=?,evidence_url=?,note=?,points_awarded=?,updated_at=?,revision=MAX(revision,?) WHERE user_scope=? AND quest_id=? AND COALESCE(wallet_address,'')=?",x.status,x.completed_at||null,x.evidence_url||null,x.note,x.points_awarded,x.updated_at,x.revision||0,scope,x.quest_id,wallet||''));
@@ -96,7 +96,7 @@ export async function restoreBackup(env,scope,{backup_id,envelope,mode='merge',c
  // D1 batch is atomic; no partial restore is exposed. Evidence results never become verified through restore.
  if(stmts.length)await d.batch(stmts);
  await q(d,'DELETE FROM user_portfolio_snapshots WHERE user_scope=?',scope).run();
- return {restored:true,mode,pre_restore_backup_id:before.backup_id,counts:{wallets:p.wallet_watchlist.length,campaigns:p.campaign_subscriptions.length,quests:p.quest_progress.length,ledger:p.points_ledger.length}};
+ return {restored:true,mode,participation_notice:'Event-backed follows remain authoritative. Restored legacy participation requires a Decision Entry before new activity.',pre_restore_backup_id:before.backup_id,counts:{wallets:p.wallet_watchlist.length,campaigns:p.campaign_subscriptions.length,quests:p.quest_progress.length,ledger:p.points_ledger.length}};
 }
 export async function history(env,scope,{admin=false,limit=50,offset=0}={}){
  const result=await q(env.DB,"SELECT backup_id,kind,created_at,size_bytes AS size,schema_version,status,expires_at FROM backup_metadata WHERE "+(admin?"(user_scope=? OR kind='server')":"user_scope=? AND kind!='server'")+" ORDER BY created_at DESC LIMIT ? OFFSET ?",scope,limit,offset).all();

@@ -11,7 +11,7 @@ try{
   try{db.exec(sql);}catch(e){throw Error('Migration '+name+' is invalid: '+e.message);}
  }
  const core=db.prepare('SELECT MAX(version) v FROM am_core_schema').get();
- if(core.v<12)throw Error('Registry/decision bridge schema marker missing');
+ if(core.v<14)throw Error('Registry/decision bridge schema marker missing');
  if(db.prepare('PRAGMA foreign_key_check').all().length)throw Error('Foreign key violations');
  for(const name of ['autopsy_events_immutable_update','autopsy_events_immutable_delete','autopsy_events_version_guard','aggregator_registry_insert','aggregator_registry_update'])
   if(!db.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name=?").get(name))throw Error('Missing trigger '+name);

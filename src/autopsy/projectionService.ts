@@ -1,4 +1,4 @@
-import {sql} from './types.ts';
+import {sql,fail} from './types.ts';
 // Pure projector: every state is rebuildable from immutable events. Cache tables are disposable.
 const parse=s=>{try{return JSON.parse(s);}catch{return {};}};
 export function replay(rows){
@@ -56,13 +56,13 @@ export function projectionStatements(db,scope,state,previousVersion){
  state.aggregate_id,scope,state.campaign_id,state.version,state.status,state.outcome,Number(state.analysis_consent),state.decision_cutoff_at,state.outcome_cutoff_at,
  JSON.stringify(state),state.created_at,state.updated_at,previousVersion),
   sql(db,`INSERT INTO decision_entries(aggregate_id,user_scope,campaign_id,reason,primary_evidence_ref,primary_evidence_url,decision_source,time_budget_minutes,cost_ceiling_usd,realistic_expectations,knowledge_cutoff_at,created_at)
- VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(aggregate_id) DO NOTHING`,
+ VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(aggregate_id) DO UPDATE SET reason=excluded.reason,primary_evidence_ref=excluded.primary_evidence_ref,primary_evidence_url=excluded.primary_evidence_url,decision_source=excluded.decision_source,time_budget_minutes=excluded.time_budget_minutes,cost_ceiling_usd=excluded.cost_ceiling_usd,realistic_expectations=excluded.realistic_expectations,knowledge_cutoff_at=excluded.knowledge_cutoff_at WHERE decision_entries.user_scope=excluded.user_scope`,
  state.aggregate_id,scope,state.campaign_id,decision.reason,decision.primary_evidence_ref,decision.primary_evidence_url,
  decision.decision_source,decision.time_budget_minutes,decision.cost_ceiling_usd,decision.realistic_expectations,state.decision_cutoff_at,state.created_at),
   sql(db,'UPDATE evidence_items SET revoked=1 WHERE user_scope=? AND aggregate_id=?',scope,state.aggregate_id)
  ];
  for(const item of state.evidence)statements.push(sql(db,`INSERT INTO evidence_items(id,aggregate_id,user_scope,kind,value,knowledge_cutoff_at,source_event_id,revoked)
- VALUES(?,?,?,?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET revoked=0 WHERE evidence_items.user_scope=excluded.user_scope`,
+ VALUES(?,?,?,?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET kind=excluded.kind,value=excluded.value,knowledge_cutoff_at=excluded.knowledge_cutoff_at,source_event_id=excluded.source_event_id,revoked=0 WHERE evidence_items.user_scope=excluded.user_scope AND evidence_items.aggregate_id=excluded.aggregate_id`,
  item.id,state.aggregate_id,scope,item.kind,item.value,item.knowledge_cutoff_at,item.source_event_id));
  if(state.activities.some(a=>a.activity_kind==='follow_campaign'))statements.push(sql(db,`INSERT OR IGNORE INTO user_campaign_subscriptions(user_scope,campaign_id,updated_at) SELECT ?,aggregator_id,? FROM campaign_registry_links WHERE canonical_id=?`,scope,Math.floor(Date.now()/1000),state.campaign_id));
  else if(state.subscription_managed)statements.push(sql(db,`DELETE FROM user_campaign_subscriptions WHERE user_scope=? AND campaign_id IN (SELECT aggregator_id FROM campaign_registry_links WHERE canonical_id=?)`,scope,state.campaign_id));
@@ -72,6 +72,11 @@ export function projectionStatements(db,scope,state,previousVersion){
 export async function reconcile(db,scope,aggregate){
  const state=await rebuild(db,scope,aggregate);
  if(!state)return null;
- // Reconciliation is only appropriate for known cache drift in an admin-controlled repair.
+ const current=await sql(db,'SELECT version,user_scope FROM claim_autopsies WHERE aggregate_id=?',aggregate).first();
+ if(current&&current.user_scope!==scope)throw Error('PROJECTION_OWNER_MISMATCH');
+ const guard=crypto.randomUUID();
+ // D1 batch is transactional: reject a stale replay before touching any projection.
+ const verify=sql(db,`INSERT INTO autopsy_projection_rebuild_guards(id,matches) SELECT ?,CASE WHEN (SELECT MAX(event_version) FROM autopsy_events WHERE user_scope=? AND aggregate_id=?)=? THEN 1 ELSE 0 END`,guard,scope,aggregate,state.version);
+ try{await db.batch([verify,...projectionStatements(db,scope,state,current?.version||0),sql(db,'DELETE FROM pattern_snapshots WHERE user_scope=?',scope),sql(db,'DELETE FROM autopsy_projection_rebuild_guards WHERE id=?',guard)]);}catch(error){if(/CHECK constraint failed: matches=1/.test(String(error?.message)))fail('VERSION_CONFLICT',409);throw error;}
  return state;
 }

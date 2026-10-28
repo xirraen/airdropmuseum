@@ -1,3 +1,4 @@
+import {aggregatorUser,aggregatorAdmin} from './aggregator/auth.mjs';
 import {questRoutes} from './aggregator/questRoutes.mjs';
 import {portfolioRoutes} from './aggregator/portfolioRoutes.mjs';
 import {verifyTelegram} from './auth.mjs';
@@ -8,8 +9,8 @@ import {scan,digest,discover,enqueueAlert} from './aggregator-jobs.mjs';
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status})};
 async function input(request){if(!request.headers.get('Content-Type')?.startsWith('application/json'))fail('JSON_REQUIRED',415);if(Number(request.headers.get('Content-Length'))>65536)fail('BODY_TOO_LARGE',413);const reader=request.body?.getReader();if(!reader)fail('JSON_REQUIRED');let size=0,text='';const decoder=new TextDecoder();for(;;){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>65536){await reader.cancel();fail('BODY_TOO_LARGE',413)}text+=decoder.decode(r.value,{stream:true})}try{return JSON.parse(text+decoder.decode())}catch{fail('INVALID_JSON')}}
 async function rate(env,key,max,period=60){const now=Math.floor(Date.now()/1000),slot=Math.floor(now/period);const result=await s(env.DB,'INSERT INTO aggregator_rate_limits(key,count,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 WHERE count<?',key+':'+slot,now+period*2,max).run();if(!result.meta.changes)fail('RATE_LIMITED',429);}
-async function admin(request,env){const token=request.headers.get('Authorization')||'';if(!env.AGGREGATOR_ADMIN_TOKEN||await digest(token)!==await digest('Bearer '+env.AGGREGATOR_ADMIN_TOKEN))fail('ADMIN_REQUIRED',403);}
-async function user(request,env){try{const u=await verifyTelegram(request.headers.get('X-Telegram-Init-Data'),env.TELEGRAM_BOT_TOKEN);return 'tg:'+u.id}catch{fail('TELEGRAM_VERIFICATION_REQUIRED',401)}}
+async function admin(request,env){return aggregatorAdmin(request,env,'campaign.write','campaign.manage');}
+const user=aggregatorUser;
 function filters(b={}){const out={};for(const k of ['chain','status','category','reward_type','kyc_requirement','deadline_before','snapshot_before','max_gas'])if(b[k]!==undefined&&b[k]!==''){if(typeof b[k]!=='string'&&typeof b[k]!=='number')fail('INVALID_FILTER');out[k]=String(b[k]).slice(0,80)}if(out.status&&!STATUSES.includes(out.status)||out.category&&!CATEGORIES.includes(out.category))fail('INVALID_FILTER');for(const k of ['deadline_before','snapshot_before'])if(out[k]&&!Number.isFinite(Date.parse(out[k])))fail('INVALID_FILTER');if(out.max_gas!==undefined&&(!Number.isFinite(Number(out.max_gas))||Number(out.max_gas)<0))fail('INVALID_FILTER');return out;}
 export async function aggregatorApi(request,env={},headers={}){
  const url=new URL(request.url),path=url.pathname.slice('/api/aggregator'.length),method=request.method;

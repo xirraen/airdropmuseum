@@ -1,3 +1,4 @@
+import {aggregatorUser,aggregatorAdmin} from './auth.mjs';
 import {followCampaign,unfollowCampaign} from './decisionGuard.mjs';
 import {verifyTelegram} from '../auth.mjs';
 import {digest} from '../aggregator-jobs.mjs';
@@ -6,8 +7,7 @@ import {exportPortfolio} from './exportService.mjs';
 import {createBackup,getBackup,restoreBackup,history,MAX_BACKUP_BYTES} from './backupService.mjs';
 const q=(db,sql,...a)=>db.prepare(sql).bind(...a);
 const err=(message,status=400)=>{throw Object.assign(Error(message),{status});};
-async function user(request,env){try{const u=await verifyTelegram(request.headers.get('X-Telegram-Init-Data'),env.TELEGRAM_BOT_TOKEN);return 'tg:'+u.id}catch{err('TELEGRAM_VERIFICATION_REQUIRED',401)}}
-async function admin(request,env){const value=request.headers.get('Authorization')||'';return !!env.AGGREGATOR_ADMIN_TOKEN&&await digest(value)===await digest('Bearer '+env.AGGREGATOR_ADMIN_TOKEN);}
+const user=aggregatorUser;
 async function limitBody(req,max){if(!req.headers.get('Content-Type')?.startsWith('application/json'))err('JSON_REQUIRED',415);if(Number(req.headers.get('Content-Length'))>max)err('BODY_TOO_LARGE',413);const reader=req.body?.getReader();if(!reader)err('JSON_REQUIRED');const chunks=[];let length=0;for(;;){const c=await reader.read();if(c.done)break;length+=c.value.byteLength;if(length>max){await reader.cancel();err('BODY_TOO_LARGE',413)}chunks.push(c.value);}const a=new Uint8Array(length);let at=0;for(const c of chunks){a.set(c,at);at+=c.length}let data;try{data=JSON.parse(new TextDecoder().decode(a))}catch{err('INVALID_JSON')}if(!data||typeof data!=='object'||Array.isArray(data))err('INVALID_INPUT');return data;}
 function page(url){const n=(key,defaultValue,max)=>{const x=url.searchParams.get(key);if(x===null)return defaultValue;if(!/^\d+$/.test(x)||Number(x)>max)err('INVALID_PAGINATION');return Number(x)};const limit=n('limit',100,500);if(limit<1)err('INVALID_PAGINATION');return {limit,offset:n('offset',0,1000000)};}
 async function rate(db,scope,type,max,period){const now=Math.floor(Date.now()/1000),bucket=Math.floor(now/period),key='sprint5:'+type+':'+scope+':'+bucket;const r=await q(db,'INSERT INTO aggregator_rate_limits(key,count,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 WHERE count<?',key,now+period*2,max).run();if(!r.meta.changes)err('RATE_LIMITED',429);}
@@ -19,7 +19,8 @@ export async function portfolioRoutes(request,env,headers={}){
   if(!env.DB)return response({error:'DATABASE_UNAVAILABLE'},503);
   if(!['GET','HEAD'].includes(method)&&request.headers.get('Origin')&&request.headers.get('Origin')!==url.origin)err('ORIGIN_NOT_ALLOWED',403);
   const pageSpec=page(url);
-  const isServerRead=(/^\/backup\/[a-f0-9-]{36}$/.test(path)||path==='/backup/server-history')&&await admin(request,env);
+  const isServerRead=path==='/backup/server-history'||(/^\/backup\/[a-f0-9-]{36}$/.test(path)&&url.searchParams.get('server')==='true');
+  if(isServerRead)await aggregatorAdmin(request,env,'backup.read','backup.read',path);
   const scope=isServerRead?null:await user(request,env);
   if(scope)await rate(env.DB,scope,'requests',120,60);
   if(path==='/portfolio'&&['GET','HEAD'].includes(method))return response(await portfolioDashboard(env.DB,scope));
@@ -65,5 +66,5 @@ export async function portfolioRoutes(request,env,headers={}){
   }
   if(path==='/restore'&&method==='POST'){await rate(env.DB,scope,'restores',3,3600);const body=await limitBody(request,MAX_BACKUP_BYTES);return response(await restoreBackup(env,scope,body));}
   return response({error:'METHOD_NOT_ALLOWED'},405,{Allow:'GET, HEAD, POST, PUT, DELETE'});
- }catch(e){return response({error:e.status===503?'PORTFOLIO_UNAVAILABLE':e.message},e.status||503,e.status===429?{'Retry-After':'60'}:{});}
+ }catch(e){const status=Number.isInteger(e.status)&&e.status>=400&&e.status<500?e.status:503;return response({error:status===503?'PORTFOLIO_UNAVAILABLE':e.message},status,status===429?{'Retry-After':'60'}:{});}
 }

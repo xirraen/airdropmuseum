@@ -126,3 +126,7 @@ Deploy only after CI, security review, complete migration history reconciliation
 Migration 0015 bridges aggregator campaigns into reserved agg_ canonical IDs without publishing them or inventing legacy decisions. New Portfolio subscriptions require an owned event-backed Decision Entry. Following appends an activity_recorded event with activity_kind=follow_campaign and unspecified snapshot phase; subscription rows are its read projection. Unfollowing compensates the follow event, and refollow appends a new event. Existing unmatched subscriptions remain readable as decision_required. Legacy local bookmarks, quest participation and backup restore are not fully converted and remain release blockers.
 
 Consent withdrawal deletes all owner pattern snapshots in the same D1 batch as the immutable consent event. Insight cache insertion checks the owner event-count checkpoint so it cannot recreate a stale cache across concurrent owner events. Historical events remain intact.
+
+## Transactional repair and private export
+
+Owner-authenticated POST /api/autopsy/:aggregate/replay repairs projections from immutable events. A guard in the same D1 batch rejects a stale event-version replay. No source event is changed or deleted. GET /api/autopsy/export provides bounded owner-filtered pages with a timestamp cutoff and cursor; historical imports cannot overwrite events. Export is personal data and must remain private.

@@ -6,15 +6,22 @@
   "scripts": {
     "test": "node --experimental-strip-types --test",
     "build": "node scripts/build-worker.mjs",
-    "dev": "node scripts/dev-server.mjs"
+    "dev": "node scripts/dev-server.mjs",
+    "lint": "node scripts/check-source.mjs",
+    "typecheck": "tsc -p tsconfig.wallet.json",
+    "test:runtime": "node scripts/run-runtime-tests.mjs"
   },
   "dependencies": {
     "@scure/bip39": "^2.4.0",
-    "@walletconnect/ethereum-provider": "^2.26.0",
+    "@walletconnect/universal-provider": "2.26.0",
+    "qrcode": "1.5.4",
     "viem": "^2.57.12",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "@types/qrcode": "^1.5.6",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.154.0"
   }
 }

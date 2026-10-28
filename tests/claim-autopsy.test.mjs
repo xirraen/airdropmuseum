@@ -197,3 +197,15 @@ test('consent withdrawal atomically clears owner cohort caches across aggregates
  assert.equal((await e.DB.prepare('SELECT COUNT(*) AS n FROM autopsy_events WHERE aggregate_id=?').bind(id).first()).n,3);
  e.DB.sqlite.close();
 });
+
+test('private journal export is owner-scoped, paginated and cannot write history',async()=>{
+ const e=await fixture(),a=await create(e);await create(e,cookieB);
+ await call(e,a.data.aggregate_id,'consent',{expected_version:1,enabled:true});
+ const first=await api(e,'/api/autopsy/export?limit=1');assert.equal(first.status,200);const page=await first.json();
+ assert.equal(page.events.length,1);assert.equal(page.events[0].user_scope,'tg:alice');assert.ok(page.next_cursor);
+ const next=await (await api(e,'/api/autopsy/export?limit=1&cursor='+encodeURIComponent(page.next_cursor))).json();
+ assert.equal(next.events.length,1);assert.equal(next.events[0].user_scope,'tg:alice');assert.notEqual(next.events[0].id,page.events[0].id);
+ assert.equal((await api(e,'/api/autopsy/export',null)).status,401);
+ assert.equal((await api(e,'/api/autopsy/export?cursor=invalid')).status,400);
+ assert.equal((await api(e,'/api/autopsy/export',cookieA,'POST',{})).status,405);e.DB.sqlite.close();
+});

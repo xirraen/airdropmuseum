@@ -5,6 +5,8 @@ export function requestContext(request){
  return {request_id,started:Date.now(),method:request.method,route:safeRoute(new URL(request.url).pathname)};
 }
 export function safeRoute(path){
+ if(path.startsWith('/api/autopsy/'))return '/api/autopsy/*';
+ if(path.startsWith('/api/aggregator/backup/'))return '/api/aggregator/backup/*';
  if(path.startsWith('/api/admin/'))return '/api/admin/*';
  if(path.startsWith('/api/me/'))return '/api/me/*';
  if(/^\/v1\/campaigns\/[^/]+/.test(path))return '/v1/campaigns/:slug';
