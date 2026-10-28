@@ -45,3 +45,10 @@ Use the established private-backup/recovery scripts and isolated Wrangler stagin
 - Cloudflare D1 production remains at `am_core_schema.version=5` and `0001..0005` recorded migrations.
 
 **Do not advance production migration/deployment until full independent restore and encrypted key custody are verified, staging Worker tests (including Telegram and WalletConnect) are completed, and release gates are approved.**
+
+### Verified recovery utility (offline)
+- Added `scripts/verify-d1-json-recovery.mjs` and synthetic tests `tests/d1-json-recovery.test.mjs`.
+- This is for **offline recovery verification only**: decrypt the private R2 backup after it has been downloaded securely using the owner’s Cloudflare credentials. It writes a **new** SQLite file outside the Git repository; refuses any existing target and any output under the repository; validates SHA-256, authenticated AES-256-GCM, the production database ID, 49-table schema expectations via actual metadata, per-table row counts, SQLite integrity and foreign keys. It never contacts live D1 or deploys a Worker.
+- Example (paths supplied by operator): `node --experimental-sqlite scripts/verify-d1-json-recovery.mjs /private/production-snapshot.json.aesgcm /private/recovery-keys.txt /private/restore.sqlite`
+- The secret file was supplied only as a private conversation artifact. **Do not put recovery keys in workflow logs, the repository or public storage.**
+- An *actual verified restore of this production snapshot* has **not** yet been performed. Code-level synthetic restore tests are not a substitute for running the real encrypted backup in an authorized private operator environment.
