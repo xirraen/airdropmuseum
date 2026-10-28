@@ -3,6 +3,7 @@ const el=(tag,text,cl)=>{const x=document.createElement(tag);if(text!==undefined
 const append=(p,...children)=>{p.append(...children);return p;};
 const box=title=>append(el('article',undefined,'card'),el('h3',title));
 const badge=t=>el('span',t,'tag');
+const confidenceLabel=k=>({insufficient_data:'Data belum cukup',weak_pattern:'Pola lemah (deskriptif)',moderate_pattern:'Pola moderat (deskriptif)'})[k]||k;
 const date=t=>t?new Date(t).toLocaleString('id-ID',{timeZone:'UTC'})+' UTC':'Belum tersedia';
 const message=t=>{$('message').textContent=t||'';};
 const formValue=(f,k)=>f.elements.namedItem(k).value;
@@ -94,7 +95,7 @@ async function loadPatterns(){
  try{const data=await api(base+'/insights/patterns');overview(root,data);
   for(const cohort of data.cohorts){
    const c=box(cohort.label);
-   append(c,append(el('div',undefined,'kv'),badge('Sampel '+cohort.sample_size),badge('Hasil diketahui '+cohort.known_outcomes),badge(cohort.confidence_label)),
+   append(c,append(el('div',undefined,'kv'),badge('Sampel '+cohort.sample_size),badge('Hasil diketahui '+cohort.known_outcomes),badge(confidenceLabel(cohort.confidence_label))),
     el('p',cohort.description),el('p','Periode: '+date(cohort.period.from)+' — '+date(cohort.period.to),'muted'),
     el('p',cohort.limitations,'muted'));root.append(c);
   }
@@ -103,7 +104,7 @@ async function loadPatterns(){
 async function loadWeekly(){
  const root=$('weekly-results');root.replaceChildren();
  try{const data=await api(base+'/insights/weekly');
-  const c=box('Minggu UTC');append(c,append(el('div',undefined,'kv'),badge('Sampel '+data.sample_size),badge('Diketahui '+data.known_outcomes),badge(data.confidence_label)),
+  const c=box('Minggu UTC');append(c,append(el('div',undefined,'kv'),badge('Sampel '+data.sample_size),badge('Diketahui '+data.known_outcomes),badge(confidenceLabel(data.confidence_label))),
    el('p','Periode: '+date(data.period.from)+' — '+date(data.period.to)),
    el('p','Alokasi '+data.outcomes.allocated+' · Tidak alokasi '+data.outcomes.not_allocated+' · Unknown '+data.outcomes.unknown+' · Menunggu '+data.outcomes.pending),
    el('p',data.notice),el('p',data.limitations,'muted'));root.append(c);
