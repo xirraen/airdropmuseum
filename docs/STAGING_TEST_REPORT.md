@@ -15,3 +15,7 @@ A separate empty D1 received all 15 migrations via Wrangler, then a synthetic en
 Browser checks: Registry and Decision Journal load; 390×844 viewport has document width 375, no horizontal overflow. Production data was not used in the UI.
 
 The original historical staging database lacks reliable d1_migrations history and was not reused or overwritten. No production migration or Worker deployment occurred. Real mobile/wallet/Telegram sessions and complete historical personal-data erasure remain outstanding.
+
+## Telegram bot identity
+
+The user supplied @airdropmuseum_bot. Browser verification of https://t.me/airdropmuseum_bot showed Airdrop Museum 🏛️, the matching username and Start Bot. The public landing page does not establish Mini App menu configuration, launch target, a valid Telegram initData session, or wallet interoperability. No message or /start was sent by the agent. Actual user/device launch remains unverified.

@@ -14,7 +14,7 @@ Updated 29 October 2026 (Asia/Jakarta). The user authorized merge and production
 
 ## Remaining gates
 
-- Real Telegram Mini App and wallet/mobile sessions require the actual bot link and user/device participation. Synthetic HMAC tests are not real Telegram/wallet sessions. Production lists TELEGRAM_BOT_TOKEN and WALLETCONNECT_PROJECT_ID, but their validity is unverified.
+- The user supplied https://t.me/airdropmuseum_bot; its public page was verified as Airdrop Museum 🏛️ / @airdropmuseum_bot. Real Telegram Mini App and wallet/mobile sessions still require user/device participation. Synthetic HMAC tests are not real Telegram/wallet sessions. Production lists TELEGRAM_BOT_TOKEN and WALLETCONNECT_PROJECT_ID, but their validity is unverified.
 - Complete privacy erasure for historical plaintext immutable Journal payloads remains unimplemented. Export and consent withdrawal work but do not erase historical personal data. This is a software release blocker independent of deployment authorization or Actions limits.
 - Queue/KV preflight completed: TRUST_CACHE exists; four missing discovery/partner queues and DLQs were created empty without consumers. Full production binding validation, reviewed schema migration, final merge and direct deployment remain pending the remaining gates. Production is still schema marker 5 with migrations 0001–0005.
 
