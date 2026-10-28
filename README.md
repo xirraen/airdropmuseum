@@ -97,3 +97,15 @@ Sprint 10 adds a production security gateway (request IDs, security headers, saf
 **This is a release candidate, not a production launch confirmation.** The branch starts from unmerged Sprint 9. Production secrets, D1 migrations, branch protection, preview environment resources, restore drill, Telegram Web frame compatibility, security review, CI success and load benchmarks must be verified before release. Production workflow requires manual approval and never runs migrations implicitly.
 
 Guides: [Production hardening](docs/PRODUCTION_HARDENING.md), [Security review](docs/SECURITY.md), [Runbook](docs/RUNBOOK.md), [Launch checklist](docs/LAUNCH_CHECKLIST.md). Run `npm ci`, `npm run lint --if-present`, `npm run typecheck --if-present`, `npm run build`, `npm test`, `node --experimental-sqlite scripts/validate-migrations.mjs`, `node scripts/security-scan.mjs` before requesting production approval.
+
+## Sprint 11 — Claim Autopsy & Decision Intelligence
+
+A private, Indonesian-language **Lab Keputusan** is available at `/decision-lab.html` (linked from the application header). It adds a **Decision Journal**, linked **Outcome Review**, personal **Claim Autopsy**, opt-in descriptive **Pattern Review**, UTC **Weekly Decision Review**, and public-source-only **Evidence Chain Card**.
+
+- Every private API filters on verified `user_scope`. Per-autopsy analysis consent defaults **off**; users can withdraw it or delete their own note.
+- No auto-claim, signing, eligibility guarantee, prediction, or expected-value calculation. Cohorts below five samples display **“Belum cukup data untuk pola yang dapat dipercaya”**; all insights contain their period, sample count and limitations.
+- The public Evidence Chain Card uses only published, verified campaign/source metadata and never exports wallet, journal or autopsy data.
+- Additive migration: `migrations/0014_claim_autopsy.sql`. Run `npm ci`, `npm run build`, and `npm test`, then perform an authenticated staging D1/Telegram integration test.
+- **Integration warning:** this branch is based on Sprint 10, not `main`. Migrations 0005–0009 from earlier unmerged sprints must be reconciled before a production rollout.
+
+See **[docs/CLAIM_AUTOPSY.md](docs/CLAIM_AUTOPSY.md)** for route contracts, ownership/consent safeguards, scope boundaries, migrations, validation, testing and deployment.
