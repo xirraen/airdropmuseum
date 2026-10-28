@@ -85,3 +85,5 @@ npx wrangler deploy
 Moderasi item tunggal untuk moderator: `POST /api/admin/discovery/items/:id/approve|reject|convert|duplicate`, dengan CSRF dan alasan wajib untuk reject/duplicate. Bulk preview dibatasi admin/super_admin.
 
 System settings yang dapat diubah oleh `super_admin`: `webhook_failure_threshold` (0.01–1) dan `discovery_lag_warning_minutes` (15–1440). Endpoint `PUT /api/admin/system-settings/:key` wajib CSRF dan mencatat audit, tanpa kunci arbitrer atau secrets.
+
+UI admin mendukung edit campaign terbatas, review item tunggal, update/revoke API key, toggle/test/revoke webhook, dan pengaturan feature flags. Semua data UI ditambahkan memakai `textContent`, bukan HTML yang berasal dari pengguna.

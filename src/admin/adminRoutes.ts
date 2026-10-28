@@ -56,7 +56,7 @@ export async function adminRoutes(request,env,ctx){
   else if(path.startsWith('/api/admin/webhooks'))result=await webhooksAdminRoute(request,env,actor);
   else if(path.startsWith('/api/admin/feature-flags'))result=await flagsRoute(request,env,actor);
   else fail('NOT_FOUND',404);
-  if(ro&&path!=='/api/admin/session')ctx?.waitUntil?.(audit(env,request,actor,'read.'+path,'route',path));
+  if(ro)await audit(env,request,actor,'read.'+path,'route',path);
   return json(result,path==='/api/admin/api-keys'&&m==='POST'?201:200);
  }catch(e){
   const status=e instanceof AdminError?e.status:500;
