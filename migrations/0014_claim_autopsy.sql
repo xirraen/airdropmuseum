@@ -13,7 +13,11 @@ CREATE TABLE IF NOT EXISTS autopsy_events(
   'analysis_consent_changed','event_compensated'
  )),
  knowledge_cutoff_at TEXT NOT NULL CHECK(length(knowledge_cutoff_at)>0),
- evidence_refs TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(evidence_refs) AND json_type(evidence_refs)='array'),
+ evidence_refs TEXT NOT NULL DEFAULT '[]' CHECK(
+  json_valid(evidence_refs) AND json_type(evidence_refs)='array'
+  AND (event_type NOT IN ('decision_created','evidence_added','activity_recorded','hypothesis_updated',
+   'outcome_recorded','outcome_revised','autopsy_finalized') OR json_array_length(evidence_refs)>=1)
+ ),
  payload_json TEXT NOT NULL CHECK(json_valid(payload_json) AND json_type(payload_json)='object'),
  recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  UNIQUE(user_scope,aggregate_id,event_version)
