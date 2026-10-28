@@ -42,7 +42,7 @@ Delivery is at-least-once: unique queue event keys suppress normal duplicate enq
 
 ## Validation
 
-67 automated tests cover old workflows and new wallet signature/session boundaries, replay/origin rejection, public/private data separation, nested comments, votes/bookmarks, moderation authorization, privacy, reputation deduplication, provider failure, AI quotas, server quest proof ownership/confirmations and opt-in/idempotent scheduling. Generated Worker modules import successfully. Browser verification covers public navigation and responsive views. No user wallet is signed, transaction executed, public test post published, or external reminder sent during deployment QA.
+68 automated tests cover old workflows and new wallet signature/session boundaries, replay/origin rejection, public/private data separation, nested comments, votes/bookmarks, moderation authorization, privacy, reputation deduplication, provider failure, AI quotas, server quest proof ownership/confirmations and opt-in/idempotent scheduling. Generated Worker modules import successfully. Browser verification covers public navigation and responsive views. No user wallet is signed, transaction executed, public test post published, or external reminder sent during deployment QA.
 
 ## Primary integration references
 
@@ -52,3 +52,5 @@ Delivery is at-least-once: unique queue event keys suppress normal duplicate enq
 - https://ethereum.publicnode.com/
 - https://base.publicnode.com/
 - https://github.com/resend/resend-openapi/blob/main/resend.yaml
+
+Asset delivery regression: assets are compressed inside the generated Worker to keep deployment size small, then decoded before returning the HTTP response. Edge compression is left to Cloudflare; this avoids double-encoding behavior in intermediary clients.

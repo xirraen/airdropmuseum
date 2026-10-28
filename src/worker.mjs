@@ -11,6 +11,6 @@ export default {scheduled(event,env,ctx){ctx.waitUntil(scheduled(env))},async fe
  const asset=assets[url.pathname==='/'?'/index.html':url.pathname];
  if(!asset)return new Response(head?null:'Not found',{status:404,headers});
  const bytes=Uint8Array.from(atob(asset.body),c=>c.charCodeAt(0));
- const compressed=asset.encoding==='gzip',acceptGzip=compressed&&/(?:^|[, ])gzip(?:[,; ]|$)/.test(request.headers.get('Accept-Encoding')||'');const body=compressed&&!acceptGzip?new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')):bytes;
+ const compressed=asset.encoding==='gzip',acceptGzip=false;const body=compressed&&!acceptGzip?new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')):bytes;
  return new Response(head?null:body,{headers:{...headers,Vary:'Accept-Encoding',...(acceptGzip?{'Content-Encoding':'gzip'}:{}),'Content-Type':asset.type,'Cache-Control':(url.pathname==='/sw.js'||asset.type.startsWith('text/html'))?'no-cache':'public, max-age=300'}});
 }};
