@@ -13,10 +13,10 @@ class FakeDB {
  prepare(sql){const db=this;return {params:[],bind(...params){this.params=params;return this;},async first(){if(sql.includes('SUM(points)'))return {n:12};if(sql.includes('COUNT(*)'))return {n:1};return null;},async all(){return {results:[]};},async run(){db.writes.push({sql,params:this.params});return {meta:{changes:1}};}};}
  async batch(stmts){return stmts.map(()=>({results:[],meta:{changes:1}}));}
 }
-const sample={campaigns:[{id:'one',status:'confirmed',claim_deadline_at:'2026-11-01T00:00:00Z',kyc_requirement:'unknown',official_urls:'["https://project.example"]'}],progress:[{quest_id:'quest',campaign_id:'one',status:'verified',verification_method:'admin_review',ends_at:null}],availableQuests:[{id:'quest'},{id:'new'}],wallets:[{chain:'eip155:1'}],eligibility:[],claims:[],points:120};
+const sample={campaigns:[{id:'one',status:'confirmed',claim_deadline_at:'2026-11-01T00:00:00Z',kyc_requirement:'unknown',official_urls:'["https://project.example"]'}],progress:[{quest_id:'quest',campaign_id:'one',status:'verified',verification_method:'admin_review',ends_at:null}],availableQuests:[{id:'quest'},{id:'new'}],wallets:[{chain:'eip155:1'}],eligibility:[{evaluation_status:'passed'}],claims:[],points:120};
 test('portfolio summary',()=>{
  const x=computeSummary(sample,Date.parse('2026-10-28T00:00:00Z'));
- assert.equal(x.total_campaigns,1);assert.equal(x.active_campaigns,1);assert.equal(x.quests.verified,1);assert.equal(x.quests.todo,1);assert.equal(x.internal_points,120);assert.equal(x.deadlines_7d,1);assert.equal(x.wallets_monitored,1);
+ assert.equal(x.total_campaigns,1);assert.equal(x.active_campaigns,1);assert.equal(x.quests.verified,1);assert.equal(x.quests.todo,1);assert.equal(x.internal_points,120);assert.equal(x.deadlines_7d,1);assert.equal(x.wallets_monitored,1);assert.equal(x.eligibility_progress.passed,1);
 });
 test('chain exposure and labels',async()=>{
  assert.equal(exposureLabel(70,3),'Terkonsentrasi');assert.equal(exposureLabel(50,3),'Cukup seimbang');assert.equal(exposureLabel(35,4),'Tersebar');
