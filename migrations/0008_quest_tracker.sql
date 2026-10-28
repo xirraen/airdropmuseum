@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS campaign_quests (
  title TEXT NOT NULL CHECK(length(title) BETWEEN 1 AND 160),
  description TEXT NOT NULL DEFAULT '',
  quest_type TEXT NOT NULL CHECK(quest_type IN ('social','testnet_task','mainnet_task','bridge','swap','liquidity','governance','referral','kyc','custom')),
+ verification_rule_id TEXT,
  verification_method TEXT NOT NULL CHECK(verification_method IN ('manual','wallet_activity','url_submission','admin_review','none')),
  points INTEGER NOT NULL DEFAULT 0 CHECK(points BETWEEN 0 AND 100000),
  weight REAL NOT NULL DEFAULT 1.0 CHECK(weight >= 0 AND weight <= 100),
