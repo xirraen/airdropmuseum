@@ -25,7 +25,7 @@ export async function campaignQuests(db,slug,user_scope=null,{limit=25,offset=0}
  const campaign=await s(db,'SELECT id,slug,name FROM campaigns WHERE slug=? OR id=?',slug,slug).first();if(!campaign)problem('CAMPAIGN_NOT_FOUND',404);
  const [rows,total]=await Promise.all([
  s(db,`SELECT q.*,p.status,p.evidence_url,p.note,p.wallet_address,p.points_awarded,p.updated_at AS progress_updated_at,p.completed_at
- FROM campaign_quests q LEFT JOIN user_quest_progress p ON p.quest_id=q.id AND p.user_scope=? AND p.wallet_address IS NULL
+ FROM campaign_quests q LEFT JOIN user_quest_progress p ON p.id=(SELECT x.id FROM user_quest_progress x WHERE x.quest_id=q.id AND x.user_scope=? ORDER BY CASE WHEN x.status='verified' THEN 0 ELSE 1 END,x.updated_at DESC LIMIT 1)
  WHERE q.campaign_id=? ORDER BY q.required DESC, q.ends_at ASC, q.id ASC LIMIT ? OFFSET ?`,user_scope||'',campaign.id,limit,offset).all(),
  s(db,'SELECT COUNT(*) AS n FROM campaign_quests WHERE campaign_id=?',campaign.id).first()]);
  return {campaign,quests:rows.results.map(row=>({...row,status:row.status||'todo',progress_updated_at:row.progress_updated_at??null})),total:total.n,limit,offset};
@@ -44,7 +44,7 @@ export async function campaignProgress(db,slug,user_scope){
  COALESCE(SUM(CASE WHEN q.required=1 THEN 1 ELSE 0 END),0) AS required_total,
  COALESCE(SUM(CASE WHEN q.required=1 AND p.status='verified' THEN 1 ELSE 0 END),0) AS required_verified
  FROM campaigns c LEFT JOIN campaign_quests q ON q.campaign_id=c.id
- LEFT JOIN user_quest_progress p ON p.quest_id=q.id AND p.user_scope=? AND p.wallet_address IS NULL
+ LEFT JOIN user_quest_progress p ON p.id=(SELECT x.id FROM user_quest_progress x WHERE x.quest_id=q.id AND x.user_scope=? ORDER BY CASE WHEN x.status='verified' THEN 0 ELSE 1 END,x.updated_at DESC LIMIT 1)
  WHERE c.slug=? GROUP BY c.id`,user_scope,slug).first();
  if(!row)problem('CAMPAIGN_NOT_FOUND',404);
  const {quests}=await campaignQuests(db,slug,user_scope,{limit:100,offset:0});
