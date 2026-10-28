@@ -101,11 +101,11 @@ test('URL submission requires evidence; user cannot verify; isolation enforced',
 });
 test('wallet verification requires a persisted passed evaluator rule and official evidence',async()=>{
  const DB=db();await campaign(DB);
- const q=await createQuest(DB,'demo',payload('wallet_activity',{title:'On-chain'}));
+ const q=await createQuest(DB,'demo',payload('wallet_activity',{title:'On-chain',verification_rule_id:'onchain-rule'}));
  await assert.rejects(()=>changeProgress(DB,scope,q.id,{status:'verified',wallet_address:address},'evaluator'),/ONCHAIN_EVIDENCE_NOT_FOUND/);
  const wallet='wallet-test';DB.sql.prepare('INSERT INTO wallet_watchlist(id,user_id,chain,address,label,created_at) VALUES(?,?,?,?,?,?)').run(wallet,scope,'eip155:1',address,'',new Date().toISOString());
  DB.sql.prepare(`INSERT INTO eligibility_results(id,wallet_id,campaign_id,rule_id,rule_type,parameters,evaluation_status,evaluated_at,evidence_refs,human_reason) VALUES(?,?,?,?,?,?,?,?,?,?)`)
- .run('result-test',wallet,'demo',q.id,'tx_count','{}','passed',new Date().toISOString(),JSON.stringify([{source_url:official,source_type:'explorer'}]),'Bukti');
+ .run('result-test',wallet,'demo','onchain-rule','tx_count','{}','passed',new Date().toISOString(),JSON.stringify([{source_url:official,source_type:'explorer'}]),'Bukti');
  const v=await changeProgress(DB,scope,q.id,{status:'verified',wallet_address:address},'evaluator');
  assert.equal(v.status,'verified');assert.equal((await campaignProgress(DB,'demo',scope)).verified,1);
  DB.sql.close();
