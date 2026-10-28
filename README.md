@@ -61,3 +61,12 @@ Lihat [`docs/AGGREGATOR_CORE.md`](docs/AGGREGATOR_CORE.md) untuk model data, API
 Museum/workbench lama di `/museum.html` mempertahankan katalog demo yang diberi label, checklist, dossier, ledger, kalender, referral dan API platform sebelumnya. Data demo tidak dimasukkan ke registry Core sebagai airdrop aktif. Backup v1/v2 dapat dipertahankan dalam envelope Core dan dipulihkan melalui importer museum lama. Sesi wallet/email platform lama tidak dapat digunakan untuk mengakses data privat Aggregator Core.
 
 Dokumen versi lama seperti [`docs/SERVER_CORE.md`](docs/SERVER_CORE.md), [`docs/WORKBENCH_1_1.md`](docs/WORKBENCH_1_1.md) dan [`docs/ACTION_DESK_1_2.md`](docs/ACTION_DESK_1_2.md) menjelaskan fitur museum terdahulu; gunakan AGGREGATOR_CORE.md untuk perilaku Core 2.0.
+
+## Sprint 4 — Quest & Points Tracker
+
+- Quest per campaign: 10 tipe, 5 metode verifikasi dan 7 status. Detail campaign kini memiliki tab **Quest**, evidence HTTPS, progress bar, serta badge status berbahasa Indonesia.
+- Tracking personal scoped Telegram dengan D1, ledger poin internal append-only dan reversal pada koreksi verified → failed. Poin tidak bernilai finansial serta tidak menjamin reward/eligibility.
+- **Next Best Action** memprioritaskan deadline, bobot quest, poin, effort, gas dan status campaign. Ada ringkasan streak harian, pagination dan pertahanan terhadap duplicate awards.
+- Admin-only CRUD serta review; wallet_activity hanya dapat terverifikasi menggunakan evidence dari evaluator; quest sosial tidak bisa auto-complete. Browser tanpa Telegram tetap bisa menyimpan Draft lokal tanpa poin.
+- Migrasi additive: migrations/0008_quest_tracker.sql. Petunjuk API, konfigurasi, privasi, validasi, rollback dan risiko: [docs/QUEST_TRACKER.md](docs/QUEST_TRACKER.md).
+- Pengujian: npm ci; npm run build; npm test. Branch Sprint 4 berasal dari feat/aggregator-core-2, yang belum masuk main versi 1.2. Verifikasi integrasi migrasi 0006/0007 sebelum merge/deploy.
