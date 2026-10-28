@@ -23,7 +23,7 @@ export function setupQuestUI({api,initData,guard,notify,telegramRequired,e,link,
   const el=$('next-action-list'),stats=$('quest-stats');if(!el||!stats)return;
   if(!initData()){stats.textContent='Buka melalui Telegram untuk melihat rekomendasi, poin dan streak.';el.textContent='';return}
   try{
-   const [d,m]=await Promise.all([api('/next-actions?limit=100'),api('/quests/my?limit=10')]);
+   const [d,m]=await Promise.all([api('/next-actions?limit=100'),api('/quests/my?limit=10&timezone='+encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'))]);
    stats.innerHTML='<p>Poin internal: <strong>'+e(m.points.points)+'</strong></p><p>Streak: <strong>'+e(m.streak.streak)+' hari</strong></p><small>Bukan saldo/token atau jaminan reward.</small>';
    const groups={harus_segera:'Harus segera',minggu_ini:'Minggu ini',bisa_menunggu:'Bisa menunggu'};
    el.innerHTML=Object.entries(groups).map(([key,label])=>'<article class="quest-card"><h3>'+e(label)+'</h3>'+(d[key].length?d[key].map(x=>'<p><b>'+e(x.campaign_name)+'</b><br>'+e(x.quest_title)+' · '+e(x.points)+' poin internal · '+e(x.hours_left??'—')+' jam tersisa<br><small>'+e(x.reason)+'</small><br><a href="?campaign='+encodeURIComponent(x.campaign_slug)+'">Lihat campaign</a></p>').join(''):'<p>Belum ada tindakan.</p>')+'</article>').join('');
