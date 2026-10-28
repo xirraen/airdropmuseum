@@ -23,11 +23,28 @@
   },
   "triggers": {
     "crons": [
-      "17 * * * *"
+      "17 * * * *",
+      "*/30 * * * *"
     ]
   },
   "vars": {
     "RPC_1": "https://ethereum-rpc.publicnode.com",
     "RPC_8453": "https://base-rpc.publicnode.com"
+  },
+  "queues": {
+    "producers": [
+      {
+        "queue": "airdrop-museum-discovery",
+        "binding": "DISCOVERY_QUEUE"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "airdrop-museum-discovery",
+        "max_batch_size": 10,
+        "max_retries": 3,
+        "dead_letter_queue": "airdrop-museum-discovery-dlq"
+      }
+    ]
   }
 }
