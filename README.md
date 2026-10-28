@@ -88,3 +88,12 @@ Lihat [docs/PUBLIC_API.md](docs/PUBLIC_API.md) untuk autentikasi, pagination, si
 Konsol administrasi responsif di \`/admin\` dengan empat role (\`super_admin\`, \`admin\`, \`moderator\`, \`readonly\`), autentikasi session dan CSRF, audit trail, operasi campaign/discovery/conflict, bulk preview + konfirmasi dua langkah, API key/webhook management, feature flags dengan KV cache, maintenance mode, health checks D1/KV/Queue/provider, serta Workers Analytics Engine. Semua perubahan administratif melalui \`/api/admin/*\`. Tidak ada akses kunci rahasia dari tampilan daftar atau audit.
 
 Migrasi: \`migrations/0013_admin_operations.sql\` (sesudah Sprint 8). Petunjuk hak akses, operasi, pengujian, rollback dan environment variable: [docs/ADMIN_OPERATIONS.md](docs/ADMIN_OPERATIONS.md). Branch Sprint 9 berbasis branch Sprint 8 yang belum digabung ke main; rekonsiliasi migrasi Sprint 2–8 wajib dilakukan sebelum produksi.
+
+
+## Sprint 10 — Production Hardening & Launch
+
+Sprint 10 adds a production security gateway (request IDs, security headers, safe structured logs, payload limits, route/IP rate controls), bounded resilient trust-source fetching, Worker observability, degraded health route `/api/aggregator/health`, four public legal/trust pages (`/privacy`, `/terms`, `/disclaimer`, `/security`), GitHub Actions CI/preview/approved deployment, a k6 staging scenario, and operational/disaster recovery documentation. Existing aggregation workflows and the Sprint 9 admin console remain the product scope.
+
+**This is a release candidate, not a production launch confirmation.** The branch starts from unmerged Sprint 9. Production secrets, D1 migrations, branch protection, preview environment resources, restore drill, Telegram Web frame compatibility, security review, CI success and load benchmarks must be verified before release. Production workflow requires manual approval and never runs migrations implicitly.
+
+Guides: [Production hardening](docs/PRODUCTION_HARDENING.md), [Security review](docs/SECURITY.md), [Runbook](docs/RUNBOOK.md), [Launch checklist](docs/LAUNCH_CHECKLIST.md). Run `npm ci`, `npm run lint --if-present`, `npm run typecheck --if-present`, `npm run build`, `npm test`, `node --experimental-sqlite scripts/validate-migrations.mjs`, `node scripts/security-scan.mjs` before requesting production approval.
