@@ -58,6 +58,7 @@ test('native limit, minute limit and daily quota return 429',async()=>{
  const e=env(),request=req('/v1/campaigns');e.PUBLIC_API_RATE_LIMITER.limit=async()=>({success:false});
  await assert.rejects(()=>checkRate(request,e,{tier:'anonymous',limit:30,id:null}),/RATE_LIMITED/);
  e.PUBLIC_API_RATE_LIMITER.limit=async()=>({success:true});
+ e.DB.prepare("INSERT INTO api_keys(id,name,key_hash,partner_scope,tier,rate_limit_per_minute,daily_quota,created_by) VALUES('key1','Quota test','hash','','free',60,1,'admin')").run();
  const p={tier:'free',id:'key1',key:{daily_quota:1},limit:60};await checkRate(request,e,p);
  await assert.rejects(()=>checkRate(request,e,p),/RATE_LIMITED/);
 });
@@ -95,7 +96,7 @@ test('webhook creation returns one-time secret; signed delivery uses exact raw b
   assert.equal(init.headers['X-AirdropMuseum-Event'],'campaign.updated');
   assert.equal(init.headers['X-AirdropMuseum-Signature'],await webhookSignature(result.body.webhook_secret,init.body));
   assert.equal(JSON.stringify(init.body).includes('must-not-leak'),false);
-  return new Response('',{status:204});
+  return new Response(null,{status:204});
  });
  assert.ok(message.acked);assert.equal(e.DB.prepare('SELECT status FROM webhook_deliveries').first().status,'delivered');
 });
