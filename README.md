@@ -15,6 +15,16 @@ Aggregator airdrop dan ruang riset Web3 berbahasa Indonesia, menggunakan Cloudfl
 
 CONFIRMED, RUMORED, SPECULATIVE dan EXPIRED adalah status campaign; semuanya terpisah dari hasil kelayakan wallet. Tidak ada jaminan eligible, keamanan atau reward. Core tidak meminta/menyimpan seed phrase, private key, signature atau sesi wallet dan tidak melakukan klaim, approve, atau transaksi otomatis.
 
+## Sprint 4 — Quest & Points Tracker
+
+Sprint 4 (`feat/sprint-4-quest-points`) melengkapi Aggregator Core dengan quest per campaign, progress pribadi Telegram terverifikasi, evidence HTTPS, poin internal dengan ledger reversal, streak, dan Next Best Action berbahasa Indonesia. Tab Quest tersedia pada detail campaign; Next Best Action menampilkan prioritas, total poin, dan streak.
+
+Poin bukan token, saldo, atau jaminan reward. Quest sosial/manual tidak diselesaikan otomatis. Verified hanya oleh admin-review yang didukung bukti atau evaluasi on-chain wallet activity yang valid. Semua status pribadi dipisahkan berdasarkan `user_scope`. Pengaturan admin tetap memakai `AGGREGATOR_ADMIN_TOKEN`. Jalankan migrasi `migrations/0008_quest_tracker.sql` setelah 0005.
+
+**Perhatian:** repo `main` saat pengerjaan memiliki migrasi 0001–0004; branch sumber Aggregator Core memiliki 0005, sedangkan migrasi 0006–0007 dari sprint sebelumnya belum terlihat. Jangan mengasumsikan keduanya telah tersedia di produksi.
+
+Lihat [docs/QUEST_TRACKER.md](docs/QUEST_TRACKER.md) untuk kontrak API, konfigurasi, pengujian, keamanan, dan rollback.
+
 ## Registry awal dan batas verifikasi
 
 Feed kurasi `/official-registry.json` memuat:
