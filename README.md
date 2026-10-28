@@ -59,3 +59,5 @@ Portfolio is now inside Profile. Misi & Bounty adds seven local XP missions, dai
 ## Platform 1.0
 
 The supplied aggregator/community blueprint now has a complete implementation map in [docs/BLUEPRINT_COVERAGE.md](docs/BLUEPRINT_COVERAGE.md). Network pages are nested under Jelajahi; token records and authenticated profile settings are also available from Profil. Run `npm ci`, `npm run build`, `npm test`. `npm run dev` uses an isolated in-memory SQLite database and is not a production data store. Apply migrations through `0003_platform.sql` before deploying this release. Configure exact moderator IDs, this project's bot/email credentials and WalletConnect project ID before enabling those services. Generated delivery/AI behavior always honors account opt-in and server-side quotas.
+
+Version 1.1 adds a guest device ledger, revisioned asset edits/archive/CSV, browser session controls and local contribution drafts. See [docs/WORKBENCH_1_1.md](docs/WORKBENCH_1_1.md). Apply migration `0004_workbench.sql` before deployment.

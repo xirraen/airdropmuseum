@@ -1,0 +1,14 @@
+# Hunter workbench — 1.1.0
+
+This release completes existing workflows rather than creating more primary menu destinations.
+
+- Holdings support edit, reversible archive/restore, CSV export and revision checks. Cross-account writes and stale revisions are rejected. Exact valid receipt dates now persist; the earlier date regex silently dropped them.
+- Claimed assets, unclaimed records and vesting are separated. Unclaimed/vesting/archived records do not enter the claimed-value subtotal. Missing claimed-asset prices suppress the net figure instead of suggesting a false profit. A recorded zero price remains distinct from an unknown price. Values remain manual ledger estimates, not verified wallet balances or realized tax PnL.
+- A device-only ledger is available without login. It is stored under `museum-guest-holdings-v1` in browser storage. Logging in switches to a separate account ledger; there is no silent upload or merge. CSV export includes archived records. Clearing local app data also clears the device ledger. Non-secure development WebViews use a local record-ID fallback, never an authentication token fallback.
+- The account page lists active browser sessions with generic browser family, creation/expiry and current-session marker. Users can revoke a different session or all other sessions. Only owner-scoped session prefixes are returned; token hashes and raw cookies are not exposed. Existing sessions show an unknown creation date if created before migration 0004.
+- Post/comment drafts save locally per account and thread/reply context. Secret detection is run before autosave; suspected secrets are not persisted by the draft feature. Drafts can be discarded, are removed after successful publication, and are cleared by the app's local-data reset. Drafts are not part of cloud backup. English mnemonic detection remains heuristic, not a complete secret scanner.
+- Bookmarks have an explicit remove action and correct empty state. Multi-page feed pagination retains the next cursor and deduplicates rows. Auto-refresh pauses while composing and while browsing beyond the first page. Overlapping refreshes cannot overwrite a newer response.
+
+Apply additive migration `0004_workbench.sql` once before deploying. Existing source and notification schemas remain in place. No new provider credentials are required. WalletConnect/email/Telegram/moderator activation dependencies from the 1.0 coverage document remain unchanged.
+
+Validation: 77 tests, including holdings revision/ownership/date/archive cases, session ownership/revocation, bookmark removal, valuation completeness, CSV formula neutralization and device-storage operations/failures. Browser QA covers the guest ledger create/edit/archive/restore flow; public QA does not sign a user's wallet or publish test community content.
