@@ -1,3 +1,5 @@
+import {scheduledBackups} from './aggregator/backupService.mjs';
+import {sendWeeklyReports} from './aggregator/reportService.mjs';
 import {changeProgress} from './aggregator/questService.mjs';
 import {monitorSources} from './aggregator-sources.mjs';
 import {iso,evaluateRule,aggregateEligibility,scheduledAlerts,priority,ALERT_TYPES,https} from '../dist/aggregator-core.js';
@@ -94,6 +96,10 @@ export async function scheduledAggregator(env,fetcher=fetch){
  const wallets=(await env.DB.prepare("SELECT id FROM wallet_watchlist WHERE last_scan_at IS NULL OR last_scan_at<strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour') ORDER BY COALESCE(last_scan_at,''),id LIMIT 20").all()).results;
  for(const w of wallets){if(env.AGGREGATOR_QUEUE)await env.AGGREGATOR_QUEUE.send({type:'scan_wallet',id:w.id});else await scanStoredWallet(env,w.id,fetcher);}
  await deliverAlerts(env,fetcher);
+ if(await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=9').first()){
+  await scheduledBackups(env);
+  await sendWeeklyReports(env,fetcher);
+ }
  // Retain 90 days of private scan history, newest wallet state remains available.
  await env.DB.batch(['wallet_snapshots','eligibility_results','claim_checks'].map(t=>env.DB.prepare(`DELETE FROM ${t} WHERE ${t==='wallet_snapshots'?'scanned_at':t==='eligibility_results'?'evaluated_at':'checked_at'}<strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days')`)));
  await s(env.DB,'DELETE FROM aggregator_rate_limits WHERE expires<?',Math.floor(Date.now()/1000)).run();

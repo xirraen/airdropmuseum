@@ -1,5 +1,6 @@
 import {questPayload,problem,plain,secureUrl,optionalWallet,member,QUEST_STATUSES,transition,eligibilityFromQuest} from './questTypes.mjs';
 const s=(db,sql,...v)=>db.prepare(sql).bind(...v);
+async function clearPortfolio(db,campaignId){try{await s(db,'DELETE FROM user_portfolio_snapshots WHERE user_scope IN (SELECT user_scope FROM user_campaign_subscriptions WHERE campaign_id=?)',campaignId).run()}catch{/* 0009 may not yet be installed. */}}
 export async function questById(db,id){return await s(db,'SELECT * FROM campaign_quests WHERE id=?',id).first();}
 async function checkVerificationRule(db,campaign_id,data){
  if(data.verification_method!=='wallet_activity')return;
@@ -14,7 +15,7 @@ export async function createQuest(db,campaign_id,body,now=Math.floor(Date.now()/
  await checkVerificationRule(db,campaign_id,data);
  const id=crypto.randomUUID(),keys=Object.keys(data);
  await s(db,`INSERT INTO campaign_quests(id,campaign_id,${keys.join(',')},created_at,updated_at) VALUES(?, ?,${keys.map(()=>'?').join(',')}, ?, ?)`,id,campaign_id,...keys.map(k=>data[k]),now,now).run();
- return await questById(db,id);
+ await clearPortfolio(db,campaign_id);return await questById(db,id);
 }
 export async function editQuest(db,id,body,now=Math.floor(Date.now()/1000)){
  const old=await questById(db,id);if(!old)problem('QUEST_NOT_FOUND',404);
@@ -24,12 +25,12 @@ export async function editQuest(db,id,body,now=Math.floor(Date.now()/1000)){
  const earned=await s(db,'SELECT COUNT(*) AS n FROM user_points_ledger WHERE quest_id=?',id).first();
  if(earned.n&&(data.points!==old.points||data.verification_rule_id!==old.verification_rule_id))problem('POINTS_LOCKED',409);
  await s(db,`UPDATE campaign_quests SET ${keys.map(k=>k+'=?').join(',')},updated_at=? WHERE id=?`,...keys.map(k=>data[k]),now,id).run();
- return await questById(db,id);
+ await clearPortfolio(db,old.campaign_id);return await questById(db,id);
 }
 export async function deleteQuest(db,id){
- const result=await s(db,'DELETE FROM campaign_quests WHERE id=?',id).run();
+ const old=await questById(db,id);const result=await s(db,'DELETE FROM campaign_quests WHERE id=?',id).run();
  if(!result.meta.changes)problem('QUEST_NOT_FOUND',404);
- return {deleted:true};
+ if(old)await clearPortfolio(db,old.campaign_id);return {deleted:true};
 }
 export async function campaignQuests(db,slug,user_scope=null,{limit=25,offset=0}={}){
  const campaign=await s(db,'SELECT id,slug,name FROM campaigns WHERE slug=? OR id=?',slug,slug).first();if(!campaign)problem('CAMPAIGN_NOT_FOUND',404);
@@ -107,6 +108,7 @@ export async function changeProgress(db,scope,quest_id,body,actor='user',now=Mat
  }
  const outcome=await db.batch(statements);
  if(!outcome[0]?.meta?.changes)problem('PROGRESS_CONFLICT',409);
+ try{await s(db,'DELETE FROM user_portfolio_snapshots WHERE user_scope=?',scope).run()}catch{/* Sprint 5 migration may not yet be applied. */}
  return await s(db,'SELECT * FROM user_quest_progress WHERE id=? AND user_scope=?',id,scope).first();
 }
 export async function submitEvidence(db,scope,quest_id,body,now){
