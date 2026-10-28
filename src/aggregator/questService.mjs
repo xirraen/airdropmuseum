@@ -1,8 +1,17 @@
 import {questPayload,problem,plain,secureUrl,optionalWallet,member,QUEST_STATUSES,transition,eligibilityFromQuest} from './questTypes.mjs';
 const s=(db,sql,...v)=>db.prepare(sql).bind(...v);
 export async function questById(db,id){return await s(db,'SELECT * FROM campaign_quests WHERE id=?',id).first();}
+async function checkVerificationRule(db,campaign_id,data){
+ if(data.verification_method!=='wallet_activity')return;
+ if(!data.verification_rule_id)problem('VERIFICATION_RULE_REQUIRED');
+ const campaign=await s(db,'SELECT eligibility_rules FROM campaigns WHERE id=?',campaign_id).first();
+ const rules=campaign?JSON.parse(campaign.eligibility_rules):[];
+ const rule=rules.find(r=>r.id===data.verification_rule_id);
+ if(!rule||['social_task','kyc_or_geo_restriction','custom_manual_task'].includes(rule.rule_type))problem('INVALID_VERIFICATION_RULE_ID');
+}
 export async function createQuest(db,campaign_id,body,now=Math.floor(Date.now()/1000)){
  const data=questPayload(body),c=await s(db,'SELECT id FROM campaigns WHERE id=?',campaign_id).first();if(!c)problem('CAMPAIGN_NOT_FOUND',404);
+ await checkVerificationRule(db,campaign_id,data);
  const id=crypto.randomUUID(),keys=Object.keys(data);
  await s(db,`INSERT INTO campaign_quests(id,campaign_id,${keys.join(',')},created_at,updated_at) VALUES(?, ?,${keys.map(()=>'?').join(',')}, ?, ?)`,id,campaign_id,...keys.map(k=>data[k]),now,now).run();
  return await questById(db,id);
@@ -10,9 +19,10 @@ export async function createQuest(db,campaign_id,body,now=Math.floor(Date.now()/
 export async function editQuest(db,id,body,now=Math.floor(Date.now()/1000)){
  const old=await questById(db,id);if(!old)problem('QUEST_NOT_FOUND',404);
  const data=questPayload({...old,...body}),keys=Object.keys(data);
+ await checkVerificationRule(db,old.campaign_id,data);
  // A points change cannot silently rewrite historical awards.
  const earned=await s(db,'SELECT COUNT(*) AS n FROM user_points_ledger WHERE quest_id=?',id).first();
- if(earned.n&&data.points!==old.points)problem('POINTS_LOCKED',409);
+ if(earned.n&&(data.points!==old.points||data.verification_rule_id!==old.verification_rule_id))problem('POINTS_LOCKED',409);
  await s(db,`UPDATE campaign_quests SET ${keys.map(k=>k+'=?').join(',')},updated_at=? WHERE id=?`,...keys.map(k=>data[k]),now,id).run();
  return await questById(db,id);
 }
@@ -57,7 +67,7 @@ async function validActivity(db,scope,q,wallet){
  const r=await s(db,`SELECT e.evidence_refs,e.evaluated_at FROM eligibility_results e
  JOIN wallet_watchlist w ON w.id=e.wallet_id
  WHERE w.user_id=? AND lower(w.address)=? AND e.campaign_id=? AND e.rule_id=? AND e.evaluation_status='passed'
- ORDER BY e.evaluated_at DESC LIMIT 1`,scope,wallet,q.campaign_id,q.id).first();
+ ORDER BY e.evaluated_at DESC LIMIT 1`,scope,wallet,q.campaign_id,q.verification_rule_id||q.id).first();
  if(!r)problem('ONCHAIN_EVIDENCE_NOT_FOUND',409);
  let refs;try{refs=JSON.parse(r.evidence_refs)}catch{refs=[]}
  if(!Array.isArray(refs)||!refs.length)problem('ONCHAIN_EVIDENCE_NOT_FOUND',409);
