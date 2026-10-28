@@ -1,5 +1,6 @@
 import {EVENTS,DISCLAIMER,sql,fail,str,https,bodyJson,digest,fixedEqual,iso,safeParse} from './types.ts';
 import {campaignBySlug} from './campaignApi.ts';
+import {metric} from '../admin/metrics.ts';
 const enc=new TextEncoder();
 const hex=bytes=>Array.from(new Uint8Array(bytes)).map(n=>n.toString(16).padStart(2,'0')).join('');
 async function hmac(secret,body){const key=await crypto.subtle.importKey('raw',enc.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(await crypto.subtle.sign('HMAC',key,typeof body==='string'?enc.encode(body):body));}
@@ -24,9 +25,9 @@ export async function webhooksRoute(request,env,principal){
   return {status:200,body:{...row,events:safeParse(row.events,[]),enabled:!!row.enabled,disclaimer:DISCLAIMER}};
  }
  if(id&&request.method==='DELETE'){
-  const res=await sql(db,'DELETE FROM partner_webhooks WHERE id=? AND api_key_id=?',id,principal.id).run();
+  const res=await sql(db,"UPDATE partner_webhooks SET enabled=0,disabled_at=CURRENT_TIMESTAMP WHERE id=? AND api_key_id=? AND enabled=1",id,principal.id).run();
   if(!res.meta?.changes)fail('NOT_FOUND',404);
-  return {status:200,body:{deleted:true,disclaimer:DISCLAIMER}};
+  return {status:200,body:{revoked:true,disclaimer:DISCLAIMER}};
  }
  fail('METHOD_NOT_ALLOWED',405);
 }
@@ -52,7 +53,7 @@ export async function scanPartnerEvents(env){
  if(!env.DB||!env.PARTNER_WEBHOOK_QUEUE)return;
  const now=Date.now();
  // Bounded retention for pseudonymous usage counters and delivery metadata.
- await env.DB.batch([sql(env.DB,"DELETE FROM api_usage_log WHERE minute_bucket<?",Math.floor(now/60000)-30*1440),sql(env.DB,"DELETE FROM webhook_deliveries WHERE created_at<datetime('now','-90 days')")]);
+ await env.DB.batch([sql(env.DB,"DELETE FROM api_usage_log WHERE minute_bucket<?",Math.floor(now/60000)-30*1440),sql(env.DB,"UPDATE webhook_deliveries SET payload='{}' WHERE created_at<datetime('now','-90 days') AND payload<>'{}'")]);
  // Poll only recent published changes; no webhook-triggered changes to source registry.
  const rows=await sql(env.DB,"SELECT e.id,e.updated_at,e.payload FROM am_core_exhibits e WHERE e.updated_at >= datetime('now','-10 minutes') AND json_extract(e.payload,'$.visibility')='public' AND e.review_status NOT IN ('draft','pending_review','private_draft','unreviewed') ORDER BY e.updated_at DESC LIMIT 100").all();
  for(const r of rows.results||[]){
@@ -94,12 +95,13 @@ export async function deliverPartnerWebhook(message,env,fetcher=fetch){
   const result=await fetcher(target,{method:'POST',headers:{'Content-Type':'application/json','X-AirdropMuseum-Event':row.event_type,'X-AirdropMuseum-Delivery':id,'X-AirdropMuseum-Signature':await webhookSignature(key,raw)},body:raw,redirect:'manual',signal:AbortSignal.timeout(10000)});
   if(result.status<200||result.status>=300)throw Object.assign(Error('HTTP_DELIVERY_FAILED'),{status:result.status});
   await sql(db,"UPDATE webhook_deliveries SET status='delivered',response_status=?,error=NULL,delivered_at=CURRENT_TIMESTAMP WHERE id=?",result.status,id).run();
-  await sql(db,'UPDATE partner_webhooks SET failure_count=0 WHERE id=?',row.webhook_id).run();message.ack();
+  await sql(db,'UPDATE partner_webhooks SET failure_count=0 WHERE id=?',row.webhook_id).run();metric(env,'webhook_delivery','delivered',0,1);message.ack();
  }catch(error){
   const code=error?.message==='SECRET_DERIVATION_FAILED'?'SECRET_DERIVATION_FAILED':error?.message==='PAYLOAD_TOO_LARGE'?'PAYLOAD_TOO_LARGE':'DELIVERY_FAILED';
   await sql(db,'UPDATE webhook_deliveries SET status=?,response_status=?,error=? WHERE id=?',attempts>=5?'dead':'retrying',Number.isInteger(error?.status)?error.status:null,code,id).run();
   await sql(db,"UPDATE partner_webhooks SET failure_count=failure_count+1 WHERE id=?",row.webhook_id).run();
   await sql(db,"UPDATE partner_webhooks SET enabled=0,disabled_at=CURRENT_TIMESTAMP WHERE id=? AND failure_count>=10",row.webhook_id).run();
+  metric(env,'webhook_delivery','failed',0,1);
   if(attempts<5)message.retry({delaySeconds:Math.min(3600,2**attempts*30)});
   else message.retry(); // Cloudflare max_retries=4 routes exhausted messages to PARTNER_WEBHOOK_DLQ.
  }
