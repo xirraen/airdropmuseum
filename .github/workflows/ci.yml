@@ -1,0 +1,39 @@
+name: Production Hardening CI
+on:
+  push:
+    branches: [main, "feat/sprint-10-production-hardening"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Lint if configured
+        run: npm run lint --if-present
+      - name: Typecheck if configured
+        run: npm run typecheck --if-present
+      - name: Scan source for committed credentials
+        run: node scripts/security-scan.mjs
+      - name: Validate D1 migrations
+        run: node --experimental-sqlite scripts/validate-migrations.mjs
+      - name: Build production worker
+        run: npm run build
+      - name: Verify admin browser module
+        run: node --check dist/admin.js
+      - name: Execute tests
+        run: npm test
+      - name: Lightweight production dependency audit
+        run: npm audit --omit=dev --audit-level=critical
