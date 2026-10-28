@@ -1,3 +1,4 @@
+import {autopsyRoutes} from './autopsy/routes.ts';
 import {platformApi,platformUser} from './platform-api.mjs';
 import {adminAuth} from './admin/auth.ts';
 import {discoveryRoutes} from './discovery/discoveryRoutes.ts';
@@ -14,6 +15,7 @@ export async function api(request,env={},headers={}){
  const json=(body,status=200,extra={})=>new Response(head?null:JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...extra}});
  const method=allow=>allow.includes(request.method)?null:json({error:'METHOD_NOT_ALLOWED'},405,{Allow:allow.join(', ')});
  try{
+ if(path==='/api/autopsy'||path.startsWith('/api/autopsy/')||path==='/api/decisions'||/^\/api\/decisions\/[^/]+\/outcome$/.test(path)||path.startsWith('/api/insights/')||path.startsWith('/api/evidence-card/'))return autopsyRoutes(request,env);
  if(path.startsWith('/api/trust/')){if(!['GET','HEAD'].includes(request.method))return json({error:'LEGACY_ADMIN_WRITE_DISABLED'},410);return trustRoutes(request,env,headers);}
  if(path.startsWith('/api/discovery/')){if(!['GET','HEAD'].includes(request.method))return json({error:'LEGACY_ADMIN_WRITE_DISABLED'},410);await adminAuth(request,env,'discovery.read');return discoveryRoutes(request,env,headers);}
  if(path.startsWith('/api/platform/'))return platformApi(request,env,headers);
