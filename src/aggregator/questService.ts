@@ -40,7 +40,7 @@ export async function listQuests(db,cid,scope,params){
  const rows=scope?(await s(db,"SELECT q.*,p.status AS my_status,p.evidence_url AS my_evidence_url,p.note AS my_note,p.completed_at AS my_completed_at,p.updated_at AS progress_updated_at,p.points_awarded FROM campaign_quests q LEFT JOIN user_quest_progress p ON p.quest_id=q.id AND p.user_scope=? AND p.wallet_address IS NULL WHERE q.campaign_id=? ORDER BY q.required DESC,q.ends_at IS NULL,q.ends_at,q.id LIMIT ? OFFSET ?",scope,campaign.id,limit,offset).all()).results:
  (await s(db,'SELECT * FROM campaign_quests WHERE campaign_id=? ORDER BY required DESC,ends_at IS NULL,ends_at,id LIMIT ? OFFSET ?',campaign.id,limit,offset).all()).results;
  const total=(await s(db,'SELECT COUNT(*) n FROM campaign_quests WHERE campaign_id=?',campaign.id).first()).n;
- return {campaign:{id:campaign.id,name:campaign.name,slug:campaign.slug},quests:rows.map(q=>({...q,status:expired(q)?'expired':q.my_status||'todo'})),page,limit,total,has_more:page*limit<total};
+ return {campaign:{id:campaign.id,name:campaign.name,slug:campaign.slug},quests:rows.map(q=>({...q,status:q.my_status==='verified'?'verified':expired(q)?'expired':q.my_status||'todo'})),page,limit,total,has_more:page*limit<total};
 }
 export async function myQuests(db,scope,params){
  const {page,limit,offset}=pagination(params);
@@ -86,7 +86,7 @@ export async function setProgress(db,scope,qid,body,actor='user'){
   if(actor==='user'||actor==='system'&&q.verification_method!=='wallet_activity'||actor==='admin'&&!['admin_review','url_submission'].includes(q.verification_method))err('VERIFICATION_NOT_ALLOWED',403);
   if(!(evidence||old.evidence_url))err('VERIFIED_EVIDENCE_REQUIRED');
  }
- const ts=now(),newRev=old.revision+1,award=status==='verified'&&old.status!=='verified',reverse=old.status==='verified'&&status==='failed'&&old.points_awarded>0;
+ const ts=now(),newRev=old.revision+1,award=status==='verified'&&old.status!=='verified',reverse=old.status==='verified'&&status==='failed';
  const amount=award?q.points:reverse?-old.points_awarded:0;
  const awarded=award?q.points:reverse?0:old.points_awarded;
  const source=status===old.status?old.verification_source:status==='verified'?(proof?.verification_source||'admin_review'):null;
