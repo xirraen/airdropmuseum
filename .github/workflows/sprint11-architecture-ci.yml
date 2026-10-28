@@ -1,0 +1,35 @@
+name: Sprint 11 Event-Sourced Architecture CI
+on:
+  push:
+    branches: ["feat/sprint-11-event-sourced-architecture"]
+  pull_request:
+    paths:
+      - "src/autopsy/**"
+      - "src/api.mjs"
+      - "migrations/0014_claim_autopsy.sql"
+      - "dist/decision-lab*"
+      - "tests/claim-autopsy.test.mjs"
+      - "docs/CLAIM_AUTOPSY_ARCHITECTURE.md"
+      - ".github/workflows/sprint11-architecture-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: npm ci
+        run: npm ci
+      - name: Validate migrations
+        run: node --experimental-sqlite scripts/validate-migrations.mjs
+      - name: npm run build
+        run: npm run build
+      - name: Browser JS syntax
+        run: node --check dist/decision-lab.js
+      - name: npm test
+        run: npm test
