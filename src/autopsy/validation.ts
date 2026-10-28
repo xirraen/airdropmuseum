@@ -1,3 +1,4 @@
+import {rejectSecrets} from '../platform-api.mjs';
 export class JournalError extends Error {
  constructor(code,status=400){super(code);this.name='JournalError';this.status=status;}
 }
@@ -11,6 +12,7 @@ export function text(value,max=500,required=false){
  const s=value.replace(/[\u0000-\u001f\u007f]/g,' ').trim();
  if(required&&!s)fail('REQUIRED_TEXT');
  if(/(?:seed\s*phrase|private\s*key|recovery\s*phrase|mnemonic|api[_ -]?key|bearer\s+[\w.-]{16,})/i.test(s))fail('SENSITIVE_INPUT_REFUSED');
+ try{rejectSecrets(s);}catch{fail('SENSITIVE_INPUT_REFUSED');}
  return s;
 }
 export function number(value,max,integer=false){
