@@ -1,4 +1,5 @@
 import {TrustError,metadata,shortText} from './types.ts';
+import {upstreamFetch} from '../security/upstream.ts';
 import {normalizeTrustUrl,allowRegisteredSource,validateRedirect} from './domainPolicy.ts';
 import {sha256,sourceFingerprint} from './fingerprint.ts';
 const MAX_BYTES=262144,TTL=21600,WAIT=9000;
@@ -53,7 +54,7 @@ function robotsAllows(text,path){
 }
 async function checkRobots(url,fetcher){
  const u=new URL(url),robots=u.origin+'/robots.txt';
- const r=await fetcher(robots,{redirect:'manual',signal:AbortSignal.timeout(WAIT),headers:{Accept:'text/plain'}});
+ const r=await upstreamFetch(robots,{fetcher,timeoutMs:WAIT,retries:1,headers:{Accept:'text/plain'}});
  validateRedirect(r);
  if(r.status===404||r.status===410)return true;
  if(!r.ok)throw new TrustError('ROBOTS_UNAVAILABLE',502);
@@ -71,7 +72,7 @@ export async function fetchTrustSource(env,link,{fetcher=fetch,now=Date.now()}={
  try{
   // Fail closed for web pages. Fetching robots.txt is not crawling the page.
   await checkRobots(url,fetcher);
-  const response=await fetcher(url,{method:'GET',redirect:'manual',headers,signal:AbortSignal.timeout(WAIT)});
+  const response=await upstreamFetch(url,{fetcher,timeoutMs:WAIT,retries:1,method:'GET',headers});
   validateRedirect(response);
   if(response.status===304){
    const prev=metadata(JSON.parse(link.extracted_metadata||'{}'));
