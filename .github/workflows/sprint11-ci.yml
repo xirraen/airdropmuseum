@@ -1,0 +1,36 @@
+name: Sprint 11 Claim Autopsy CI
+on:
+  push:
+    branches: ["feat/sprint-11-claim-autopsy"]
+  pull_request:
+    paths:
+      - "src/autopsy/**"
+      - "src/api.mjs"
+      - "migrations/0014_claim_autopsy.sql"
+      - "scripts/build-worker.mjs"
+      - "dist/decision-lab*"
+      - "tests/claim-autopsy.test.mjs"
+      - "docs/CLAIM_AUTOPSY.md"
+      - ".github/workflows/sprint11-ci.yml"
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate all migrations
+        run: node --experimental-sqlite scripts/validate-migrations.mjs
+      - name: Build
+        run: npm run build
+      - name: Check browser JS syntax
+        run: node --check dist/decision-lab.js
+      - name: Tests
+        run: npm test
