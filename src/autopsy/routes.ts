@@ -72,6 +72,13 @@ export async function autopsyRoutes(request,env){
    return respond({item:clean(row),private:true},200,head);
   }
   if(path==='/api/decisions'){
+   if(['GET','HEAD'].includes(method)){
+    const limit=url.searchParams.has('limit')?Number(url.searchParams.get('limit')):50;
+    if(!Number.isSafeInteger(limit)||limit<1||limit>100)fail('INVALID_LIMIT');
+    const rows=await sql(env.DB,`SELECT d.id,d.campaign_id,d.reason,d.primary_evidence_url,d.decision_source,d.time_budget_minutes,d.cost_ceiling_usd,d.realistic_expectations,d.follow_status,d.created_at,r.outcome,r.lessons,r.reviewed_at
+ FROM decision_entries d LEFT JOIN outcome_reviews r ON r.decision_id=d.id AND r.user_scope=d.user_scope WHERE d.user_scope=? ORDER BY d.created_at DESC LIMIT ?`,scope,limit).all();
+    return respond({items:rows.results||[],private:true,limit},200,head);
+   }
    if(method!=='POST')fail('METHOD_NOT_ALLOWED',405);
    const entry=parseDecision(await bodyJson(request)),campaign_id=await campaign(env,entry.campaign_id),id=crypto.randomUUID();
    const exists=await sqlRow(env.DB,'SELECT id FROM decision_entries WHERE user_scope=? AND campaign_id=?',scope,campaign_id);
