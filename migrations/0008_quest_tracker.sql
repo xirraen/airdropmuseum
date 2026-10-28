@@ -36,7 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_progress_scope_status ON user_quest_progress(user
 CREATE TABLE IF NOT EXISTS user_points_ledger (
  id TEXT PRIMARY KEY,
  user_scope TEXT NOT NULL CHECK(user_scope GLOB 'tg:[0-9]*'),
- campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+ campaign_id TEXT NOT NULL,
  quest_id TEXT REFERENCES campaign_quests(id) ON DELETE SET NULL,
  wallet_address TEXT,
  points INTEGER NOT NULL,
