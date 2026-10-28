@@ -49,6 +49,7 @@ async function show(tab){
    if(role==='admin'||role==='super_admin')for(const row of d.flags.filter(f=>f.key!=='maintenance_mode')){$('panel').append(btn((row.enabled?'Nonaktifkan ':'Aktifkan ')+row.key,()=>confirmAction('Ubah feature flag '+row.key,async()=>{await api('feature-flags/'+row.key,{method:'PUT',body:JSON.stringify({enabled:!row.enabled})});await show('flags');})));}
   }
   if(tab==='settings'){const d=await api('system-settings');$('panel').append(table(d.settings,[['Pengaturan','key'],['Nilai',r=>JSON.stringify(r.value)],['Diperbarui','updated_at']]));
+   if(role==='super_admin')for(const item of d.settings.filter(x=>x.key!=='maintenance_mode'))$('panel').append(btn('Ubah '+item.key,async()=>{const v=prompt('Nilai baru untuk '+item.key,String(item.value));if(v===null)return;await confirmAction('Ubah pengaturan '+item.key,async()=>{await api('system-settings/'+item.key,{method:'PUT',body:JSON.stringify({value:Number(v)})});await show('settings');});}));
    if(role==='super_admin')for(const mode of ['normal','read_only','maintenance'])$('panel').append(btn('Mode '+mode,()=>confirmAction('Ganti mode platform ke '+mode,async()=>{await api('maintenance-mode',{method:'POST',body:JSON.stringify({mode})});await show('settings');})));
   }
   if(tab==='audit'){const d=await api('audit');$('panel').append(table(d.entries,[['Waktu','created_at'],['Admin','admin_scope'],['Aksi','action'],['Target','target_type'],['ID','target_id']]));}

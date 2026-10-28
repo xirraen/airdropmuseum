@@ -137,3 +137,15 @@ test('moderator can review a discovery item but cannot run bulk actions',async()
  const record=await a.e.DB.prepare("SELECT COUNT(*) count FROM admin_audit_log WHERE action='discovery.approve'").first();
  assert.equal(record.count,1);
 });
+
+test('super_admin may change safe operational settings with audit and validation',async()=>{
+ const a=await env('super_admin');
+ const update=await run('system-settings/webhook_failure_threshold',a,'PUT',{value:0.25});
+ assert.equal(update.status,200);
+ assert.equal((await a.e.DB.prepare("SELECT value FROM system_settings WHERE key='webhook_failure_threshold'").first()).value,'0.25');
+ assert.equal((await run('system-settings/webhook_failure_threshold',a,'PUT',{value:-1})).status,400);
+ const normal=await env('admin');
+ assert.equal((await run('system-settings/webhook_failure_threshold',normal,'PUT',{value:0.2})).status,403);
+ const trail=await a.e.DB.prepare("SELECT COUNT(*) n FROM admin_audit_log WHERE action='system_setting.update'").first();
+ assert.equal(trail.n,1);
+});

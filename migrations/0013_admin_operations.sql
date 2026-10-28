@@ -82,5 +82,5 @@ INSERT OR IGNORE INTO feature_flags(key,description,enabled,rollout_percentage) 
  ('partner_webhooks_enabled','Aktifkan pengiriman webhook',1,100),
  ('telegram_alerts_enabled','Aktifkan alert Telegram',1,100),
  ('maintenance_mode','Dikelola melalui system_settings.maintenance_mode',0,100);
-INSERT OR IGNORE INTO system_settings(key,value) VALUES('maintenance_mode','"normal"');
+INSERT OR IGNORE INTO system_settings(key,value) VALUES('maintenance_mode','"normal"'),('webhook_failure_threshold','0.1'),('discovery_lag_warning_minutes','240');
 INSERT OR IGNORE INTO am_core_schema(version) VALUES(9);

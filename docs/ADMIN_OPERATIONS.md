@@ -66,7 +66,7 @@ Mode:
 
 Health: probe D1 dan latensinya, KV, queue bindings, lag discovery, konfigurasi Telegram, konfigurasi Etherscan, rasio kegagalan webhook, dan event cron terbaru. Tidak melakukan outbound network test. Status \`healthy\`, \`degraded\`, \`unhealthy\` tidak menjamin jaringan provider hidup.
 
-Analytics Engine \`ANALYTICS\` dataset \`airdropmuseum_operations\` memakai \`writeDataPoint()\` hanya dengan kategori event dan status; tanpa wallet/IP/token/payload. Event yang terintegrasi di branch ini: \`api_request\`, \`webhook_delivery\`, serta event cron agregat ke D1. Event deklaratif lain (\`wallet_scan_completed\`, \`wallet_scan_failed\`, \`verification_run\`, \`conflict_detected\`, \`discovery_item_processed\`, \`discovery_item_failed\`, \`alert_sent\`) memerlukan titik emit di branch fitur masing-masing ketika diintegrasikan. Ini adalah dependensi merge, bukan klaim implementasi collector yang belum ada.
+Analytics Engine \`ANALYTICS\` dataset \`airdropmuseum_operations\` memakai \`writeDataPoint()\` hanya dengan kategori event dan status; tanpa wallet/IP/token/payload. Event yang terintegrasi di branch ini: \`api_request\`, \`webhook_delivery\`, \`discovery_item_processed\`, \`discovery_item_failed\`, \`verification_run\`, \`conflict_detected\`, serta event cron agregat ke D1. Event deklaratif lain (\`wallet_scan_completed\`, \`wallet_scan_failed\`, \`verification_run\`, \`conflict_detected\`, \`discovery_item_processed\`, \`discovery_item_failed\`, \`alert_sent\`) memerlukan titik emit di branch fitur masing-masing ketika diintegrasikan. Ini adalah dependensi merge, bukan klaim implementasi collector yang belum ada.
 
 ## Deployment, environment, rollback
 
@@ -83,3 +83,5 @@ npx wrangler deploy
 **Rollback:** hentikan deploy dan ubah mode ke maintenance bila perlu; restore dari snapshot D1 tervalidasi sebelum migrasi. SQLite/D1 tidak mendukung rollback otomatis \`ALTER TABLE ... ADD COLUMN\` dalam semua versi; jangan langsung DROP column atau audit log. Kembalikan worker pada commit sebelumnya *setelah* memastikan versi migrasi compatible. \`0013\` mempertahankan discovery review history saat memperluas CHECK constraint untuk aksi duplicate.
 
 Moderasi item tunggal untuk moderator: `POST /api/admin/discovery/items/:id/approve|reject|convert|duplicate`, dengan CSRF dan alasan wajib untuk reject/duplicate. Bulk preview dibatasi admin/super_admin.
+
+System settings yang dapat diubah oleh `super_admin`: `webhook_failure_threshold` (0.01–1) dan `discovery_lag_warning_minutes` (15–1440). Endpoint `PUT /api/admin/system-settings/:key` wajib CSRF dan mencatat audit, tanpa kunci arbitrer atau secrets.

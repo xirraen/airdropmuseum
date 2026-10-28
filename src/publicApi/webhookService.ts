@@ -25,7 +25,7 @@ export async function webhooksRoute(request,env,principal){
   return {status:200,body:{...row,events:safeParse(row.events,[]),enabled:!!row.enabled,disclaimer:DISCLAIMER}};
  }
  if(id&&request.method==='DELETE'){
-  const res=await sql(db,"UPDATE partner_webhooks SET enabled=0,disabled_at=CURRENT_TIMESTAMP WHERE id=? AND api_key_id=? AND enabled=1",id,principal.id).run();
+  const res=await sql(db,"UPDATE partner_webhooks SET enabled=0,revoked_at=CURRENT_TIMESTAMP,disabled_at=CURRENT_TIMESTAMP WHERE id=? AND api_key_id=? AND enabled=1",id,principal.id).run();
   if(!res.meta?.changes)fail('NOT_FOUND',404);
   return {status:200,body:{revoked:true,disclaimer:DISCLAIMER}};
  }

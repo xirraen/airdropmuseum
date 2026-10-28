@@ -1,17 +1,17 @@
 import {sql,fail,body,bool,safeJson,text,hash} from './types.ts';
 import {audit} from './auditService.ts';
-import {EVENTS} from '../publicApi/types.ts';
+import {EVENTS,https} from '../publicApi/types.ts';
 export async function webhooksAdminRoute(request,env,actor){
  const db=env.DB,p=new URL(request.url).pathname,id=/^\/api\/admin\/webhooks\/([a-f0-9-]{36})(?:\/(test))?$/.exec(p);
  if(p==='/api/admin/webhooks'&&request.method==='GET'){
   const r=await sql(db,"SELECT h.id,h.api_key_id,h.url,h.events,h.enabled,h.failure_count,h.created_at,h.disabled_at,h.revoked_at,COUNT(d.id) deliveries,SUM(CASE WHEN d.status='delivered' THEN 1 ELSE 0 END) successful,MAX(d.delivered_at) last_success,MAX(CASE WHEN d.status IN ('dead','retrying') THEN d.last_attempt_at END) last_failure,SUM(CASE WHEN d.status IN ('queued','retrying') THEN 1 ELSE 0 END) retry_depth FROM partner_webhooks h LEFT JOIN webhook_deliveries d ON d.webhook_id=h.id GROUP BY h.id ORDER BY h.created_at DESC LIMIT 200").all();
-  return {webhooks:r.results.map(h=>({...h,events:safeJson(h.events,[]),enabled:!!h.enabled,success_rate:h.deliveries?h.successful/h.deliveries:0}))};
+  return {webhooks:r.results.map(h=>({...h,url:new URL(h.url).origin,events:safeJson(h.events,[]),enabled:!!h.enabled,success_rate:h.deliveries?h.successful/h.deliveries:0}))};
  }
  if(p==='/api/admin/webhooks'&&request.method==='POST'){
   const b=await body(request),k=await sql(db,"SELECT id FROM api_keys WHERE id=? AND enabled=1 AND tier='partner' AND revoked_at IS NULL",b.api_key_id).first();
   if(!k)fail('ACTIVE_PARTNER_KEY_REQUIRED');
   if(!env.WEBHOOK_MASTER_SECRET||env.WEBHOOK_MASTER_SECRET.length<32)fail('WEBHOOK_SECRET_NOT_CONFIGURED',503);
-  let url;try{url=new URL(b.url);}catch{fail('HTTPS_REQUIRED');}
+  let url;try{url=new URL(https(b.url));}catch{fail('HTTPS_REQUIRED');}
   if(url.protocol!=='https:'||url.username||url.password||url.href.length>1500||url.hostname===new URL(request.url).hostname)fail('INVALID_WEBHOOK_URL');
   const allowed=EVENTS;
   if(!Array.isArray(b.events)||!b.events.length||b.events.some(e=>!allowed.includes(e)))fail('INVALID_WEBHOOK_EVENTS');

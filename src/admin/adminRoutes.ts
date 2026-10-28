@@ -48,7 +48,7 @@ export async function adminRoutes(request,env,ctx){
   else if(path==='/api/admin/audit'&&ro)result={entries:await logs(env.DB,new URL(request.url).searchParams)};
   else if(path==='/api/admin/health'&&ro)result=await health(env);
   else if(path==='/api/admin/maintenance-mode'&&m==='POST')result=await setMaintenance(request,env,actor);
-  else if(path==='/api/admin/system-settings'&&ro)result=await settingsRoute(request,env,actor);
+  else if(path.startsWith('/api/admin/system-settings'))result=await settingsRoute(request,env,actor);
   else if(path.startsWith('/api/admin/campaigns'))result=await campaignsRoute(request,env,actor);
   else if(path.startsWith('/api/admin/discovery'))result=await discoveryRoute(request,env,actor);
   else if(path.startsWith('/api/admin/conflicts'))result=await conflictsRoute(request,env,actor);
