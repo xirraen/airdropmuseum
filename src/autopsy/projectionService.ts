@@ -15,6 +15,7 @@ export function replay(rows){
   const p=parse(e.payload_json),compensated=compensations.has(e.id);
   state.timeline.push({id:e.id,version:e.event_version,type:e.event_type,recorded_at:e.recorded_at,
    knowledge_cutoff_at:e.knowledge_cutoff_at,knowledge_phase:!firstOutcome||e.event_version<firstOutcome.event_version?'pre_outcome':e.event_version===firstOutcome.event_version?'outcome_transition':'post_outcome',evidence_refs:parse(e.evidence_refs),compensated});
+  if(e.event_type==='activity_recorded'&&p.activity_kind==='follow_campaign')state.subscription_managed=true;
   if(compensated&&e.event_type!=='decision_created')continue;
   switch(e.event_type){
    case 'decision_created':
@@ -63,6 +64,8 @@ export function projectionStatements(db,scope,state,previousVersion){
  for(const item of state.evidence)statements.push(sql(db,`INSERT INTO evidence_items(id,aggregate_id,user_scope,kind,value,knowledge_cutoff_at,source_event_id,revoked)
  VALUES(?,?,?,?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET revoked=0 WHERE evidence_items.user_scope=excluded.user_scope`,
  item.id,state.aggregate_id,scope,item.kind,item.value,item.knowledge_cutoff_at,item.source_event_id));
+ if(state.activities.some(a=>a.activity_kind==='follow_campaign'))statements.push(sql(db,`INSERT OR IGNORE INTO user_campaign_subscriptions(user_scope,campaign_id,updated_at) SELECT ?,aggregator_id,? FROM campaign_registry_links WHERE canonical_id=?`,scope,Math.floor(Date.now()/1000),state.campaign_id));
+ else if(state.subscription_managed)statements.push(sql(db,`DELETE FROM user_campaign_subscriptions WHERE user_scope=? AND campaign_id IN (SELECT aggregator_id FROM campaign_registry_links WHERE canonical_id=?)`,scope,state.campaign_id));
  return statements;
 }
 // Reconciliation intentionally never mutates events. Only projections can be replaced.

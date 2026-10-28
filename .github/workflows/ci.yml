@@ -35,5 +35,5 @@ jobs:
         run: node --check dist/admin.js
       - name: Execute tests
         run: npm test
-      - name: Lightweight production dependency audit
-        run: npm audit --omit=dev --audit-level=critical
+      - name: Production dependency audit (fail closed)
+        run: npm audit --omit=dev --audit-level=high

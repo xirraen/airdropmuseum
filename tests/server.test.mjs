@@ -11,3 +11,17 @@ test('writes reject missing revision invalid JSON and cross-origin requests',asy
 test('public catalog reads separate shared data and reports database readiness',async()=>{const DB=db(),env={DB};let r=await api(new Request('https://museum.test/api/capabilities'),env);assert.equal((await r.json()).database,'ready');r=await api(new Request('https://museum.test/api/exhibits'),env);assert.deepEqual((await r.json()).exhibits,[]);DB.sql.close()});
 test('stream body limit and HEAD response are enforced',async()=>{await assert.rejects(()=>limitedText(new Request('https://museum.test',{method:'PUT',body:'x'.repeat(1000001)})),/BODY_TOO_LARGE/);assert.equal(await (await api(new Request('https://museum.test/api/health',{method:'HEAD'}))).text(),'')});
 test('invalid signature never reaches user state queries',async()=>{let touched=false;const DB={prepare(){touched=true;throw Error('Unexpected')}};const req=request();req.headers.set('X-Telegram-Init-Data','invalid');assert.equal((await api(req,{DB,TELEGRAM_BOT_TOKEN:token})).status,401);assert.equal(touched,false)});
+
+test('legacy catalog routes exclude confirmed private records and unreviewed public drafts',async()=>{
+ const DB=db();
+ for(const [id,visibility,status] of [['private','private','confirmed'],['draft','public','private_draft'],['visible','public','confirmed']])
+  DB.sql.prepare('INSERT INTO am_core_exhibits(id,payload,source_url,review_status) VALUES(?,?,?,?)').run(id,JSON.stringify({name:id,visibility,private_note:"do-not-disclose"}),'https://official.example.org',status);
+ for(const path of ['/api/exhibits','/api/v1/airdrops']){
+  const response=await api(new Request('https://museum.test'+path),{DB});
+  assert.equal(response.status,200);
+  const body=await response.json();
+  assert.deepEqual((body.exhibits||body.airdrops).map(x=>x.id),['visible']);
+  assert.equal(JSON.stringify(body).includes('do-not-disclose'),false);
+ }
+ DB.sql.close();
+});

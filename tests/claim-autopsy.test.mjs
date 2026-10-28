@@ -183,3 +183,17 @@ test('weekly report excludes decisions without explicit analysis consent',async(
  const after=await api(e,'/api/autopsy/insights/weekly',cookieA);
  assert.equal((await after.json()).sample_size,1);
 });
+
+test('consent withdrawal atomically clears owner cohort caches across aggregates',async()=>{
+ const e=await fixture(),created=await create(e),id=created.data.aggregate_id;
+ await call(e,id,'consent',{expected_version:1,enabled:true});
+ for(const [key,owner,aggregate] of [['own','tg:alice',id],['other','tg:bob',null]]){
+  await e.DB.prepare("INSERT INTO pattern_snapshots(id,user_scope,aggregate_id,sample_size,known_outcomes,confidence_label,snapshot_json) VALUES(?,?,?,5,2,'weak_pattern','{}')").bind(key,owner,aggregate).run();
+ }
+ const response=await call(e,id,'consent',{expected_version:2,enabled:false});
+ assert.equal(response.status,200);
+ assert.equal((await e.DB.prepare("SELECT COUNT(*) AS n FROM pattern_snapshots WHERE user_scope='tg:alice'").first()).n,0);
+ assert.equal((await e.DB.prepare("SELECT COUNT(*) AS n FROM pattern_snapshots WHERE user_scope='tg:bob'").first()).n,1);
+ assert.equal((await e.DB.prepare('SELECT COUNT(*) AS n FROM autopsy_events WHERE aggregate_id=?').bind(id).first()).n,3);
+ e.DB.sqlite.close();
+});

@@ -121,3 +121,8 @@ Analysis needs **at least 5 autopsies and 2 known outcomes per cohort**; the con
 See [Claim Autopsy Architecture](docs/CLAIM_AUTOPSY_ARCHITECTURE.md) for the new canonical design. The older [Sprint 11 implementation notes](docs/CLAIM_AUTOPSY.md) describe the **superseded pre-event-sourcing draft** and are not deployment instructions.
 
 **Migration warning:** This branch replaces the original never-deployed `0014_claim_autopsy.sql`. If the prior 0014 migration was applied to persistent D1, a separate forward-only 0015 migration is required; do not rewrite applied migration history. Reconcile absent earlier 0005–0009 migrations and verify staging before a production rollout.
+
+
+## Production completion continuation (28 October 2026)
+
+The candidate now restores Aggregator/Quest/Portfolio API and UI integration and adds forward-only migration 0015 for decision-first registry follow. Local build/tests pass; production dependency audit still reports 11 high vulnerabilities. **PRODUCTION BLOCKED: no production migration or deployment performed.** See [implementation evidence](docs/IMPLEMENTATION_MATRIX.md) and [current release gates](docs/SPRINT11_PRODUCTION_RELEASE.md). Run the build before tests to regenerate Worker assets.

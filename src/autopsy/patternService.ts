@@ -50,11 +50,12 @@ export async function weekly(db,scope,now=new Date()){
 }
 export async function recordGeneratedInsight(db,scope,state){
  if(!state.analysis_consent)return null;
+ const checkpoint=await sql(db,'SELECT COUNT(*) AS n FROM autopsy_events WHERE user_scope=?',scope).first();
  const summary=await patterns(db,scope),first=summary.cohorts[0],stamp=new Date().toISOString();
  const result=await appendEvent(db,{scope,aggregate_id:state.aggregate_id,campaign_id:state.campaign_id,
   event_type:'insight_generated',expected_version:state.version,knowledge_cutoff_at:stamp,evidence_refs:[],
   payload:{sample_size:first.sample_size,known_outcomes:first.known_outcomes,confidence_label:first.confidence_label}});
- await sql(db,'INSERT INTO pattern_snapshots(id,user_scope,aggregate_id,sample_size,known_outcomes,confidence_label,period_start,period_end,snapshot_json) VALUES(?,?,?,?,?,?,?,?,?)',
- crypto.randomUUID(),scope,state.aggregate_id,first.sample_size,first.known_outcomes,first.confidence_label,first.period.from,first.period.to,JSON.stringify(summary)).run();
+ await sql(db,'INSERT INTO pattern_snapshots(id,user_scope,aggregate_id,sample_size,known_outcomes,confidence_label,period_start,period_end,snapshot_json) SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM autopsy_events WHERE user_scope=?)=? AND EXISTS(SELECT 1 FROM claim_autopsies WHERE aggregate_id=? AND user_scope=? AND analysis_consent=1)',
+ crypto.randomUUID(),scope,state.aggregate_id,first.sample_size,first.known_outcomes,first.confidence_label,first.period.from,first.period.to,JSON.stringify(summary),scope,Number(checkpoint.n)+1,state.aggregate_id,scope).run();
  return result;
 }

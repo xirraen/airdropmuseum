@@ -18,7 +18,11 @@ async function bodyWithinLimit(request){
  const reader=request.clone().body.getReader();
  let size=0;
  try{for(;;){const {value,done}=await reader.read();if(done)return true;size+=value.byteLength;if(size>MAX_BODY)return false;}}
- finally{await reader.cancel().catch(()=>{});}
+ finally{
+  // A cloned stream tees the body. Awaiting cancellation waits for the unread
+  // original branch and can deadlock an oversized request before returning 413.
+  void reader.cancel().catch(()=>{});
+ }
 }
 async function rateLimit(request,env,route){
  const api=/^\/(api|v1)\//.test(route)||route==='/docs/api';
@@ -72,6 +76,11 @@ export async function withSecurity(request,env,ctx,next){
  // Keep explicit restrictive CSP on JSON and XML outputs.
  const contentType=finalHeaders.get('Content-Type')||'';
  if(/application\/(json|rss\+xml|xml)/.test(contentType))finalHeaders.set('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'");
+ if(contentType.toLowerCase().includes('text/html')){
+  finalHeaders.set('Content-Security-Policy',SECURITY_HEADERS['Content-Security-Policy'].replace("frame-ancestors 'none'","frame-ancestors 'self' https://web.telegram.org https://*.telegram.org"));
+  // CSP scopes embedding to Telegram; X-Frame-Options cannot express this allowlist.
+  finalHeaders.delete('X-Frame-Options');
+ }
  finalHeaders.set('X-Request-ID',context.request_id);
  const result=new Response(request.method==='HEAD'?null:response.body,{status:response.status,statusText:response.statusText,headers:finalHeaders});
  const status=result.status;

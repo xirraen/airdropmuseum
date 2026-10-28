@@ -159,7 +159,7 @@ submit($('decision-form'),async form=>{
   primary_evidence_url:formValue(form,'primary_evidence_url'),decision_source:formValue(form,'decision_source'),
   time_budget_minutes:num(form,'time_budget_minutes'),cost_ceiling_usd:num(form,'cost_ceiling_usd'),
   realistic_expectations:formValue(form,'realistic_expectations'),knowledge_cutoff_at:new Date().toISOString(),expected_version:0};
- const r=await api(base+'/decisions','POST',body);form.reset();message('Keputusan disimpan. Cutoff pengetahuan tercatat.');await loadState(r.aggregate_id);
+ const r=await api(base+'/decisions','POST',body);form.reset();message('Keputusan disimpan. Cutoff pengetahuan tercatat. Kembali ke Registry untuk mengikuti campaign.');await loadState(r.aggregate_id);
 });
 submit($('evidence-form'),async form=>{
  await send('evidence',{kind:formValue(form,'kind'),value:formValue(form,'value')});form.reset();
@@ -178,3 +178,6 @@ $('reload-insights').onclick=loadPatterns;
 $('reload-weekly').onclick=loadWeekly;
 submit($('evidence-card-form'),async form=>loadEvidence(formValue(form,'slug')));
 selectTab(new URL(location.href).searchParams.get('tab')||'decisions');
+
+const requestedCampaign=new URLSearchParams(location.search).get('campaign');
+if(requestedCampaign&&/^[a-zA-Z0-9_-]{1,160}$/.test(requestedCampaign))$('decision-form').elements.namedItem('campaign_id').value=requestedCampaign;

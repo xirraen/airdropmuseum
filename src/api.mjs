@@ -1,3 +1,4 @@
+import {aggregatorApi} from './aggregator-api.mjs';
 import {autopsyRoutes} from './autopsy/routes.ts';
 import {platformApi,platformUser} from './platform-api.mjs';
 import {adminAuth} from './admin/auth.ts';
@@ -9,24 +10,27 @@ import {backup} from '../dist/model.js';
 import {projects} from '../dist/catalog.js';
 export const VERSION='1.2.0';
 const LIMIT=1000000;
+const PUBLIC_CAMPAIGN_FIELDS=['name','title','symbol','chain','chains','category','desc','description','project_name','status','official_urls','slug','visibility','claim_deadline_at','snapshot_at','activity_start_at','activity_end_at','claim_opens_at'];
+const publicCampaignData=payload=>Object.fromEntries(PUBLIC_CAMPAIGN_FIELDS.filter(k=>Object.hasOwn(payload,k)).map(k=>[k,payload[k]]));
 export async function limitedText(request){if(Number(request.headers.get('Content-Length'))>LIMIT)throw Error('BODY_TOO_LARGE');if(!request.body)return '';const reader=request.body.getReader();const chunks=[];let size=0;for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>LIMIT){await reader.cancel();throw Error('BODY_TOO_LARGE')}chunks.push(value)}const out=new Uint8Array(size);let offset=0;for(const v of chunks){out.set(v,offset);offset+=v.byteLength}return new TextDecoder().decode(out)}
 export async function api(request,env={},headers={}){
  const url=new URL(request.url),path=url.pathname,head=request.method==='HEAD';
  const json=(body,status=200,extra={})=>new Response(head?null:JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...extra}});
  const method=allow=>allow.includes(request.method)?null:json({error:'METHOD_NOT_ALLOWED'},405,{Allow:allow.join(', ')});
  try{
+ if(path.startsWith('/api/aggregator/'))return aggregatorApi(request,env,headers);
  if(path==='/api/autopsy'||path.startsWith('/api/autopsy/')||path==='/api/decisions'||/^\/api\/decisions\/[^/]+\/outcome$/.test(path))return autopsyRoutes(request,env);
  if(path.startsWith('/api/trust/')){if(!['GET','HEAD'].includes(request.method))return json({error:'LEGACY_ADMIN_WRITE_DISABLED'},410);return trustRoutes(request,env,headers);}
  if(path.startsWith('/api/discovery/')){if(!['GET','HEAD'].includes(request.method))return json({error:'LEGACY_ADMIN_WRITE_DISABLED'},410);await adminAuth(request,env,'discovery.read');return discoveryRoutes(request,env,headers);}
  if(path.startsWith('/api/platform/'))return platformApi(request,env,headers);
- if(path==='/api/v1/airdrops'){if(!['GET','HEAD'].includes(request.method))return json({error:'METHOD_NOT_ALLOWED'},405);if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const rows=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN (\'draft\',\'pending_review\') ORDER BY updated_at DESC LIMIT 100').all();return json({version:1,airdrops:rows.results.map(r=>({id:r.id,...JSON.parse(r.payload),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),notice:'Source records, not endorsements.'});}
+ if(path==='/api/v1/airdrops'){if(!['GET','HEAD'].includes(request.method))return json({error:'METHOD_NOT_ALLOWED'},405);if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const rows=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN (\'draft\',\'pending_review\',\'private_draft\',\'unreviewed\') AND json_extract(payload,\'$.visibility\')=\'public\' ORDER BY updated_at DESC LIMIT 100').all();return json({version:1,airdrops:rows.results.map(r=>({id:r.id,...publicCampaignData(JSON.parse(r.payload)),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),notice:'Source records, not endorsements.'});}
  if(path==='/api/health'||path==='/api/capabilities'){
  const bad=method(['GET','HEAD']);if(bad)return bad;
  let database='unconfigured',rewardSchema=false,platformReady=false;if(env.DB){try{const schema=await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=1').first();database=schema?'ready':'migration_required';platformReady=!!(await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=4').first());rewardSchema=!!(await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=2').first())}catch{database='unavailable'}}
  return json({ok:database==='ready'||database==='unconfigured',version:VERSION,database,catalogMode:'demo',authentication:platformReady||!!env.TELEGRAM_BOT_TOKEN,telegramAuthentication:!!env.TELEGRAM_BOT_TOKEN,walletAuthentication:platformReady,sync:database==='ready'&&(platformReady||!!env.TELEGRAM_BOT_TOKEN),community:platformReady,publicReviews:false,rewards:rewardSchema&&(platformReady||!!env.TELEGRAM_BOT_TOKEN)},database==='unavailable'||database==='migration_required'?503:200);
  }
  if(path==='/api/projects'){const bad=method(['GET','HEAD']);if(bad)return bad;return json({mode:'demo',projects},200,{'Cache-Control':'public, max-age=60'})}
- if(path==='/api/exhibits'){const bad=method(['GET','HEAD']);if(bad)return bad;if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const result=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN (\'draft\',\'pending_review\') ORDER BY updated_at DESC LIMIT 100').all();return json({mode:'shared_catalog',exhibits:result.results.map(r=>({id:r.id,data:JSON.parse(r.payload),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),verification:'Per-exhibit evidence required; listing is not an endorsement.'})}
+ if(path==='/api/exhibits'){const bad=method(['GET','HEAD']);if(bad)return bad;if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const result=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN (\'draft\',\'pending_review\',\'private_draft\',\'unreviewed\') AND json_extract(payload,\'$.visibility\')=\'public\' ORDER BY updated_at DESC LIMIT 100').all();return json({mode:'shared_catalog',exhibits:result.results.map(r=>({id:r.id,data:publicCampaignData(JSON.parse(r.payload)),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),verification:'Per-exhibit evidence required; listing is not an endorsement.'})}
  if(!['/api/me/state','/api/me/rewards','/api/me/referral','/api/me/qualify'].includes(path))return json({error:'NOT_FOUND'},404);
  const bad=method(path==='/api/me/state'?['GET','PUT']:path==='/api/me/rewards'?['GET']:['POST']);if(bad)return bad;
  let cookieUser=null;if(request.headers.get('Cookie')?.includes('am_session=')){cookieUser=await platformUser(request,env,false);if(cookieUser&&request.method!=='GET'&&request.headers.get('Origin')!==url.origin)return json({error:'ORIGIN_NOT_ALLOWED'},403);}
