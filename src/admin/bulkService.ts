@@ -1,7 +1,8 @@
 import {fail,listIds,hash,sql,safeJson,text} from './types.ts';
 import {audit} from './auditService.ts';
 export async function preview(request,env,actor,target,allowed,readRow){
- const u=new URL(request.url),ids=listIds((u.searchParams.get('ids')||'').split(',')),action=u.searchParams.get('action')||'';
+ const u=new URL(request.url);if(request.headers.get('X-CSRF-Token')!==actor.csrf)fail('PREVIEW_CSRF_REQUIRED',403);
+ const ids=listIds((u.searchParams.get('ids')||'').split(',')),action=u.searchParams.get('action')||'';
  if(!allowed.includes(action))fail('INVALID_BULK_ACTION');
  const options={status:u.searchParams.get('status')||'',reviewer:u.searchParams.get('reviewer')||'',reason:u.searchParams.get('reason')||''};
  const rows=await Promise.all(ids.map(id=>readRow(env.DB,id)));

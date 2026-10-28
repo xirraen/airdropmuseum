@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id),el=(tag,value)=>{const node=document.cre
 let csrf='',role='',selected=new Set(),active='overview';
 const permissions={readonly:['overview','campaigns','discovery','conflicts','keys','webhooks','flags','settings','audit','health'],moderator:['overview','campaigns','discovery','conflicts','audit','health'],admin:['overview','campaigns','discovery','conflicts','keys','webhooks','flags','settings','audit','health'],super_admin:nav.map(n=>n[1])};
 async function api(path,opts={}){
- const r=await fetch('/api/admin/'+path,{credentials:'same-origin',...opts,headers:{...(opts.body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{}),...opts.headers}});
+ const r=await fetch('/api/admin/'+path,{credentials:'same-origin',...opts,headers:{'X-CSRF-Token':csrf,...(opts.body?{'Content-Type':'application/json'}:{}),...opts.headers}});
  const out=await r.json();if(!r.ok)throw Error(out.error||'REQUEST_FAILED');return out;
 }
 function notify(msg){$('feedback').textContent=msg;}

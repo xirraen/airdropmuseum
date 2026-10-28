@@ -1,6 +1,6 @@
 import {sql,fail,body,text} from './types.ts';
 import {audit} from './auditService.ts';
-export async function maintenance(env){try{return JSON.parse((await sql(env.DB,"SELECT value FROM system_settings WHERE key='maintenance_mode'").first())?.value||'"normal"');}catch{return 'maintenance';}}
+export async function maintenance(env){try{return JSON.parse((await sql(env.DB,"SELECT value FROM system_settings WHERE key='maintenance_mode'").first())?.value||'"normal"');}catch(e){return /no such table/i.test(e?.message||'')?'normal':'maintenance';}}
 export async function settingsRoute(request,env,actor){
  if(request.method==='GET'){
   const rows=await sql(env.DB,'SELECT key,value,updated_by,updated_at FROM system_settings').all();

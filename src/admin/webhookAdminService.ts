@@ -1,10 +1,26 @@
-import {sql,fail,body,bool,safeJson} from './types.ts';
+import {sql,fail,body,bool,safeJson,text,hash} from './types.ts';
 import {audit} from './auditService.ts';
 export async function webhooksAdminRoute(request,env,actor){
  const db=env.DB,p=new URL(request.url).pathname,id=/^\/api\/admin\/webhooks\/([a-f0-9-]{36})(?:\/(test))?$/.exec(p);
  if(p==='/api/admin/webhooks'&&request.method==='GET'){
   const r=await sql(db,"SELECT h.id,h.api_key_id,h.url,h.events,h.enabled,h.failure_count,h.created_at,h.disabled_at,h.revoked_at,COUNT(d.id) deliveries,SUM(CASE WHEN d.status='delivered' THEN 1 ELSE 0 END) successful,MAX(d.delivered_at) last_success,MAX(CASE WHEN d.status IN ('dead','retrying') THEN d.last_attempt_at END) last_failure,SUM(CASE WHEN d.status IN ('queued','retrying') THEN 1 ELSE 0 END) retry_depth FROM partner_webhooks h LEFT JOIN webhook_deliveries d ON d.webhook_id=h.id GROUP BY h.id ORDER BY h.created_at DESC LIMIT 200").all();
   return {webhooks:r.results.map(h=>({...h,events:safeJson(h.events,[]),enabled:!!h.enabled,success_rate:h.deliveries?h.successful/h.deliveries:0}))};
+ }
+ if(p==='/api/admin/webhooks'&&request.method==='POST'){
+  const b=await body(request),k=await sql(db,"SELECT id FROM api_keys WHERE id=? AND enabled=1 AND tier='partner' AND revoked_at IS NULL",b.api_key_id).first();
+  if(!k)fail('ACTIVE_PARTNER_KEY_REQUIRED');
+  if(!env.WEBHOOK_MASTER_SECRET||env.WEBHOOK_MASTER_SECRET.length<32)fail('WEBHOOK_SECRET_NOT_CONFIGURED',503);
+  let url;try{url=new URL(b.url);}catch{fail('HTTPS_REQUIRED');}
+  if(url.protocol!=='https:'||url.username||url.password||url.href.length>1500||url.hostname===new URL(request.url).hostname)fail('INVALID_WEBHOOK_URL');
+  const allowed=['campaign.created','campaign.updated','campaign.status_changed','campaign.claim_open','campaign.claim_closed','source.conflict_detected'];
+  if(!Array.isArray(b.events)||!b.events.length||b.events.some(e=>!allowed.includes(e)))fail('INVALID_WEBHOOK_EVENTS');
+  const id=crypto.randomUUID(),encoder=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',encoder.encode(env.WEBHOOK_MASTER_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const signature=await crypto.subtle.sign('HMAC',key,encoder.encode('airdropmuseum:webhook:v1:'+id));
+  const secret='whsec_'+Array.from(new Uint8Array(signature)).map(x=>x.toString(16).padStart(2,'0')).join('');
+  await sql(db,'INSERT INTO partner_webhooks(id,api_key_id,url,events,secret_hash) VALUES(?,?,?,?,?)',id,k.id,url.href,JSON.stringify([...new Set(b.events)]),await hash(secret)).run();
+  await audit(env,request,actor,'webhook.create','webhook',id,{}, {id,url:url.href,enabled:true,events:b.events});
+  return {id,url:url.href,events:b.events,enabled:true,notice:'Secret tidak ditampilkan di console. Partner dapat mendaftarkan webhook sendiri melalui endpoint v1 untuk menerima secret sekali.'};
  }
  if(id&&request.method==='PUT'&&!id[2]){
   const old=await sql(db,'SELECT id,url,events,enabled,revoked_at FROM partner_webhooks WHERE id=?',id[1]).first();

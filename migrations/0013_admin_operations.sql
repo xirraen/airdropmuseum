@@ -1,4 +1,19 @@
 -- Sprint 9. Requires 0001, 0003, 0010, 0011 and 0012.
+-- Upgrade the Sprint 6 review constraint without discarding history.
+CREATE TABLE IF NOT EXISTS discovery_review_log_sprint9 (
+ id TEXT PRIMARY KEY,
+ item_id TEXT NOT NULL REFERENCES discovery_items(id) ON DELETE RESTRICT,
+ admin_id TEXT NOT NULL,
+ action TEXT NOT NULL CHECK(action IN ('approved','rejected','converted','duplicate')),
+ previous_status TEXT NOT NULL,
+ new_status TEXT NOT NULL,
+ reason TEXT NOT NULL DEFAULT '',
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT OR IGNORE INTO discovery_review_log_sprint9 SELECT * FROM discovery_review_log;
+DROP TABLE discovery_review_log;
+ALTER TABLE discovery_review_log_sprint9 RENAME TO discovery_review_log;
+CREATE INDEX IF NOT EXISTS discovery_review_history ON discovery_review_log(item_id,created_at);
 CREATE TABLE IF NOT EXISTS admin_users (
  admin_scope TEXT PRIMARY KEY,
  role TEXT NOT NULL CHECK(role IN ('super_admin','admin','moderator','readonly')),

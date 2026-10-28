@@ -27,10 +27,11 @@ export async function discoveryRoute(request,env,actor){
     const update=await sql(db,"UPDATE discovery_items SET status='duplicate',reviewed_at=CURRENT_TIMESTAMP,reviewed_by=? WHERE id=? AND status='pending_review'",actor.admin_scope,row.id).run();
     if(update.meta?.changes!==1)fail('INVALID_TRANSITION',409);
     // 0010 legacy CHECK supports 'rejected', not 'duplicate'; preserve exact target status and reason.
-    await sql(db,"INSERT INTO discovery_review_log(id,item_id,admin_id,action,previous_status,new_status,reason) VALUES(?,?,?,'rejected','pending_review','duplicate',?)",crypto.randomUUID(),row.id,actor.admin_scope,'Ditandai duplikat: '+text(opt.reason,300)).run();
+    await sql(db,"INSERT INTO discovery_review_log(id,item_id,admin_id,action,previous_status,new_status,reason) VALUES(?,?,?,'duplicate','pending_review','duplicate',?)",crypto.randomUUID(),row.id,actor.admin_scope,'Ditandai duplikat: '+text(opt.reason,300)).run();
     return {id:row.id,status:'duplicate'};
    }
-   const result=await reviewItem(db,row.id,{id:actor.admin_scope},action==='convert'?'convert':action,{rejection_reason:opt.reason,project_name:opt.project_name,chain:opt.chain});
+   if(action==='convert'&&row.status==='pending_review')await reviewItem(db,row.id,{id:actor.admin_scope},'approve',{});
+   const result=await reviewItem(db,row.id,{id:actor.admin_scope},action,{rejection_reason:opt.reason,project_name:opt.project_name||row.title,chain:opt.chain});
    return {id:row.id,status:result.status};
   });
  }

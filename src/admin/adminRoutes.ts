@@ -21,7 +21,7 @@ function permission(path,method){
  if(path.startsWith('/api/admin/webhooks'))return read?'webhooks.read':'webhooks.write';
  if(path.startsWith('/api/admin/conflicts'))return read?'conflict.read':'conflict.review';
  if(path.startsWith('/api/admin/discovery'))return read?'discovery.read':path.endsWith('/bulk-action')?'discovery.bulk':'discovery.review';
- if(path.startsWith('/api/admin/campaigns'))return read?'campaign.read':path.endsWith('/bulk-action')?'campaign.bulk':'campaign.write';
+ if(path.startsWith('/api/admin/campaigns'))return read?'campaign.read':path.endsWith('/bulk-action')?'campaign.bulk':'campaign.limited';
  fail('NOT_FOUND',404);
 }
 export async function adminRoutes(request,env,ctx){
@@ -31,7 +31,8 @@ export async function adminRoutes(request,env,ctx){
   const path=new URL(request.url).pathname,m=request.method,perm=permission(path,m);
   if(!['GET','HEAD','POST','PUT','DELETE'].includes(m))fail('METHOD_NOT_ALLOWED',405);
   // Modifier permissions are restricted at the handler as well as here.
-  const actor=await adminAuth(request,env,perm);
+  let actor;
+  try{actor=await adminAuth(request,env,perm);}catch(error){if(perm==='campaign.limited'&&error?.message==='PERMISSION_DENIED')actor=await adminAuth(request,env,'campaign.write');else throw error;}
   const ro=(m==='GET'||m==='HEAD');
   let result;
   if(path==='/api/admin/session'&&ro)result={role:actor.role,admin_scope:actor.admin_scope,csrf_token:actor.csrf};
