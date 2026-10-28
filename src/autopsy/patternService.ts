@@ -13,7 +13,7 @@ function cohort(records,key,label,selector){
   limitations:DISCLAIMER};
 }
 export function cohorts(states){
- const records=states.filter(s=>s?.status==='finalized'&&s.analysis_consent===true&&s.decision);
+ const records=states.filter(s=>s?.status==='finalized'&&s.analysis_consent===true&&s.decision).map(s=>({...s,activities:s.activities.filter(a=>a.knowledge_phase==='pre_outcome')}));
  const specs=[
   ['all','Semua autopsy yang diizinkan',()=>true],
   ['pre_snapshot','Aktivitas sebelum snapshot',s=>s.activities.some(a=>a.phase==='before_snapshot')],
