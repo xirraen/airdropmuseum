@@ -40,7 +40,7 @@ export async function publicApiRoutes(request,env,ctx){
   const rss=/^\/v1\/feeds\/(campaigns|deadlines)\.xml$/.exec(path);
   if(rss){
    method(request,'GET','HEAD');
-   const xml=await feed(env,url.origin,rss[1]);
+   const xml=await feed(env,env.PUBLIC_API_ORIGIN||url.origin,rss[1]);
    return etagResponse(xml,request,{...responseHeaders,'Cache-Control':'public, max-age=300, stale-while-revalidate=300'},'application/rss+xml; charset=utf-8');
   }
   if(path==='/v1/webhooks'||/^\/v1\/webhooks\/[a-f0-9-]{36}$/.test(path)){
