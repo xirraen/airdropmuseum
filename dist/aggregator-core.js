@@ -28,6 +28,7 @@ export function address(value,chain) {
 const string=(v,max=300)=>typeof v==='string'?v.slice(0,max):'';
 export function safeLabel(v){v=string(v,80);if(!/^[\p{L}\p{N} ._\-]{0,60}$/u.test(v)||v.trim().split(/\s+/).length>6||/(private|mnemonic|seed|secret)/i.test(v))throw Error('INVALID_LABEL');return v;}
 export function evidence(input,now=iso()) {
+ rejectSensitive(input);
  if(!input||!SOURCE_TYPES.includes(input.source_type)||!['system','user'].includes(input.verified_by))throw Error('INVALID_EVIDENCE');
  timestamp(input.captured_at);
  if(!Number.isFinite(Date.parse(input.captured_at))||Date.parse(input.captured_at)>Date.parse(now)+30000)throw Error('INVALID_EVIDENCE_TIME');

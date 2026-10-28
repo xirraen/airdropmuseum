@@ -35,7 +35,7 @@ export async function observations(env,c,wallet,fetcher=fetch){
   // The operator-configured indexer must bind evidence to the exact normalized rule.
   for(const o of (Array.isArray(data.observations)?data.observations:[]).slice(0,40)){
    const rule=c.eligibility_rules.find(r=>r.id===o.rule_id&&r.rule_type===o.rule_type);if(!rule||JSON.stringify(o.parameters)!==JSON.stringify(rule.parameters))continue;
-   if(o.address!==addr||o.chain!==chain||o.verified!==true)continue;
+   if(o.address!==addr||o.chain!==chain||o.verified!==true||!['string','boolean','number'].includes(typeof o.value)||String(o.value).length>1000)continue;
    o.evidence_refs=(o.evidence_refs||[]).slice(0,10).map(e=>evidence(e,at));values.push(o);
   }
  }catch{/* Provider failure yields unknown rules. */}}
