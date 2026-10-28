@@ -29,6 +29,20 @@ test('rate limiting applies even to legacy public API',async()=>{
  assert.equal(r.status,429);assert.equal(r.headers.get('Retry-After'),'60');
  assert.equal((await r.json()).error,'RATE_LIMITED');
 });
+test('rate limiting includes public legal and static routes',async()=>{
+ const env={PUBLIC_API_RATE_LIMITER:{limit:async()=>({success:false})}};
+ for(const path of ['/privacy','/','/app.js']){
+  const r=await withSecurity(request(path),env,null,async()=>new Response('ok'));
+  assert.equal(r.status,429,path);
+ }
+});
+test('required runtime secret fails closed without disclosing details',async()=>{
+ const env={REQUIRE_PRODUCTION_SECRETS:'1',PUBLIC_API_RATE_LIMITER:{limit:async()=>({success:true})}};
+ const r=await withSecurity(request('/v1/campaigns'),env,null,async()=>Response.json({campaigns:[]}));
+ assert.equal(r.status,503);
+ const b=await r.json();assert.equal(b.error,'SERVICE_UNAVAILABLE');
+ assert.equal(JSON.stringify(b).includes('API_HASH_PEPPER'),false);
+});
 test('oversized JSON request cannot reach handler',async()=>{
  let invoked=false;
  const r=await withSecurity(request('/api/me/state',{method:'POST',headers:{'Content-Length':'1048577','Content-Type':'application/json'},body:'{}'}),{},null,async()=>{invoked=true;return Response.json({});});
