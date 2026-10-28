@@ -5,8 +5,8 @@ const STATUS=new Set(['ok','failed','degraded','limited','unauthorized','error']
 const SAFE_META=new Set(['route','method','http_status','error_class','attempt','batch_size','count','service','job','duration_bucket']);
 export function classifyError(error){
  const text=String(error?.code||error?.message||'').toLowerCase();
- if(/invalid|validation|payload|body_too_large|json_required/.test(text))return 'validation';
  if(/auth|csrf|forbidden|permission|unauthorized|login/.test(text))return 'auth';
+ if(/invalid|validation|payload|body_too_large|json_required/.test(text))return 'validation';
  if(/rate|quota|limit/.test(text))return 'rate_limit';
  if(/upstream|fetch|timeout|network|provider/.test(text))return 'upstream';
  if(/database|sqlite|d1|sql/.test(text))return 'database';
