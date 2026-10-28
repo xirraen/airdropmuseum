@@ -104,7 +104,7 @@ export async function autopsyRoutes(request,env){
    try{
     await sql(env.DB,`INSERT INTO decision_entries(id,user_scope,campaign_id,reason,primary_evidence_url,decision_source,time_budget_minutes,cost_ceiling_usd,realistic_expectations)
  VALUES(?,?,?,?,?,?,?,?,?)`,id,scope,campaign_id,entry.reason,entry.primary_evidence_url,entry.decision_source,entry.time_budget_minutes,entry.cost_ceiling_usd,entry.realistic_expectations).run();
-   }catch{fail('DECISION_ALREADY_EXISTS',409);}
+   }catch(err){if(/UNIQUE constraint failed/i.test(String(err?.message)))fail('DECISION_ALREADY_EXISTS',409);throw err;}
    return respond({id,campaign_id,follow_status:'following',private:true,notice:'Keputusan tersimpan sebelum status mengikuti ditetapkan.'},201);
   }
   const outcome=/^\/api\/decisions\/([a-zA-Z0-9_-]{1,160})\/outcome$/.exec(path);
