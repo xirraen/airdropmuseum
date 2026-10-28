@@ -1,3 +1,4 @@
+import {questRoutes} from './aggregator/questRoutes.mjs';
 import {verifyTelegram} from './auth.mjs';
 import {address,safeLabel,iso,effectiveStatus,ALERT_TYPES,STATUSES,CATEGORIES,importWatchlist,exportWatchlist} from '../dist/aggregator-core.js';
 import {allowed,portfolio} from './aggregator-providers.mjs';
@@ -15,7 +16,7 @@ export async function aggregatorApi(request,env={},headers={}){
  try{
  if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
  if(method!=='GET'&&method!=='HEAD'){const origin=request.headers.get('Origin');if(origin&&origin!==url.origin)fail('ORIGIN_NOT_ALLOWED',403);}
- const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');await rate(env,'request:'+ip,120);
+ const ip=await digest(request.headers.get('CF-Connecting-IP')||'unknown');await rate(env,'request:'+ip,120);const questResult=await questRoutes(request,env,headers);if(questResult)return questResult;
  if(path==='/capabilities'&&['GET','HEAD'].includes(method))return json({version:'2.0',address_only:true,local_default:true,telegram_sync:!!env.TELEGRAM_BOT_TOKEN,queue:!!env.AGGREGATOR_QUEUE,discovery_configured:!!env.AGGREGATOR_DISCOVERY_URLS,rpc_chains:Object.keys(env).filter(k=>/^RPC_(\d+|SOLANA)$/.test(k)).map(k=>k==='RPC_SOLANA'?'solana':'eip155:'+k.slice(4))});
  if(path==='/campaigns'&&['GET','HEAD'].includes(method)){const f=filters(Object.fromEntries(url.searchParams));return json({campaigns:(await listCampaigns(env.DB)).filter(c=>matches(c,f)).map(c=>({...c,effective_status:effectiveStatus(c)})),notice:'Listing bukan jaminan eligibility atau keamanan.'},200,{'Cache-Control':'public, max-age=60'});}
  const detail=path.match(/^\/campaigns\/([a-z0-9-]{1,80})$/);
@@ -61,7 +62,7 @@ export async function aggregatorApi(request,env={},headers={}){
   if(data.wallets.length)await env.DB.batch(data.wallets.map(w=>s(env.DB,'INSERT INTO wallet_watchlist(id,user_id,chain,address,label,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,chain,address) DO UPDATE SET label=excluded.label',crypto.randomUUID(),uid,w.chain,w.address,w.label,iso())));return json({imported:data.wallets.length,legacy_preserved_locally:!!data.legacy});
  }
  if(path==='/privacy'&&method==='DELETE'){
-  await env.DB.batch([s(env.DB,'DELETE FROM wallet_watchlist WHERE user_id=?',uid),s(env.DB,'DELETE FROM alert_preferences WHERE user_id=?',uid)]);return json({deleted:true});
+  await env.DB.batch([s(env.DB,'DELETE FROM user_quest_progress WHERE user_scope=?',uid),s(env.DB,'DELETE FROM user_points_ledger WHERE user_scope=?',uid),s(env.DB,'DELETE FROM wallet_watchlist WHERE user_id=?',uid),s(env.DB,'DELETE FROM alert_preferences WHERE user_id=?',uid)]);return json({deleted:true});
  }
  return json({error:'METHOD_NOT_ALLOWED'},405);
  }catch(e){const status=e.status||(e.message==='UNAUTHORIZED'?401:/^(INVALID_|OFFICIAL_|DUPLICATE_|CLAIM_ENDPOINT_|SOURCE_NOT_|WATCHLIST_)/.test(e.message)?400:503);return json({error:status===503?'AGGREGATOR_UNAVAILABLE':e.message},status,status===429?{'Retry-After':'60'}:{});}
