@@ -7,11 +7,11 @@ export function assembleEvidenceCard(campaign,rows=[],conflicts=[]){
  const confirmation=vetted.filter(x=>x.tier==='independent'||x.tier==='official_social').map(x=>({url:https(x.source_url),tier:x.tier,last_checked_at:x.last_fetched_at}));
  const open=conflicts.filter(x=>x.status==='open').map(x=>({field:x.field,severity:x.severity,status:'open'}));
  return {campaign_slug:campaign.slug,claim:`Status campaign ${campaign.name||campaign.project_name}: ${campaign.status||'belum diketahui'} (sesuai data kurasi).`,
-  primary_sources:primary.length?primary:[{url:campaign.source_url,last_checked_at:campaign.last_verified_at}],
+  primary_sources:primary.length?primary:[{url:https(campaign.source_url),last_checked_at:campaign.last_verified_at}],
   confirmations:confirmation,conflicts:open,
   status:open.length?'conflicted':confirmation.length?'cross_checked':'needs_manual_review',
   last_checked_at:campaign.last_verified_at,source_count:campaign.source_count,
-  sample_count:vetted.length,period:{from:null,to:campaign.last_verified_at},
+  sample_count:vetted.length,period:{from:[...vetted.map(s=>s.last_fetched_at).filter(Boolean),campaign.last_verified_at].sort()[0]||null,to:campaign.last_verified_at},
   limitations:'Kartu ini hanya mencakup sumber yang tercatat dan terverifikasi; bukan audit wallet, tidak membuktikan kelayakan, dan tidak berisi data keputusan atau catatan pribadi pengguna.',
   disclaimer:DISCLAIMER};
 }
