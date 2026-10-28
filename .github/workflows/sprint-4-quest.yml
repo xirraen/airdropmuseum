@@ -1,0 +1,25 @@
+name: Sprint 4 Quest Tracker verification
+on:
+  push:
+    branches: [feat/sprint-4-quest-points]
+  pull_request:
+    paths:
+      - 'src/aggregator/**'
+      - 'src/aggregator-api.mjs'
+      - 'migrations/0008_quest_tracker.sql'
+      - 'tests/quest-tracker.test.mjs'
+      - 'dist/quest-ui.js'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

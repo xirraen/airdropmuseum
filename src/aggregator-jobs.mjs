@@ -1,3 +1,4 @@
+import {changeProgress} from './aggregator/questService.mjs';
 import {monitorSources} from './aggregator-sources.mjs';
 import {iso,evaluateRule,aggregateEligibility,scheduledAlerts,priority,ALERT_TYPES,https} from '../dist/aggregator-core.js';
 import {portfolio,observations,checkClaim,readJSON,allowed} from './aggregator-providers.mjs';
@@ -55,6 +56,19 @@ export async function scanStoredWallet(env,id,fetcher=fetch){
  tasks.push(s(env.DB,'UPDATE wallet_watchlist SET last_scan_at=? WHERE id=?',now,w.id));
  // Respect D1 batch statement bounds and avoid dropping any captured result.
  for(let i=0;i<tasks.length;i+=40)await env.DB.batch(tasks.slice(i,i+40));
+ // Sprint 4: only evaluated, persisted wallet activity may verify a quest.
+ // Manual/social quests are never auto-completed by scanning.
+ if(await s(env.DB,'SELECT version FROM am_core_schema WHERE version=8').first()){
+  const onchain=(await s(env.DB,`SELECT q.id FROM campaign_quests q
+  JOIN eligibility_results e ON e.campaign_id=q.campaign_id AND e.rule_id=coalesce(q.verification_rule_id,q.id) AND e.wallet_id=?
+  WHERE q.verification_method='wallet_activity' AND e.evaluation_status='passed'
+  AND e.rule_type NOT IN ('social_task','custom_manual_task','kyc_or_geo_restriction')
+  GROUP BY q.id LIMIT 100`,w.id).all()).results;
+  for(const quest of onchain){
+   try{await changeProgress(env.DB,w.user_id,quest.id,{status:'verified',wallet_address:w.address},'evaluator');}
+   catch{/* One stale/mismatched source cannot abort the whole wallet scan. */}
+  }
+ }
  for(const campaign of pendingAlerts)await enqueueAlert(env,campaign,'eligibility_change',w.id+':'+now,w.user_id);
 }
 export async function deliverAlerts(env,fetcher=fetch){
