@@ -4,8 +4,9 @@ import {portfolio,observations,checkClaim,readJSON,allowed} from './aggregator-p
 import {statement as s,listCampaigns,getCampaign,putCampaign,matches} from './aggregator-store.mjs';
 const reasons={new_campaign:'Campaign baru sesuai filter Anda.',snapshot_7d:'Snapshot dalam 7 hari.',claim_open:'Periode claim telah dibuka.',deadline_72h:'Deadline dalam 72 jam.',eligibility_change:'Hasil pemeriksaan syarat berubah.',new_quest:'Quest baru ditambahkan.',source_changed:'Sumber resmi berubah; tinjau ulang bukti.'};
 export async function scan(env,wallet,c,fetcher=fetch){
- const deadline=AbortSignal.timeout(20000),boundedFetch=(url,options={})=>fetcher(url,{...options,signal:AbortSignal.any([deadline,...(options.signal?[options.signal]:[])])});
- const now=iso(),data=c.risk_flags.includes('source_changed_review_required')?[]:await observations(env,c,wallet,boundedFetch),context={address:wallet.address,chain:wallet.chain,snapshot_at:c.snapshot_at,now};
+ const deadline=AbortSignal.timeout(20000),boundedFetch=(url,options={})=>fetcher.call(globalThis,url,{...options,signal:AbortSignal.any([deadline,...(options.signal?[options.signal]:[])])});
+ const data=c.risk_flags.includes('source_changed_review_required')?[]:await observations(env,c,wallet,boundedFetch);
+ const now=iso(),context={address:wallet.address,chain:wallet.chain,snapshot_at:c.snapshot_at,now};
  const rules=c.eligibility_rules.map(r=>{const result=c.risk_flags.includes('source_changed_review_required')?{rule_id:r.id,rule_type:r.rule_type,parameters:r.parameters,evaluation_status:'manual_check',evaluated_at:now,evidence_refs:c.source_evidence,human_reason:'Sumber resmi berubah; aturan campaign perlu ditinjau ulang sebelum menilai wallet.'}:evaluateRule(r,data,context);if(!result.evidence_refs.length)result.evidence_refs=c.source_evidence;return result;});
  return {campaign_id:c.id,protocol_activity:data.filter(o=>['protocol_interaction','bridge_activity','governance_vote','lp_position'].includes(o.rule_type)).map(o=>({rule_type:o.rule_type,value:o.value,evidence_refs:o.evidence_refs,observed_at:o.observed_at})),rules,status:aggregateEligibility(rules),claim:await checkClaim(env,c,wallet,boundedFetch,now),priority:priority(c,rules,[],now),evaluated_at:now,notice:'Hasil pemeriksaan perlu diverifikasi ulang; bukan jaminan eligibility, keamanan atau reward.'};
 }
@@ -65,7 +66,7 @@ export async function deliverAlerts(env,fetcher=fetch){
   try{if(!/^tg:[1-9]\d*$/.test(a.user_id))throw Error('INVALID_TELEGRAM_RECIPIENT');
    const p=JSON.parse(a.payload);const text=[p.campaign,p.chain,p.reason,p.source_url,p.detail_url,p.disclaimer].join('\n');
    // Plain text: Telegram never interprets source text as HTML/Markdown.
-   const response=await fetcher('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:a.user_id.slice(3),text,disable_web_page_preview:true}),signal:AbortSignal.timeout(8000)});
+   const response=await fetcher.call(globalThis,'https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:a.user_id.slice(3),text,disable_web_page_preview:true}),signal:AbortSignal.timeout(8000)});
    if(!response.ok)throw Error('DELIVERY_FAILED');const data=await response.json();if(data.ok!==true)throw Error('DELIVERY_FAILED');
    await s(env.DB,"UPDATE alerts SET status='sent',sent_at=? WHERE id=?",iso(),a.id).run();
   }catch{await s(env.DB,"UPDATE alerts SET status=CASE WHEN attempts>=5 THEN 'failed' ELSE 'pending' END,next_at=? WHERE id=?",now+Math.min(3600,60*2**a.attempts),a.id).run();}

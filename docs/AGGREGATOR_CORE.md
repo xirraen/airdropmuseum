@@ -137,7 +137,7 @@ Semua URL diawali `/api/aggregator`.
 | POST /import | Telegram; `{consent_sync:true,data:backup}` |
 | DELETE /privacy | Telegram; hapus seluruh data Core pemilik |
 
-Telegram: header `X-Telegram-Init-Data`. Cookie sesi wallet/email lama tidak memberi akses data Core. POST/PUT/DELETE menolak Origin lintas situs. Body dibatasi 64 KiB; scan 10 per menit per hash IP, request umum 120 per menit, akses privat 60 per menit per pengguna. Status 429 menyertakan Retry-After. GET registry memakai cache publik 60 detik; data wallet memakai no-store. Respons provider dibatasi 256 KiB, timeout 8 detik, maksimal 3 percobaan pada gangguan sementara. Feed cache per isolate 60 detik (bukan sumber kebenaran). Redirect diblokir.
+Telegram: header `X-Telegram-Init-Data`. Cookie sesi wallet/email lama tidak memberi akses data Core. POST/PUT/DELETE menolak Origin lintas situs. Body dibatasi 64 KiB; scan 10 per menit per hash IP, request umum 120 per menit, akses privat 60 per menit per pengguna. Status 429 menyertakan Retry-After. GET registry memakai cache publik 60 detik; data wallet memakai no-store. Respons provider dibatasi 256 KiB, timeout 8 detik, maksimal 3 percobaan pada gangguan sementara. Feed cache per isolate 60 detik (bukan sumber kebenaran). Redirect diblokir memakai mode manual dan penolakan eksplisit status HTTP 3xx, sesuai runtime Workers.
 
 URL hanya HTTPS tanpa credential, port nonstandar, IP literal, localhost/domain internal. Host allowlist harus dikelola operator; jangan mendaftarkan domain yang DNS-nya mengarah ke jaringan privat. DNS rebinding pada domain operator merupakan batas konfigurasi yang tidak dibuktikan melalui lookup di Worker. Semua teks UI di-escape; link divalidasi ulang; Telegram dikirim sebagai plain text tanpa parse_mode. Utility escapeMarkdown tersedia untuk ekspor lanjutan. Input yang menyerupai mnemonic BIP39 Inggris, private key, signature atau field session wallet diblokir di Core.
 
@@ -202,7 +202,7 @@ Jika rollback schema memang diperlukan, ekspor D1 dahulu dan hentikan seluruh pe
 - Cron `*/15 * * * *` sudah dipasang.
 - Endpoint capabilities terverifikasi: version 2.0, address_only=true, local_default=true, queue=true, Telegram sync=false, discovery_configured=false, RPC Ethereum/Base tersedia dalam konfigurasi.
 - Endpoint registry merespons 200 dengan daftar kosong. Belum ada feed resmi/operator yang disetujui; ini tidak ditampilkan sebagai data airdrop aktif.
-- npm ci, npm run build dan npm test lulus (119 tests). Browser produksi juga diperiksa: halaman utama, registry kosong yang jujur, penyimpanan alamat uji lokal, serta persistensi setelah reload berjalan. Browser lokal tidak berhasil mengunduh Chromium; pemeriksaan ini memakai cloud browser desktop, bukan emulasi viewport mobile.
+- npm ci, npm run build dan npm test lulus (122 tests). Browser produksi juga diperiksa: halaman utama, registry kosong yang jujur, penyimpanan alamat uji lokal, serta persistensi setelah reload berjalan. Browser lokal tidak berhasil mengunduh Chromium; pemeriksaan ini memakai cloud browser desktop, bukan emulasi viewport mobile.
 - Masih perlu konfigurasi operator: TELEGRAM_BOT_TOKEN dan AGGREGATOR_ADMIN_TOKEN; host/URL feed resmi yang diizinkan; indexer historis beserta token bila diperlukan; RPC tambahan sesuai chain. Alert nyata dan klaim campaign tertentu belum diuji terhadap akun atau endpoint produksi.
 
 ### Lanjutan registry dan monitor sumber
@@ -214,3 +214,9 @@ Monitor memproses maksimal 10 URL resmi per Cron dengan cursor bergilir, membuan
 Rule dengan cutoff pada parameter `before`/`snapshot_at` atau `block_tag` juga memerlukan observasi historis yang cocok; current RPC tidak digunakan sebagai pengganti histori. Cutoff masa depan tidak bisa dinilai sebagai snapshot yang sudah final.
 
 Rule `indicator_only` pada catatan riset tidak diperlakukan sebagai syarat alokasi token: temuan on-chain tetap menghasilkan manual_check dengan alasan eksplisit. Scan address-only memproses portfolio dan evaluasi secara paralel; pembacaan eligibility/claim mempunyai budget total 20 detik dan timeout tidak dicoba ulang setelah abort.
+
+Pembacaan provider gagal aman dengan `provider_status` berupa kategori teknis yang dibatasi, tanpa pesan exception mentah, alamat RPC berisi key, atau respons upstream penuh.
+
+Uji produksi menemukan bahwa Workers tidak menerima mode fetch redirect=error. Transport sudah memakai redirect=manual lalu menolak 3xx secara eksplisit; ini menjaga larangan mengikuti redirect tanpa menyebabkan semua pembacaan provider gagal.
+
+Setelah perbaikan transport, scan produksi pada alamat publik uji di Base berhasil membaca saldo finalized dan bukti RPC untuk indikator CUBE. Hasil keseluruhan tetap manual_check sesuai kebijakan riset, persisted=false, dan wallet_watchlist server tetap kosong. Diagnostik sementara sudah dihapus; respons tidak berisi pesan exception mentah.

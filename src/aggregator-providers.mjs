@@ -5,7 +5,8 @@ export async function readJSON(url,{body,headers={},fetcher=fetch,ttl=0,cacheKey
  url=https(url);const old=cache.get(cacheKey);if(ttl&&old&&old.until>Date.now())return structuredClone(old.value);
  for(let attempt=0;attempt<3;attempt++){
   try{
-   const r=await fetcher(url,{method:body?'POST':'GET',redirect:'error',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{}),...headers},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(8000)});
+   const r=await fetcher.call(globalThis,url,{method:body?'POST':'GET',redirect:'manual',headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{}),...headers},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(8000)});
+   if(r.status>=300&&r.status<400)throw Object.assign(Error('UPSTREAM_REDIRECT_REJECTED'),{permanent:true});
    if(!r.ok){if(r.status!==429&&r.status<500)throw Object.assign(Error('UPSTREAM_REJECTED'),{permanent:true});throw Error('UPSTREAM_UNAVAILABLE')}
    if(Number(r.headers.get('content-length'))>262144)throw Object.assign(Error('UPSTREAM_TOO_LARGE'),{permanent:true});
    const reader=r.body.getReader();let size=0,text='';const decoder=new TextDecoder();for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>262144){await reader.cancel();throw Object.assign(Error('UPSTREAM_TOO_LARGE'),{permanent:true})}text+=decoder.decode(value,{stream:true})}text+=decoder.decode();const value=asText?text:JSON.parse(text);
@@ -25,7 +26,7 @@ export async function portfolio(env,wallet,fetcher=fetch){
  const at=iso(),w={chain:wallet.chain,address:address(wallet.address,wallet.chain)};
  try{const result=await rpc(env,w.chain,w.chain==='solana'?'getBalance':'eth_getBalance',w.chain==='solana'?[w.address,{commitment:'finalized'}]:[w.address,'finalized'],fetcher);const raw=w.chain==='solana'?result.value.value:result.value;
   if(w.chain==='solana'&&!Number.isSafeInteger(raw))throw Error('INVALID_BALANCE');const balance=BigInt(raw).toString();return {...w,balance,balance_unit:w.chain==='solana'?'lamports':'wei',protocol_activity:[],scanned_at:at,status:'observed',evidence_refs:[ref(new URL(result.url).origin+'/','Saldo utama saat scan; bukan saldo saat snapshot.',at)]};
- }catch{return {...w,balance:null,balance_unit:w.chain==='solana'?'lamports':'wei',protocol_activity:[],scanned_at:at,status:'unknown',evidence_refs:[],human_reason:'RPC belum dikonfigurasi atau tidak tersedia.'};}
+ }catch(error){const categories=[[/Illegal invocation|incorrect.*this|receiver/i,'TRANSPORT_RECEIVER'],[/AbortSignal|signal.*instance/i,'ABORT_API'],[/getReader|readable.*stream/i,'STREAM_API'],[/fetch|network|connection/i,'NETWORK_ERROR'],[/Invalid URL/i,'INVALID_RPC_URL'],[/clone/i,'CLONE_API'],[/convert.*BigInt/i,'INVALID_BALANCE'],[/JSON|Unexpected token/i,'INVALID_UPSTREAM_JSON']];const errorKind=categories.find(([pattern])=>pattern.test(error.message))?.[1]||(['TypeError','SyntaxError','ReferenceError','AbortError','TimeoutError'].includes(error.name)?error.name:'ProviderError');return {...w,provider_status:errorKind,balance:null,balance_unit:w.chain==='solana'?'lamports':'wei',protocol_activity:[],scanned_at:at,status:'unknown',evidence_refs:[],human_reason:'RPC belum dikonfigurasi atau tidak tersedia.'};}
 }
 export async function observations(env,c,wallet,fetcher=fetch){
  const values=[],at=iso(),chain=wallet.chain,addr=address(wallet.address,chain),historical=!!c.snapshot_at;
