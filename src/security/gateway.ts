@@ -28,8 +28,7 @@ function requireSecrets(env,route){
 }
 async function rateLimit(request,env,route){
  const api=/^\/(api|v1)\//.test(route)||route==='/docs/api';
- if(!api)return true;
- // Existing /v1 API key quota remains authoritative; this gate additionally limits all public API routes by IP.
+ // Existing /v1 API key quota remains authoritative. All public paths additionally receive a native per-IP+route limit.
  const ip=request.headers.get('CF-Connecting-IP')||'unknown';
  const bytes=new TextEncoder().encode(ip+':'+route);
  const digest=await crypto.subtle.digest('SHA-256',bytes);
@@ -38,11 +37,11 @@ async function rateLimit(request,env,route){
   const result=await env.PUBLIC_API_RATE_LIMITER.limit({key});
   if(!result.success)return false;
  }else if(env.REQUIRE_RATE_LIMIT_BINDINGS==='1')throw Error('RATE_LIMIT_BINDING_REQUIRED');
- if(env.DB){
+ if(api&&env.DB){
   const window=Math.floor(Date.now()/60000),countLimit=route.startsWith('/api/admin/')?60:route.startsWith('/api/me/')?60:120;
   const result=await env.DB.prepare('INSERT INTO am_rate_limits(key,count,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 WHERE count<?').bind('gateway:'+key+':'+window,Math.floor(Date.now()/1000)+180,countLimit).run();
   if(result.meta?.changes!==1)return false;
- }else if(env.REQUIRE_RATE_LIMIT_BINDINGS==='1'&&route!=='/api/health')throw Error('DATABASE_UNAVAILABLE');
+ }else if(api&&env.REQUIRE_RATE_LIMIT_BINDINGS==='1'&&route!=='/api/health')throw Error('DATABASE_UNAVAILABLE');
  return true;
 }
 function safeError(code,status,request_id,extra={}){
