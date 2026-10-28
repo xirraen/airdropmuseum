@@ -38,6 +38,10 @@ Test GET /v1/campaigns, /v1/campaigns/:slug, /v1/deadlines, /v1/feeds/campaigns.
 
 No Sprint 10 D1 schema migration was added. Existing API paths, schemas and methods remain available. Proxy behavior changes include stricter global security headers, correlated error payloads, request-body rejection over 1 MiB, new per-route limiter and fail-closed production binding requirements; these are security-sensitive behavior changes. Perform a staging regression test before release and check all Telegram and browser clients. Roll back Worker version on incompatibility; schema rollback is a distinct, controlled action described in `RUNBOOK.md`.
 
+## Known security advisory blocker
+
+CI `npm audit --omit=dev --audit-level=critical` lulus, tetapi audit menghasilkan 11 high-severity advisories dari rangkaian Zod/WalletConnect. Perbaikan dependency bisa breaking. Sebelum go-live, tentukan versi patched kompatibel dan jalankan regresi wallet atau catat risk acceptance formal sesuai `docs/SECURITY.md`. Jangan menganggap keberhasilan CI ini setara dengan bebas kerentanan.
+
 ## Operations
 
 Cloudflare Workers Observability stores invocation/error logs; custom logs contain event, request_id, status, component, duration and allowlisted metadata. Add alert policies for 5xx, queue DLQ depth, cron staleness, sustained 429s, webhook failures and D1 latency. Verify alert destinations manually. Check Cloudflare Logs retention/cost at launch. Use `X-Request-ID` for incident correlation.
