@@ -65,3 +65,19 @@ Version 1.1 adds a guest device ledger, revisioned asset edits/archive/CSV, brow
 ## Action Desk 1.2
 
 Misi & Bounty now starts with a unified personal action queue: blocked tasks, verification follow-ups, dates, source reviews and next steps. Includes combined filters, direct checklist changes, thirty-row pagination, and a previewable Markdown work plan. No database migration. See [Action Desk notes](docs/ACTION_DESK_1_2.md). Build and 85 tests pass.
+
+## Aggregator Core 2.0 — Discovery, Eligibility, Snapshot & Claim Monitoring
+
+Halaman utama kini menyediakan registry airdrop bersumber resmi, watchlist EVM/Solana lokal, scan address-only, 12 tipe rule eligibility dengan evidence, snapshot/deadline, prioritas pribadi, quest/poin manual, serta monitor claim read-only. Status CONFIRMED, RUMORED, SPECULATIVE, EXPIRED dipisahkan dari hasil kelayakan wallet. Tidak ada penandatanganan, approve, klaim atau transaksi otomatis.
+
+Worker + D1 menggunakan migrasi [`0005_aggregator_core.sql`](migrations/0005_aggregator_core.sql), Cron 15 menit, Cloudflare Queue, outbox Telegram dengan opt-in, rate limit, timeout, retry, cache feed dan timeline evidence. Sinkronisasi watchlist Core hanya untuk Telegram terverifikasi; mode lokal tetap dapat digunakan tanpa Telegram atau wallet connect.
+
+Discovery mendukung beberapa feed JSON yang diizinkan operator. RPC bawaan membaca saldo/counter EVM dan saldo Solana bila RPC tersedia; aktivitas protokol dan histori snapshot memerlukan indexer terkonfigurasi. Claim endpoint resmi yang tidak tersedia menghasilkan **Perlu pemeriksaan manual**. Core tidak mengisi registry dengan campaign demo atau menyebut hasil yang belum diketahui sebagai tidak eligible.
+
+Lihat [`docs/AGGREGATOR_CORE.md`](docs/AGGREGATOR_CORE.md) untuk model data, API, kontrak feed/indexer/claim, batas verifikasi, secret, konfigurasi, privasi, dan rollback. Museum/workbench lama tetap di `/museum.html`; backup lama tidak dihapus atau dianggap sebagai evidence campaign.
+
+```sh
+npm ci
+npm run build
+npm test
+```
