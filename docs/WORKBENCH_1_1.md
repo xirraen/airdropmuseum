@@ -11,4 +11,6 @@ This release completes existing workflows rather than creating more primary menu
 
 Apply additive migration `0004_workbench.sql` once before deploying. Existing source and notification schemas remain in place. No new provider credentials are required. WalletConnect/email/Telegram/moderator activation dependencies from the 1.0 coverage document remain unchanged.
 
-Validation: 77 tests, including holdings revision/ownership/date/archive cases, session ownership/revocation, bookmark removal, valuation completeness, CSV formula neutralization and device-storage operations/failures. Browser QA covers the guest ledger create/edit/archive/restore flow; public QA does not sign a user's wallet or publish test community content.
+Validation: 78 tests, including holdings revision/ownership/date/archive cases, session ownership/revocation, bookmark removal, valuation completeness, CSV formula neutralization and device-storage operations/failures. Browser QA covers the guest ledger create/edit/archive/restore flow; public QA does not sign a user's wallet or publish test community content.
+
+Health capabilities now distinguish wallet authentication readiness from Telegram bot configuration.
