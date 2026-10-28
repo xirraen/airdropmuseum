@@ -65,3 +65,8 @@ Version 1.1 adds a guest device ledger, revisioned asset edits/archive/CSV, brow
 ## Action Desk 1.2
 
 Misi & Bounty now starts with a unified personal action queue: blocked tasks, verification follow-ups, dates, source reviews and next steps. Includes combined filters, direct checklist changes, thirty-row pagination, and a previewable Markdown work plan. No database migration. See [Action Desk notes](docs/ACTION_DESK_1_2.md). Build and 85 tests pass.
+
+
+## Sprint 6 — Discovery Automation
+
+Discovery menerima RSS/Atom/JSON feed HTTPS yang ditambahkan admin, dengan normalisasi URL, klasifikasi awal, deduplikasi SHA-256, Cloudflare Queue/DLQ, cron 30 menit, dan antrean review admin berbahasa Indonesia di `/discovery.html`. **Tidak ada auto-publish**: item hanya pending review; konversi membuat draft privat (rumored/speculative) dengan evidence URL dan disclaimer verifikasi manual. Lihat [docs/DISCOVERY_AUTOMATION.md](docs/DISCOVERY_AUTOMATION.md) untuk konfigurasi, batasan ToS, pengujian, dan rollback.
