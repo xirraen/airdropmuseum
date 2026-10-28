@@ -9,6 +9,7 @@ import {upstreamFetch} from '../src/security/upstream.ts';
 import {safeLegalPage} from '../src/legal/pages.ts';
 import {healthResponse} from '../src/observability/health.ts';
 import {adminAuth} from '../src/admin/auth.ts';
+import {publicLegacyPayload} from '../src/api.mjs';
 const request=(path,options={})=>new Request('https://museum.example'+path,options);
 test('security headers, request ID propagation and no sensitive response',async()=>{
  const id=crypto.randomUUID();
@@ -81,6 +82,12 @@ test('strict ID, timestamp and EVM address validation',()=>{
 });
 test('admin authentication refuses anonymous user',async()=>{
  await assert.rejects(()=>adminAuth(request('/api/admin/overview'),{DB:{}},'dashboard.read'),/ADMIN_LOGIN_REQUIRED/);
+});
+test('legacy public projection never serializes admin metadata or private user fields',()=>{
+ const payload=JSON.stringify({title:'Example',visibility:'public',description:'Information only',api_key:'sensitive',admin_notes:'private',wallet:'0x'+'a'.repeat(40),user_id:'private',quest_progress:{points:12}});
+ const pub=publicLegacyPayload(payload);
+ assert.equal(pub.title,'Example');
+ for(const key of ['api_key','admin_notes','wallet','user_id','quest_progress'])assert.equal(Object.hasOwn(pub,key),false);
 });
 test('legal pages use safe HTML, content type and HEAD semantics',async()=>{
  for(const path of ['/privacy','/terms','/disclaimer','/security']){
