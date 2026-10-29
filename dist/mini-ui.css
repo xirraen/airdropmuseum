@@ -317,3 +317,150 @@ main .amu-right-rail{display:flex;flex-direction:column;gap:13px;min-width:0;pos
  .amu-eligibility-row .amu-review-status{display:none}
 }
 @media(prefers-reduced-motion:reduce){.amu-campaign-card{transition:none}}
+
+
+/* Reference alignment v1.4 — match the supplied desktop + seven mobile screens. */
+.amu-mobile-search{display:none}
+.amu-hero-btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none!important}
+.amu-hero-btn:hover,.amu-hero-btn:focus-visible{color:#fff!important}
+.amu-campaign-card{position:relative}
+.amu-campaign-card .amu-card-top,.amu-campaign-card .amu-card-foot{width:100%}
+.amu-campaign-card .amu-card-open{cursor:pointer}
+.amu-dashboard-shell .amu-primary-column .amu-filter-bar{padding-top:2px}
+.amu-dashboard-shell .amu-section-top h2{font-weight:750}
+.amu-eligibility-banner{background:#edf7ff;color:#164c7f;border:1px solid #cfe6ff;border-radius:11px;padding:13px;display:flex;align-items:start;gap:12px;margin-bottom:13px}
+.amu-eligibility-banner>span{display:grid;place-items:center;width:40px;min-width:40px;height:40px;border-radius:12px;background:#d6eaff;color:#0578ea}
+.amu-eligibility-banner .ui-icon{width:23px;height:23px}
+.amu-eligibility-banner strong{font-size:13px}
+.amu-eligibility-banner p{font-size:11px;color:#587b9e;line-height:1.65;margin:4px 0 0}
+.amu-detail-eligibility{padding:15px}
+.amu-detail-eligibility .primary{width:100%;margin-top:13px}
+.amu-detail-eligibility .amu-mini-disclaimer{margin:13px 0 0;font-size:10px!important}
+.amu-card-open:focus-visible,.amu-save:focus-visible,.amu-open-link:focus-visible{outline:2px solid #258bef;outline-offset:2px}
+.amu-notification-feed{overflow:visible}
+.amu-notification{border-radius:0}
+.amu-notification:first-child{border-radius:13px 13px 0 0}
+.amu-notification:last-child{border-radius:0 0 13px 13px}
+.amu-wallet-preview{background:#f7faff}
+.amu-donut{box-shadow:0 0 0 6px #f1f6ff}
+@media(min-width:701px){
+ .amu-dashboard-shell .amu-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .amu-dashboard-shell .amu-campaign-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .amu-dashboard-shell .amu-campaign-card{min-height:184px}
+}
+@media(min-width:701px) and (max-width:1370px){
+ .amu-dashboard-shell .amu-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .amu-dashboard-shell .amu-campaign-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+ /* The reference has a slim app bar, full-width search, stacked campaign cards
+    and a fixed five-item Telegram navigation. No horizontal bleed on 320px devices. */
+ .amu-mobile-search{
+  display:flex;align-items:center;position:sticky;top:58px;z-index:6;background:white;
+  height:46px;padding:4px 12px 8px;gap:0;border-bottom:1px solid #e7edf6;
+  box-shadow:0 4px 12px #1a45770a;margin:0
+ }
+ .amu-mobile-search>span{position:absolute;left:25px;top:8px;color:#7e91ac;font-size:23px;line-height:1;pointer-events:none}
+ .amu-mobile-search>input{height:36px;min-width:0;flex:1;border:1px solid #e8eff7;border-right:0;border-radius:10px 0 0 10px;background:#f5f8fc;color:#173d65;font-size:11px;padding:7px 8px 7px 36px;outline:0}
+ .amu-mobile-search>input:focus{background:white;border-color:#4b9afa;box-shadow:inset 0 0 0 1px #81bcff}
+ .amu-mobile-search>button{height:36px;min-height:36px;min-width:51px;background:#087aff;color:white;border:0;border-radius:0 10px 10px 0;font-size:11px;font-weight:700}
+ .amu-mobile-search>button:focus-visible{outline:2px solid #005fc9;outline-offset:2px}
+ .workspace>header{z-index:7}
+ main{padding-top:10px}
+ .amu-primary-column{display:flex;flex-direction:column;min-width:0}
+ .amu-dashboard-shell .amu-hero{order:0;min-height:174px;height:auto;box-shadow:0 8px 20px #0b45951b}
+ .amu-dashboard-shell .amu-hero-copy{padding:17px;max-width:79%}
+ .amu-dashboard-shell .amu-hero h1{font-size:clamp(24px,7vw,34px);letter-spacing:-1.2px}
+ .amu-dashboard-shell .amu-hero h2{font-size:10px;font-weight:650}
+ .amu-dashboard-shell .amu-hero p{font-size:9px}
+ .amu-dashboard-shell .amu-hero-actions{margin-top:12px}
+ .amu-dashboard-shell .amu-hero-art{right:-10px;width:40%;opacity:.8}
+ .amu-dashboard-shell .amu-section-top{order:1;margin:17px 0 10px}
+ .amu-dashboard-shell .amu-filter-bar{order:2}
+ .amu-dashboard-shell .amu-campaign-grid{order:3;display:grid;grid-template-columns:1fr;gap:9px}
+ .amu-dashboard-shell .amu-campaign-card{min-height:145px;padding:13px 14px;border-radius:13px}
+ .amu-dashboard-shell .amu-campaign-card .amu-card-title strong{font-size:12px}
+ .amu-dashboard-shell .amu-campaign-card .amu-card-foot{margin-top:13px}
+ .amu-dashboard-shell .amu-stat-grid{order:4;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:17px 0 0}
+ .amu-dashboard-shell .amu-catalog-notice{order:5;margin-top:13px}
+ .amu-dashboard-shell .amu-mobile-summary{order:6;margin-top:12px}
+ .amu-stat{border-radius:11px}
+ .amu-rail-panel{padding:13px 14px}
+ .amu-rail-header{margin-bottom:5px}
+ .amu-rail-header h3{font-size:12px}
+ .amu-page-heading{margin:4px 0 13px}
+ .amu-page-heading h1{font-size:23px;margin:4px 0}
+ .amu-page-heading p{font-size:10px}
+ .amu-eligibility-list{gap:8px}
+ .amu-eligibility-row{padding:11px 8px}
+ .amu-portfolio-overview{margin:10px 0 14px;box-shadow:var(--amu-shadow)}
+ .amu-portfolio-total>strong{font-size:27px}
+ .amu-portfolio-pills{gap:8px}
+ .amu-donut{width:76px;height:76px;min-width:76px}
+ .amu-donut:before{width:52px;height:52px}
+ .intro{margin:5px 0 13px}
+ .intro h1{font-size:22px;font-weight:750;letter-spacing:-.7px}
+ .intro .eyeline{font-size:8px;letter-spacing:1px;color:#4c94cf}
+ .intro>div{min-width:0;max-width:100%}
+ .intro p{font-size:11px;color:#748aa6;line-height:1.6}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .card{border:1px solid #e1eaf5;border-radius:12px;box-shadow:0 4px 15px #0b40800a}
+ .card .card-art{height:100px}
+ .card .card-body{padding:10px}
+ .card .card-body>h3{font-size:12px}
+ .card .card-body>p{font-size:10px;line-height:1.5}
+ .card .tag-inline{font-size:8px}
+ .directory-tools,.gallery-overview,.panel{background:#fff;border:1px solid #e3eaf4}
+ .directory-tools{padding:12px}
+ .directory-tools .toolbar{gap:8px}
+ .directory-tools input,.directory-tools select{border-radius:10px;background:#f8faff;border:1px solid #e0e9f4;color:#173d62;font-size:11px;min-width:0}
+ .directory-tools .filters{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;gap:6px}
+ .directory-tools .filters button{flex-shrink:0}
+ .quest-grid{grid-template-columns:1fr;gap:9px}
+ .quest-card{background:#fff;border:1px solid #e1eaf6;border-radius:12px;box-shadow:var(--amu-shadow);padding:13px}
+ .quest-card .quest-top{margin:0 0 6px}
+ .quest-card h3{font-size:13px;margin:0}
+ .quest-card p{font-size:10px;line-height:1.55}
+ .quest-card .quest-bottom button{min-height:35px}
+ .xp-overview{background:#fff;border:1px solid var(--amu-border);border-radius:13px;padding:12px;display:flex;flex-wrap:wrap;gap:8px}
+ .xp-overview h3{font-size:13px}
+ .xp-overview .xp-progress{flex:1;min-width:calc(100% - 85px)}
+ .daily-mission{background:#fff;border:1px solid #e4edf7;border-radius:13px;box-shadow:var(--amu-shadow);padding:13px;gap:9px}
+ .daily-mission h3{font-size:13px}
+ .daily-mission p{font-size:10px}
+ .section-tabs{position:relative;overflow-x:auto;scrollbar-width:none;gap:6px;padding:7px 0 9px}
+ .section-tabs>button{white-space:nowrap;flex-shrink:0;padding:9px 12px;border-radius:9px;border:1px solid #e5ebf5;font-size:10px}
+ .section-tabs>button.active{background:#e8f3ff;border-color:#b0d6ff;color:#086dd9}
+ .section-tabs>button .ui-icon{width:14px;height:14px}
+ #detail .exhibit-detail-head{min-height:174px;padding:43px 15px 19px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative;overflow:hidden;background:radial-gradient(circle at 20% 30%,#1f81f188,transparent 50%),linear-gradient(145deg,#0e2850,#155bb6 65%,#418de8)}
+ #detail .exhibit-detail-head:before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent,#ffffff16,transparent);pointer-events:none}
+ #detail .exhibit-detail-head .detail-symbol{width:62px;height:62px;min-width:62px;border:4px solid #b3dcff99;background:#0b274b;color:white;border-radius:50%;font-size:28px;display:grid;place-items:center;margin-bottom:7px;box-shadow:0 8px 20px #001b5966}
+ #detail .exhibit-detail-head h2{font-size:21px;margin:0 0 5px;letter-spacing:-.7px;color:white}
+ #detail .exhibit-detail-head .detail-stage{color:#e0edff;font-size:10px}
+ #detail .exhibit-detail-head .eyeline{color:#a5d7ff;font-size:8px}
+ #detail .exhibit-detail-head .close{position:absolute;top:11px;left:11px;z-index:1;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#ffffffea;color:#144a85}
+ #detail .detail-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;background:#fff}
+ #detail .detail-toolbar button{font-size:10px}
+ #detail .detail-toolbar>span{font-size:10px;white-space:nowrap;color:#7793ab}
+ #detail .detail-tabs{display:flex;border-bottom:1px solid #e2eaf5;background:white;overflow-x:auto;margin:0;padding:6px 9px}
+ #detail .detail-tabs button{font-size:10px}
+ #detail .detail-body{padding:14px 13px 80px;background:#fff}
+ #detail .detail-description{font-size:12px;line-height:1.6}
+ #detail .detail-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ #detail .detail-facts>div{border:1px solid #e8eef7;border-radius:10px;padding:11px;background:#f8fbff;min-width:0}
+ #detail .detail-facts small{font-size:9px;color:#8a9cac}
+ #detail .detail-facts b{font-size:11px;overflow-wrap:anywhere}
+ #detail .task-summary h3{font-size:13px}
+ #detail .task-state-row{background:#f8faff;border:1px solid #eaf0f7;border-radius:9px}
+ .amu-notification{align-items:center;padding:12px}
+ .amu-notification strong{font-size:11px}
+ .amu-notification small{font-size:9px}
+}
+@media(max-width:375px){
+ .amu-dashboard-shell .amu-hero-copy{max-width:86%}
+ .amu-dashboard-shell .amu-hero-art{opacity:.53}
+ .amu-dashboard-shell .amu-hero-actions .amu-hero-outline{display:none}
+ .amu-dashboard-shell .amu-hero{min-height:160px}
+ .amu-dashboard-shell .amu-stat{min-height:58px}
+ .amu-dashboard-shell .amu-campaign-card{padding:11px}
+}
