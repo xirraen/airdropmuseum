@@ -119,3 +119,21 @@ test('CORS origins restricted and 429 includes Retry-After',async()=>{
  response=await publicApiRoutes(req('/v1/campaigns',{headers:{Origin:'https://app.example.org'}}),e);assert.equal(response.headers.get('Access-Control-Allow-Origin'),'https://app.example.org');
  e.PUBLIC_API_RATE_LIMITER.limit=async()=>({success:false});response=await publicApiRoutes(req('/v1/campaigns'),e);assert.equal(response.status,429);assert.equal(response.headers.get('Retry-After'),'60');
 });
+
+test('atomic quota reservation returns remaining capacity without a second D1 read',async()=>{
+ const e=env();e.DB.prepare("INSERT INTO api_keys(id,name,key_hash,partner_scope,tier,rate_limit_per_minute,daily_quota,created_by) VALUES('atomic-limit','Quota test','quota-hash','','free',2,100,'admin')").run();
+ const p={tier:'free',id:'atomic-limit',key:{daily_quota:100},limit:2};
+ const results=await Promise.allSettled(Array.from({length:4},()=>checkRate(req('/v1/campaigns'),e,p)));
+ const accepted=results.filter(r=>r.status==='fulfilled').map(r=>r.value['X-RateLimit-Remaining']).sort();
+ assert.deepEqual(accepted,['0','1']);assert.equal(results.filter(r=>r.status==='rejected').length,2);
+ assert.equal(e.DB.prepare("SELECT request_count FROM api_usage_log WHERE api_key_id='atomic-limit'").first().request_count,2);
+});
+
+test('combined API-key/schema lookup preserves the migration gate for authenticated and anonymous reads',async()=>{
+ const e=env(),token='am_v1_'+'a'.repeat(64);
+ e.DB.prepare("INSERT INTO api_keys(id,name,key_hash,partner_scope,tier,rate_limit_per_minute,daily_quota,created_by) VALUES('schema-key','Test',?,'','free',60,100,'admin')").bind(await digest(token)).run();
+ e.DB.prepare('DELETE FROM am_core_schema WHERE version=8').run();
+ for(const headers of [{},{Authorization:'Bearer '+token}]){
+  const r=await publicApiRoutes(req('/v1/campaigns',{headers}),e);assert.equal(r.status,503);assert.equal((await r.json()).error,'PUBLIC_API_MIGRATION_REQUIRED');
+ }
+});

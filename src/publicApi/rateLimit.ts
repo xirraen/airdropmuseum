@@ -11,10 +11,9 @@ export async function checkRate(request,env,p){
  const statement=`INSERT INTO api_usage_log(principal_hash,minute_bucket,api_key_id,request_count)
  SELECT ?,?,?,1 WHERE (SELECT COALESCE(SUM(request_count),0) FROM api_usage_log WHERE principal_hash=? AND minute_bucket>=? AND minute_bucket<=?) < ?
  ON CONFLICT(principal_hash,minute_bucket) DO UPDATE SET request_count=request_count+1,updated_at=CURRENT_TIMESTAMP
- WHERE request_count<? AND (SELECT COALESCE(SUM(request_count),0) FROM api_usage_log WHERE principal_hash=? AND minute_bucket>=? AND minute_bucket<=?) < ?`;
- const r=await sql(env.DB,statement,principalHash,minute,p.id,principalHash,start,minute,quota,limit,principalHash,start,minute,quota).run();
- if(r.meta?.changes!==1)fail('RATE_LIMITED',429);
- const row=await sql(env.DB,'SELECT request_count FROM api_usage_log WHERE principal_hash=? AND minute_bucket=?',principalHash,minute).first();
- return {'X-RateLimit-Limit':String(limit),'X-RateLimit-Remaining':String(Math.max(0,limit-(row?.request_count||limit))),'X-RateLimit-Reset':String((minute+1)*60)};
+ WHERE request_count<? AND (SELECT COALESCE(SUM(request_count),0) FROM api_usage_log WHERE principal_hash=? AND minute_bucket>=? AND minute_bucket<=?) < ? RETURNING request_count`;
+ const r=await sql(env.DB,statement,principalHash,minute,p.id,principalHash,start,minute,quota,limit,principalHash,start,minute,quota).first();
+ if(!r)fail('RATE_LIMITED',429);
+ return {'X-RateLimit-Limit':String(limit),'X-RateLimit-Remaining':String(Math.max(0,limit-r.request_count)),'X-RateLimit-Reset':String((minute+1)*60)};
 }
 export const retryHeaders={'Retry-After':'60','X-RateLimit-Remaining':'0'};
