@@ -20,7 +20,7 @@ All configured required production bindings passed the live binding validator. T
 
 `CLOUDFLARE_API_TOKEN` is absent from active runtime bindings. Existing application secrets were explicitly inherited, and missing internal security secrets were generated inside the authenticated connector without returning their values. Query strings are redacted from platform logs. Webhook egress defaults to an empty allowlist. No campaign was automatically published, no wallet signing/transaction was enabled, and no synthetic account or private Journal was created/deleted in production.
 
-One UTC minute trigger preserves all five job cadences; legacy cron strings remain supported. Configuration is verified; see the live manifest for observed execution status. Cloudflare trigger propagation can delay the first execution. Other applications' schedules were not changed. Provider version activation resets targeted placement: apply placement/observability settings after activation, include provenance annotations, then verify the downloaded source hash.
+One UTC minute trigger preserves all five job cadences; legacy cron strings remain supported. Configuration and actual production execution are verified: `cron_run` was recorded at 04:16:37 and 04:17:37 UTC on 4 November 2026. See the live manifest for the observed events. Cloudflare propagation delayed the first execution. Other applications' schedules were not changed. Provider version activation resets targeted placement: apply placement/observability settings after activation, include provenance annotations, then verify the downloaded source hash.
 
 ## Verification evidence
 
