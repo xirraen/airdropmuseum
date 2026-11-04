@@ -18,7 +18,7 @@ const queue=name=>name.replace('airdrop-museum-','airdrop-museum-staging-');
 for(const b of config.queues.producers)b.queue=queue(b.queue);
 for(const b of config.queues.consumers){b.queue=queue(b.queue);if(b.dead_letter_queue)b.dead_letter_queue=queue(b.dead_letter_queue);}
 config.ratelimits[0].namespace_id=namespace;
-config.analytics_engine_datasets[0].dataset='airdropmuseum_staging_operations';
+config.analytics_engine_datasets=config.analytics_engine_datasets.map(b=>({...b,dataset:'airdropmuseum_staging_operations'}));
 config.vars={ENVIRONMENT:'staging',SIDE_EFFECTS_ENABLED:'0',TELEGRAM_AUTH_MODE:'synthetic',REQUIRE_RATE_LIMIT_BINDINGS:'1',PUBLIC_APP_URL:origin.origin,PUBLIC_API_ORIGIN:origin.origin,TRUST_PUBLIC_ORIGIN:origin.origin,PUBLIC_API_ALLOWED_ORIGINS:origin.origin,AGGREGATOR_QUEUE_NAME:'airdrop-museum-staging-aggregator',PARTNER_WEBHOOK_QUEUE_NAME:'airdrop-museum-staging-partner-webhook',PARTNER_WEBHOOK_DLQ_NAME:'airdrop-museum-staging-partner-webhook-dlq',PARTNER_WEBHOOK_ALLOWED_HOSTS:''};
 // No production secrets, discovery URLs, RPCs or credentials are copied.
 writeFileSync('.wrangler-staging.jsonc',JSON.stringify(config,null,2)+'\n',{mode:0o600});
