@@ -31,3 +31,11 @@ test('staging HTML identifies synthetic authentication without modifying product
  assert.equal(stage.headers.get('X-AirdropMuseum-Environment'),'staging');assert.match(await stage.text(),/autentikasi sintetis/);
  const production=await withSecurity(request,{},{},next);assert.doesNotMatch(await production.text(),/data-staging-banner/);
 });
+
+test('staging credential setup and cleanup refuse production before reading files or making requests',async()=>{
+ const {spawnSync}=await import('node:child_process');
+ for(const script of ['prepare-staging-load.mjs','cleanup-staging-load.mjs']){
+  const r=spawnSync(process.execPath,['scripts/'+script],{encoding:'utf8',env:{PATH:process.env.PATH,RUNTIME_TEST_ORIGIN:'https://airdrop-museum.xirraen.workers.dev',STAGING_SYNTHETIC_E2E:'1',STAGING_PRIVATE_EVIDENCE_ROOT:'/nonexistent'}});
+  assert.notEqual(r.status,0);assert.match(r.stderr,/DEDICATED_SYNTHETIC_STAGING_REQUIRED/);assert.doesNotMatch(r.stderr,/ENOENT/);
+ }
+});

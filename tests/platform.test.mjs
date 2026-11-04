@@ -73,3 +73,13 @@ test('Telegram and cookie state share canonical identity, preserving legacy revi
  assert.equal((await platformApi(request('/me',undefined,cookie),env)).status,401);
  DB.sql.close();
 });
+
+test('public leaderboard never exposes verified account identifiers or private account fields',async()=>{
+ const DB=database();
+ DB.sql.prepare('INSERT INTO am_users(id,username,email,wallet,private,reputation) VALUES(?,?,?,?,0,10)').run('tg:123456789','Public researcher','private@example.org','0x'+'1'.repeat(40));
+ const response=await call(DB,'/leaderboard');assert.equal(response.status,200);assert.equal(response.body.users.length,1);
+ const user=response.body.users[0];assert.equal(user.username,'Public researcher');assert.equal(user.reputation,10);
+ for(const field of ['id','user_id','email','wallet','token_hash'])assert.equal(Object.hasOwn(user,field),false);
+ assert.doesNotMatch(JSON.stringify(response.body),/tg:123456789|private@example\.org|0x111111/);
+ DB.sql.close();
+});

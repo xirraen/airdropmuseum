@@ -1,6 +1,6 @@
 // Bootstrap role must already have been assigned in the isolated synthetic D1.
 import {createHmac} from 'node:crypto';
-import {mkdirSync,writeFileSync,realpathSync} from 'node:fs';
+import {mkdirSync,writeFileSync,realpathSync,chmodSync,existsSync} from 'node:fs';
 import {resolve,relative,isAbsolute,sep} from 'node:path';
 const base=process.env.RUNTIME_TEST_ORIGIN;
 if(base!=='https://airdrop-museum-staging.airdrop-658.workers.dev'||process.env.STAGING_SYNTHETIC_E2E!=='1')throw Error('DEDICATED_SYNTHETIC_STAGING_REQUIRED');
@@ -8,6 +8,8 @@ const root=process.env.STAGING_PRIVATE_EVIDENCE_ROOT;
 if(!root||!isAbsolute(root))throw Error('PRIVATE_EVIDENCE_DIRECTORY_REQUIRED');
 mkdirSync(root,{recursive:true,mode:0o700});const path=realpathSync(root),rel=relative(realpathSync('.'),path);
 if(!rel||rel!=='..'&&!rel.startsWith('..'+sep)&&!isAbsolute(rel))throw Error('PRIVATE_EVIDENCE_INSIDE_GIT_DENIED');
+chmodSync(path,0o700);
+if(['load-api-key','load-operator.json'].some(name=>existsSync(resolve(path,name))))throw Error('STAGING_LOAD_CREDENTIALS_ALREADY_EXIST');
 if(!process.env.STAGING_TEST_BOT_TOKEN)throw Error('SYNTHETIC_STAGING_TOKEN_REQUIRED');
 const p=new URLSearchParams({auth_date:String(Math.floor(Date.now()/1000)),user:JSON.stringify({id:90000042}),query_id:crypto.randomUUID()});
 const key=createHmac('sha256','WebAppData').update(process.env.STAGING_TEST_BOT_TOKEN).digest();
@@ -20,6 +22,6 @@ const actor=await session.json();if(actor.role!=='super_admin')throw Error('STAG
 const response=await fetch(base+'/api/admin/api-keys',{method:'POST',headers:{Cookie:cookie,Origin:base,'X-CSRF-Token':actor.csrf_token,'Content-Type':'application/json'},body:JSON.stringify({name:'Synthetic staging load test',tier:'internal',expires_at:new Date(Date.now()+30*60000).toISOString()})});
 if(response.status!==201)throw Error('STAGING_LOAD_KEY_FAILED');
 const data=await response.json();if(!/^am_v1_[a-f0-9]{64}$/.test(data.api_key||''))throw Error('INVALID_STAGING_LOAD_KEY');
-writeFileSync(resolve(path,'load-api-key'),data.api_key,{mode:0o600});
-writeFileSync(resolve(path,'load-operator.json'),JSON.stringify({cookie,csrf:actor.csrf_token,key_id:data.key.id}),{mode:0o600});
+writeFileSync(resolve(path,'load-api-key'),data.api_key,{mode:0o600,flag:'wx'});
+writeFileSync(resolve(path,'load-operator.json'),JSON.stringify({cookie,csrf:actor.csrf_token,key_id:data.key.id}),{mode:0o600,flag:'wx'});
 console.log(JSON.stringify({status:'PASS',admin_bootstrap:'synthetic staging only',key_id:data.key.id,credential_file:'outside Git; not printed'}));
