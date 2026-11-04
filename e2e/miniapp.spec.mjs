@@ -38,3 +38,12 @@ test('catalog backend failure is visible and never replaced with a successful em
  await expect(page.getByRole('alert')).toContainText('Katalog publik tidak tersedia');
  await expect(page.getByRole('heading',{name:'Koleksi riset lokal'})).toBeVisible();
 });
+
+test('profile form persists a real local update across reload',async({page})=>{
+ await page.goto('/#profile',{waitUntil:'domcontentloaded'});
+ await page.locator('#profile-form input[name="name"]').fill('Peneliti Uji');
+ await page.locator('#profile-form').getByRole('button',{name:'Simpan perubahan'}).click();
+ await page.reload({waitUntil:'domcontentloaded'});
+ await expect(page.locator('#profile-form input[name="name"]')).toHaveValue('Peneliti Uji');
+ await expect(page.getByRole('heading',{name:'Peneliti Uji',exact:true})).toBeVisible();
+});
