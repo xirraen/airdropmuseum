@@ -82,6 +82,7 @@ export async function scanPartnerEvents(env){
  for(const d of retry.results||[])await env.PARTNER_WEBHOOK_QUEUE.send({delivery_id:d.id});
 }
 export async function deliverPartnerWebhook(message,env,fetcher=fetch){
+ if(env.SIDE_EFFECTS_ENABLED==='0'){message.retry({delaySeconds:300});return;}
  const id=message.body?.delivery_id;
  if(typeof id!=='string')return message.ack();
  const db=env.DB,row=await sql(db,"SELECT d.*,h.url,h.secret_hash,h.enabled,k.enabled AS key_enabled,k.revoked_at FROM webhook_deliveries d JOIN partner_webhooks h ON h.id=d.webhook_id JOIN api_keys k ON k.id=h.api_key_id WHERE d.id=?",id).first();
