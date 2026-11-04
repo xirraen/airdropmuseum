@@ -464,3 +464,15 @@ main .amu-right-rail{display:flex;flex-direction:column;gap:13px;min-width:0;pos
  .amu-dashboard-shell .amu-stat{min-height:58px}
  .amu-dashboard-shell .amu-campaign-card{padding:11px}
 }
+/* Sticky Telegram header/search must not cover focused or scrolled controls. */
+html{scroll-padding-top:90px;scroll-padding-bottom:90px}
+@media(max-width:700px){
+ html{scroll-padding-top:calc(120px + env(safe-area-inset-top));scroll-padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+ main a,main button,main input,main select,main textarea{scroll-margin-top:120px;scroll-margin-bottom:100px}
+ .amu-primary-column>.shared-catalog{order:1;margin-top:14px}
+}
+@media(max-width:700px){
+ .workspace main .intro{flex-wrap:wrap}
+ .workspace main .intro>div{flex-basis:100%}
+ .workspace main .intro>a.primary,.workspace main .intro>button.secondary{width:auto;height:auto;min-height:36px;flex:0 1 auto;white-space:normal;padding:10px 14px}
+}

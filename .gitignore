@@ -6,3 +6,8 @@ node_modules/
 .dev.vars.*
 .env.local
 .env.*.local
+
+playwright-report/
+test-results/
+.wrangler-preview.jsonc
+.wrangler-staging.jsonc

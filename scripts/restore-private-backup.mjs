@@ -52,7 +52,7 @@ try{
  // Imported d1_migrations is authoritative: Wrangler applies only the missing suffix.
  run(['d1','migrations','apply','DB','--remote'],'migrations');
  const marker=query('SELECT MAX(version) version FROM am_core_schema','schema');
- if(marker[0]?.version!==16)throw Error('STAGING_RELEASE_SCHEMA_MISSING');
+ if(marker[0]?.version!==17)throw Error('STAGING_RELEASE_SCHEMA_MISSING');
  const applied=query('SELECT name FROM d1_migrations ORDER BY id','migration-history').map(row=>row.name);
  const expected=readdirSync(resolve('migrations')).filter(name=>name.endsWith('.sql')).sort();
  if(applied.length!==expected.length||!expected.every(name=>applied.includes(name))||!manifest.migrations.every(name=>applied.includes(name)))throw Error('STAGING_MIGRATION_HISTORY_MISMATCH');
@@ -60,7 +60,7 @@ try{
  const replay=spawnSync(process.execPath,['scripts/reapply-journal-erasure.mjs'],{encoding:'utf8',timeout:240000,env:{...process.env,RESTORE_STAGING_D1_ID:id,PRIVATE_REPLAY_EVIDENCE_FILE:join(folder,'privacy-replay-evidence.json')}});
  writeFileSync(join(folder,'restore-privacy-replay.log'),(replay.stdout||'')+(replay.stderr||''),{mode:0o600});
  if(replay.status!==0)throw Error('RESTORED_PRIVACY_REPLAY_REQUIRED');
- writeFileSync(join(folder,'restore-evidence.json'),JSON.stringify({backup_sha256:manifest.sha256,staging_database_id:id,restored_counts:counts,migrations:applied,schema:16,verified_at:new Date().toISOString()},null,2)+'\n',{mode:0o600});
+ writeFileSync(join(folder,'restore-evidence.json'),JSON.stringify({backup_sha256:manifest.sha256,staging_database_id:id,restored_counts:counts,migrations:applied,schema:17,verified_at:new Date().toISOString()},null,2)+'\n',{mode:0o600});
  writeFileSync(manifestPath,JSON.stringify({...manifest,remote_restore_verified:true,remote_restore_database_id:id},null,2)+'\n',{mode:0o600});
  console.log('PASS private backup restored into empty isolated D1; counts, migration history and foreign keys verified. No Worker deployed.');
 }catch(error){console.error('Staging restore did not complete. '+error.message);process.exitCode=1;}

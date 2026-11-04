@@ -9,7 +9,8 @@
     "dev": "node scripts/dev-server.mjs",
     "lint": "node scripts/check-source.mjs",
     "typecheck": "tsc -p tsconfig.wallet.json",
-    "test:runtime": "node scripts/run-runtime-tests.mjs"
+    "test:runtime": "node scripts/run-runtime-tests.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@scure/bip39": "^2.4.0",
@@ -19,6 +20,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/qrcode": "^1.5.6",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
