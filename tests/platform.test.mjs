@@ -40,3 +40,46 @@ test('holding edits use revisions, preserve real dates and never mutate another 
 test('session list identifies current session and other-session revoke is owner scoped',async()=>{const DB=database(),a=await login(DB),b=await login(DB);const second=await login(DB,a);const otherCookie=second.cookie;let sessions=(await call(DB,'/sessions',undefined,a.cookie)).body.sessions;assert.equal(sessions.length,2);assert.equal(sessions.filter(s=>s.current).length,1);assert.ok(sessions.every(s=>s.id.length===24&&!('token_hash' in s)));await call(DB,'/sessions/revoke',{id:sessions.find(s=>!s.current).id},b.cookie);assert.equal((await call(DB,'/me',undefined,otherCookie)).status,200);await call(DB,'/sessions/revoke',{others:true},a.cookie);assert.equal((await call(DB,'/me',undefined,otherCookie)).status,401);assert.equal((await call(DB,'/me',undefined,a.cookie)).status,200);assert.equal((await call(DB,'/me',undefined,b.cookie)).status,200);DB.sql.close()});
 test('bookmark removal only affects the requesting account',async()=>{const DB=database(),a=await login(DB),b=await login(DB);const p=await call(DB,'/posts',{title:'Bookmark ownership',body:'This source context is long enough to save for later research.',channel:'Alpha'},a.cookie);await call(DB,'/bookmarks',{id:p.body.id},a.cookie);await call(DB,'/bookmarks',{id:p.body.id},b.cookie);await call(DB,'/bookmarks',{id:p.body.id,remove:true},a.cookie);assert.equal((await call(DB,'/bookmarks',undefined,a.cookie)).body.posts.length,0);assert.equal((await call(DB,'/bookmarks',undefined,b.cookie)).body.posts.length,1);DB.sql.close()});
 test('health distinguishes read-only wallet from authentication readiness',async()=>{const DB=database(),r=await api(new Request('https://museum.test/api/health'),{DB}),data=await r.json();assert.equal(data.walletAuthentication,false);assert.equal(data.telegramAuthentication,false);assert.equal(data.authentication,true);assert.equal(data.sync,true);assert.equal(data.community,true);DB.sql.close()});
+
+async function telegramData(id,age=0){
+ const {createHmac}=await import('node:crypto');
+ const p=new URLSearchParams({auth_date:String(Math.floor(Date.now()/1000)-age),user:JSON.stringify({id})});
+ const key=createHmac('sha256','WebAppData').update('test-bot-token').digest();
+ p.set('hash',createHmac('sha256',key).update([...p.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${k}=${v}`).join('\n')).digest('hex'));
+ return p.toString();
+}
+test('Telegram and cookie state share canonical identity, preserving legacy revision and detecting conflicts',async()=>{
+ const DB=database(),env={DB,TELEGRAM_BOT_TOKEN:'test-bot-token'},init=await telegramData(12345);
+ const payload=JSON.stringify({version:2,saved:[],done:{}});
+ DB.sql.prepare('INSERT INTO am_core_user_state(user_id,payload,revision) VALUES(?,?,7)').run('12345',payload);
+ const headers={'X-Telegram-Init-Data':init,Origin:'https://museum.test'};
+ const get=await api(new Request('https://museum.test/api/me/state',{headers}),env);
+ assert.equal(get.status,200);assert.equal((await get.json()).revision,7);
+ assert.equal(DB.sql.prepare("SELECT revision FROM am_core_user_state WHERE user_id='tg:12345'").get().revision,7);
+ const login=await platformApi(new Request('https://museum.test/api/platform/auth/telegram',{method:'POST',headers}),env);
+ assert.equal(login.status,200);
+ const replay=await platformApi(new Request('https://museum.test/api/platform/auth/telegram',{method:'POST',headers}),env);assert.equal(replay.status,401);assert.equal((await replay.json()).error,'TELEGRAM_LOGIN_REPLAY');
+ const cookie=login.headers.get('Set-Cookie').split(';')[0];
+ assert.equal((await(await api(new Request('https://museum.test/api/me/state',{headers:{Cookie:cookie}}),env)).json()).revision,7);
+ const write=()=>api(new Request('https://museum.test/api/me/state',{method:'PUT',headers:{...headers,'Content-Type':'application/json','If-Match':'7'},body:payload}),env);
+ const results=await Promise.all([write(),write()]);assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+ assert.equal((await api(new Request('https://museum.test/api/me/state',{headers:{'X-Telegram-Init-Data':await telegramData(54321)}}),env)).status,200);
+ DB.sql.prepare('INSERT INTO am_core_user_state(user_id,payload,revision) VALUES(?,?,9)').run('12345',payload);
+ assert.equal((await api(new Request('https://museum.test/api/me/state',{headers}),env)).status,409);
+ assert.equal(DB.sql.prepare('SELECT COUNT(*) n FROM am_core_user_state').get().n,2);
+ assert.equal((await api(new Request('https://museum.test/api/me/state',{headers:{Cookie:cookie,'X-Telegram-Init-Data':await telegramData(54321)}}),env)).status,401);
+ assert.equal((await api(new Request('https://museum.test/api/me/state',{headers:{'X-Telegram-Init-Data':await telegramData(12345,3601)}}),env)).status,401);
+ DB.sql.prepare('UPDATE am_sessions SET expires=0').run();
+ assert.equal((await platformApi(request('/me',undefined,cookie),env)).status,401);
+ DB.sql.close();
+});
+
+test('public leaderboard never exposes verified account identifiers or private account fields',async()=>{
+ const DB=database();
+ DB.sql.prepare('INSERT INTO am_users(id,username,email,wallet,private,reputation) VALUES(?,?,?,?,0,10)').run('tg:123456789','Public researcher','private@example.org','0x'+'1'.repeat(40));
+ const response=await call(DB,'/leaderboard');assert.equal(response.status,200);assert.equal(response.body.users.length,1);
+ const user=response.body.users[0];assert.equal(user.username,'Public researcher');assert.equal(user.reputation,10);
+ for(const field of ['id','user_id','email','wallet','token_hash'])assert.equal(Object.hasOwn(user,field),false);
+ assert.doesNotMatch(JSON.stringify(response.body),/tg:123456789|private@example\.org|0x111111/);
+ DB.sql.close();
+});

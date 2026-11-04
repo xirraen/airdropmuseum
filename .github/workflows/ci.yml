@@ -23,9 +23,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Lint if configured
-        run: npm run lint --if-present
+        run: npm run lint
       - name: Typecheck if configured
-        run: npm run typecheck --if-present
+        run: npm run typecheck
       - name: Scan source for committed credentials
         run: node scripts/security-scan.mjs
       - name: Validate D1 migrations
@@ -40,3 +40,13 @@ jobs:
         run: npm run test:runtime
       - name: Production dependency audit (fail closed)
         run: npm audit --omit=dev --audit-level=high
+      - name: Install browser for behavioral verification
+        run: npx playwright install --with-deps chromium
+      - name: Mobile and desktop browser E2E
+        run: npm run test:e2e
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-evidence
+          path: test-results/

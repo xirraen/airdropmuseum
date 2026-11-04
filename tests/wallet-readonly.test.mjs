@@ -37,3 +37,21 @@ test('protocol adapter negotiates only read methods and disconnects cleanly',asy
 test('initialization fails closed for missing project ID without network access',async()=>{
  let touched=false;await assert.rejects(()=>createWalletConnect({projectId:''},{factory:{init:()=>{touched=true}}}),/PROJECT_ID/);assert.equal(touched,false);
 });
+
+test('expired resumed sessions and post-disconnect requests fail before wallet transport',async()=>{
+ let calls=0,disconnects=0;
+ const session={expiry:Math.floor(Date.now()/1000)+3600,namespaces:{eip155:{accounts:['eip155:1:'+address]}}};
+ const universal={session,on(){},removeListener(){},request:async()=>{calls++;},async disconnect(){disconnects++;}};
+ const p=await createWalletConnect({projectId},{factory:{init:async()=>universal}});
+ session.expiry=1;await assert.rejects(()=>p.request({method:'eth_accounts'}),/SESSION_EXPIRED/);assert.equal(calls,0);
+ await assert.rejects(()=>createWalletConnect({projectId},{factory:{init:async()=>universal}}),/SESSION_EXPIRED/);
+ session.expiry=Math.floor(Date.now()/1000)+3600;await p.disconnect();
+ await assert.rejects(()=>p.request({method:'eth_accounts'}),/DISCONNECTED/);assert.equal(disconnects,2);
+});
+test('pairing cancellation disconnects and removes the temporary listener',async()=>{
+ const listeners=new Map();let aborted=false,disconnected=false;
+ const uri='wc:'+'a'.repeat(64)+'@2?relay-protocol=irn&symKey='+'b'.repeat(64);
+ const universal={session:null,on:(n,cb)=>listeners.set(n,cb),removeListener:n=>listeners.delete(n),connect(){queueMicrotask(()=>listeners.get('display_uri')(uri));return new Promise(()=>{});},abortPairingAttempt(){aborted=true;},async disconnect(){disconnected=true;}};
+ await assert.rejects(()=>createWalletConnect({projectId},{factory:{init:async()=>universal},showPairing:(_uri,cancel)=>{queueMicrotask(cancel);return ()=>{};}}),/CANCELLED/);
+ assert.equal(aborted,true);assert.equal(disconnected,true);assert.equal(listeners.has('display_uri'),false);
+});

@@ -1,3 +1,5 @@
+> **2026-11-04 remediation update:** release is **BLOCKED**. Production was observed at schema 5; candidate now requires schema 17 through migration `0020`. Follow [the canonical release procedure](CONTROLLED_PRODUCTION_RELEASE.md) and [current evidence](FULL_SYSTEM_REMEDIATION.md). Historical PASS/deployment statements below do not certify this candidate.
+
 # Journal privacy and recovery
 
 Verified 29 October 2026, Asia/Jakarta. Migrations 0018 and 0019 bring the schema to 16 (17 migration files). Applied migrations must not be edited.
@@ -21,3 +23,7 @@ Managed private D1 exports are encrypted with AES-256-GCM. Keys are separate own
 Managed export retention is 30 days. Run `scripts/prune-private-backups.mjs` to review candidates; set PRIVATE_BACKUP_PRUNE_APPLY=1 only for the intended removal run. This is an operator procedure; no recurring pruning job has been installed. The helper ignores unrecognized and recent directories. Provider Time Travel is separate: [Cloudflare documents](https://developers.cloudflare.com/d1/reference/time-travel/) seven days on Free and thirty on Paid. Historical provider snapshots are handled by replaying receipts before restored data becomes accessible, rather than claiming instant deletion from provider backups.
 
 The private R2 bucket `airdrop-museum-user-backups` was created for scoped user backups. Its Worker binding is configured in source; production binding activation and BACKUP_SIGNING_KEY provisioning remain pending. These user backups contain their own allowed portfolio/watchlist data, not the Journal vault. Backup signing authenticates content; it is not encryption.
+
+## Current verification boundary
+
+Synthetic multi-owner tests and local workerd verify erasure, receipt persistence, immutable history and external replay barriers. Production lacks the observed `JOURNAL_ERASURE_LEDGER` binding and remains at schema 5. This candidate does not claim live Journal privacy activation. The new identity migration touches core state and XP ownership only, never immutable autopsy events or Journal vault contents. Production restore verification remains BLOCKED until a private isolated snapshot drill replays external erasure receipts.

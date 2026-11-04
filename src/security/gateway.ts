@@ -71,7 +71,15 @@ export async function withSecurity(request,env,ctx,next){
    }
   }catch{}
  }
+ if(env.ENVIRONMENT==='staging'&&(response.headers.get('Content-Type')||'').toLowerCase().includes('text/html')){
+  const label=env.TELEGRAM_AUTH_MODE==='synthetic'?' Telegram memakai autentikasi sintetis.':'';
+  const banner='<div role="note" data-staging-banner style="position:relative;z-index:20;box-sizing:border-box;width:100%;padding:10px 16px;background:#fff4cf;color:#503b00;font:13px/1.5 system-ui">LINGKUNGAN UJI — Jangan masukkan data produksi.'+label+'</div>';
+  const html=(await response.text()).replace(/<body[^>]*>/i,match=>match+banner);
+  const changed=new Headers(response.headers);changed.delete('content-length');
+  response=new Response(html,{status:response.status,headers:changed});
+ }
  const finalHeaders=new Headers(response.headers);
+ if(env.ENVIRONMENT==='staging')finalHeaders.set('X-AirdropMuseum-Environment','staging');
  for(const [key,value] of Object.entries(SECURITY_HEADERS))finalHeaders.set(key,value);
  // Keep explicit restrictive CSP on JSON and XML outputs.
  const contentType=finalHeaders.get('Content-Type')||'';

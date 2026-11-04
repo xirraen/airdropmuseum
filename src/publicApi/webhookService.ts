@@ -6,7 +6,10 @@ const hex=bytes=>Array.from(new Uint8Array(bytes)).map(n=>n.toString(16).padStar
 async function hmac(secret,body){const key=await crypto.subtle.importKey('raw',enc.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(await crypto.subtle.sign('HMAC',key,typeof body==='string'?enc.encode(body):body));}
 async function secret(env,id){if(!env.WEBHOOK_MASTER_SECRET||env.WEBHOOK_MASTER_SECRET.length<32)fail('WEBHOOK_MASTER_SECRET_REQUIRED',503);return 'whsec_'+await hmac(env.WEBHOOK_MASTER_SECRET,'airdropmuseum:webhook:v1:'+id);}
 export async function webhookSignature(secretValue,rawBody){return 'sha256='+await hmac(secretValue,rawBody);}
-function targetUrl(value,ownOrigin){const url=https(value),u=new URL(url);
+export function targetUrl(value,ownOrigin,env={}){const url=https(value),u=new URL(url);
+ const allowed=String(env.PARTNER_WEBHOOK_ALLOWED_HOSTS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+ // Exact operator-reviewed domains only; no wildcards or partner-controlled DNS.
+ if(!allowed.includes(u.hostname.toLowerCase())||u.hostname.endsWith('.'))fail('WEBHOOK_DESTINATION_NOT_ALLOWED',403);
  if(u.hostname===new URL(ownOrigin).hostname)fail('WEBHOOK_SELF_TARGET');
  if(u.pathname.length>1000||url.length>1500)fail('INVALID_WEBHOOK_URL');return url;}
 export async function webhooksRoute(request,env,principal){
@@ -15,7 +18,7 @@ export async function webhooksRoute(request,env,principal){
  if(path==='/v1/webhooks'&&request.method==='POST'){
   const b=await bodyJson(request,4096);
   if(!Array.isArray(b.events)||!b.events.length||b.events.length>EVENTS.length||b.events.some(x=>!EVENTS.includes(x)))fail('INVALID_EVENTS');
-  const url=targetUrl(b.url,new URL(request.url).origin),hookId=crypto.randomUUID(),value=await secret(env,hookId);
+  const url=targetUrl(b.url,new URL(request.url).origin,env),hookId=crypto.randomUUID(),value=await secret(env,hookId);
   await sql(db,'INSERT INTO partner_webhooks(id,api_key_id,url,events,secret_hash) VALUES(?,?,?,?,?)',hookId,principal.id,url,JSON.stringify([...new Set(b.events)]),await digest(value)).run();
   return {status:201,body:{id:hookId,url,events:[...new Set(b.events)],enabled:true,webhook_secret:value,notice:'Webhook secret shown only once; retain securely.',disclaimer:DISCLAIMER}};
  }
@@ -75,20 +78,22 @@ export async function scanPartnerEvents(env){
  const conflicts=await sql(env.DB,"SELECT campaign_id,id,created_at FROM source_conflicts WHERE created_at >= datetime('now','-10 minutes') AND status='open' ORDER BY created_at DESC LIMIT 100").all();
  for(const c of conflicts.results||[])await publishPartnerEvent(env,'source.conflict_detected',c.campaign_id,{eventId:await digest('conflict:'+c.id),occurredAt:c.created_at});
  // Recover deliveries whose producer enqueue was interrupted after a D1 commit.
- const retry=await sql(env.DB,"SELECT id FROM webhook_deliveries WHERE status='queued' AND created_at < datetime('now','-2 minutes') ORDER BY created_at LIMIT 50").all();
+ const retry=await sql(env.DB,"SELECT id FROM webhook_deliveries WHERE (status='queued' AND created_at < datetime('now','-2 minutes')) OR (status='retrying' AND last_attempt_at < datetime('now','-2 minutes')) ORDER BY created_at LIMIT 50").all();
  for(const d of retry.results||[])await env.PARTNER_WEBHOOK_QUEUE.send({delivery_id:d.id});
 }
 export async function deliverPartnerWebhook(message,env,fetcher=fetch){
+ if(env.SIDE_EFFECTS_ENABLED==='0'){message.retry({delaySeconds:300});return;}
  const id=message.body?.delivery_id;
  if(typeof id!=='string')return message.ack();
  const db=env.DB,row=await sql(db,"SELECT d.*,h.url,h.secret_hash,h.enabled,k.enabled AS key_enabled,k.revoked_at FROM webhook_deliveries d JOIN partner_webhooks h ON h.id=d.webhook_id JOIN api_keys k ON k.id=h.api_key_id WHERE d.id=?",id).first();
  if(!row||row.status==='delivered'||row.status==='dead'||!row.enabled||!row.key_enabled||row.revoked_at){message.ack();return;}
+ if(row.status==='retrying'&&Date.parse(row.last_attempt_at+'Z')>Date.now()-30000){message.ack();return;}
  if(row.attempts>=5){await sql(db,"UPDATE webhook_deliveries SET status='dead',error='MAX_ATTEMPTS' WHERE id=?",id).run();message.ack();return;}
  const attempts=row.attempts+1;
- const claim=await sql(db,"UPDATE webhook_deliveries SET attempts=?,status='retrying',last_attempt_at=CURRENT_TIMESTAMP WHERE id=? AND attempts=? AND status IN ('queued','retrying')",attempts,id,row.attempts).run();
+ const claim=await sql(db,"UPDATE webhook_deliveries SET attempts=?,status='retrying',last_attempt_at=CURRENT_TIMESTAMP WHERE id=? AND attempts=? AND (status='queued' OR (status='retrying' AND last_attempt_at<=datetime('now','-30 seconds')))",attempts,id,row.attempts).run();
  if(claim.meta?.changes!==1){message.ack();return;}
  try{
-  const target=targetUrl(row.url,env.PUBLIC_API_ORIGIN||'https://airdrop-museum.xirraen.workers.dev');
+  const target=targetUrl(row.url,env.PUBLIC_API_ORIGIN||'https://airdrop-museum.xirraen.workers.dev',env);
   const raw=row.payload;if(enc.encode(raw).length>16384)throw Error('PAYLOAD_TOO_LARGE');
   const key=await secret(env,row.webhook_id);
   if(!fixedEqual(await digest(key),row.secret_hash))throw Error('SECRET_DERIVATION_FAILED');
@@ -107,7 +112,7 @@ export async function deliverPartnerWebhook(message,env,fetcher=fetch){
  }
 }
 export async function handlePartnerQueue(batch,env){
- if(batch.queue==='airdrop-museum-partner-webhook-dlq'){
+ if(batch.queue==='airdrop-museum-partner-webhook-dlq'||batch.queue===env.PARTNER_WEBHOOK_DLQ_NAME){
   for(const message of batch.messages){const id=message.body?.delivery_id;if(typeof id==='string')await sql(env.DB,"UPDATE webhook_deliveries SET status='dead',error=COALESCE(error,'DLQ_EXHAUSTED') WHERE id=? AND status<>'delivered'",id).run();message.ack();}
   return;
  }

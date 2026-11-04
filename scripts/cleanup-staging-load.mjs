@@ -1,0 +1,18 @@
+import {readFileSync,rmSync,realpathSync} from 'node:fs';
+import {resolve,relative,isAbsolute,sep} from 'node:path';
+const base=process.env.RUNTIME_TEST_ORIGIN,root=process.env.STAGING_PRIVATE_EVIDENCE_ROOT;
+if(base!=='https://airdrop-museum-staging.airdrop-658.workers.dev'||process.env.STAGING_SYNTHETIC_E2E!=='1')throw Error('DEDICATED_SYNTHETIC_STAGING_REQUIRED');
+if(!root||!isAbsolute(root))throw Error('PRIVATE_EVIDENCE_DIRECTORY_REQUIRED');
+const path=realpathSync(root),rel=relative(realpathSync('.'),path);
+if(!rel||rel!=='..'&&!rel.startsWith('..'+sep)&&!isAbsolute(rel))throw Error('PRIVATE_EVIDENCE_INSIDE_GIT_DENIED');
+const operator=JSON.parse(readFileSync(resolve(path,'load-operator.json'),'utf8'));
+if(!/^[a-f0-9-]{36}$/.test(operator.key_id))throw Error('INVALID_STAGING_KEY_ID');
+const revoked=await fetch(base+'/api/admin/api-keys/'+operator.key_id,{method:'DELETE',headers:{Cookie:operator.cookie,Origin:base,'X-CSRF-Token':operator.csrf}});
+if(!revoked.ok||!(await revoked.json()).revoked)throw Error('STAGING_KEY_REVOKE_FAILED');
+const key=readFileSync(resolve(path,'load-api-key'),'utf8');
+const denied=await fetch(base+'/v1/campaigns',{headers:{Authorization:'Bearer '+key}});
+if(denied.status!==401)throw Error('REVOKED_STAGING_KEY_NOT_DENIED');
+const logout=await fetch(base+'/api/platform/auth/logout',{method:'POST',headers:{Cookie:operator.cookie,Origin:base}});
+if(!logout.ok)throw Error('STAGING_LOGOUT_FAILED');
+rmSync(resolve(path,'load-api-key'));rmSync(resolve(path,'load-operator.json'));
+console.log(JSON.stringify({status:'PASS',revoked_key_id:operator.key_id,revoked_request_status:denied.status,local_credentials_removed:true}));

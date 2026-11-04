@@ -14,3 +14,19 @@ test('release checks off-Git backup, CI, Wrangler migration version and worker d
  assert.ok(code.indexOf('scripts/private-db-backup.mjs')<code.indexOf("'migrations','apply'"));
  assert.ok(code.indexOf("'migrations','apply'")<code.lastIndexOf("'deploy'"));
 });
+
+test('release evidence rejects missing external verification, stale evidence and wrong candidate',async()=>{
+ const {verifyReleaseEvidence,REQUIRED_GATES}=await import('../scripts/release-evidence.mjs');
+ const {mkdtempSync,writeFileSync,rmSync}=await import('node:fs');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const dir=mkdtempSync(join(tmpdir(),'release-evidence-')),file=join(dir,'evidence.json'),sha='a'.repeat(40);
+ try{
+  assert.throws(()=>verifyReleaseEvidence(undefined,sha),/REQUIRED/);
+  writeFileSync(file,JSON.stringify({commit:sha,verified_at:new Date().toISOString(),gates:{}}));
+  assert.throws(()=>verifyReleaseEvidence(file,sha),/staging_e2e/);
+  assert.throws(()=>verifyReleaseEvidence(file,'b'.repeat(40)),/COMMIT/);
+  writeFileSync(file,JSON.stringify({commit:sha,verified_at:'2000-01-01',gates:{}}));
+  assert.throws(()=>verifyReleaseEvidence(file,sha),/EXPIRED/);
+  assert.ok(REQUIRED_GATES.includes('production_approval'));
+ }finally{rmSync(dir,{recursive:true});}
+});

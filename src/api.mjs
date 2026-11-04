@@ -27,7 +27,7 @@ export async function api(request,env={},headers={}){
  if(path==='/api/health'||path==='/api/capabilities'){
  const bad=method(['GET','HEAD']);if(bad)return bad;
  let database='unconfigured',rewardSchema=false,platformReady=false;if(env.DB){try{const schema=await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=1').first();database=schema?'ready':'migration_required';platformReady=!!(await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=4').first());rewardSchema=!!(await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=2').first())}catch{database='unavailable'}}
- return json({ok:database==='ready'||database==='unconfigured',version:VERSION,database,catalogMode:'demo',authentication:platformReady||!!env.TELEGRAM_BOT_TOKEN,telegramAuthentication:!!env.TELEGRAM_BOT_TOKEN,walletAuthentication:false,sync:database==='ready'&&(platformReady||!!env.TELEGRAM_BOT_TOKEN),community:platformReady,publicReviews:false,rewards:rewardSchema&&(platformReady||!!env.TELEGRAM_BOT_TOKEN)},database==='unavailable'||database==='migration_required'?503:200);
+ return json({environment:env.ENVIRONMENT||'production',telegramAuthMode:env.TELEGRAM_AUTH_MODE||'verified',ok:database==='ready'||database==='unconfigured',version:VERSION,database,catalogMode:'demo',authentication:platformReady||!!env.TELEGRAM_BOT_TOKEN,telegramAuthentication:!!env.TELEGRAM_BOT_TOKEN,walletAuthentication:false,sync:database==='ready'&&(platformReady||!!env.TELEGRAM_BOT_TOKEN),community:platformReady,publicReviews:false,rewards:rewardSchema&&(platformReady||!!env.TELEGRAM_BOT_TOKEN)},database==='unavailable'||database==='migration_required'?503:200);
  }
  if(path==='/api/projects'){const bad=method(['GET','HEAD']);if(bad)return bad;return json({mode:'demo',projects},200,{'Cache-Control':'public, max-age=60'})}
  if(path==='/api/exhibits'){const bad=method(['GET','HEAD']);if(bad)return bad;if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const result=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN (\'draft\',\'pending_review\',\'private_draft\',\'unreviewed\') AND json_extract(payload,\'$.visibility\')=\'public\' ORDER BY updated_at DESC LIMIT 100').all();return json({mode:'shared_catalog',exhibits:result.results.map(r=>({id:r.id,data:publicCampaignData(JSON.parse(r.payload)),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),verification:'Per-exhibit evidence required; listing is not an endorsement.'})}
@@ -37,7 +37,16 @@ export async function api(request,env={},headers={}){
  if(!cookieUser&&!env.TELEGRAM_BOT_TOKEN)return json({error:'AUTH_NOT_CONFIGURED',message:'Telegram bot secret is required.'},503);
  if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
  const origin=request.headers.get('Origin');if(origin&&origin!==url.origin)return json({error:'ORIGIN_NOT_ALLOWED'},403);
- const user=cookieUser||await verifyTelegram(request.headers.get('X-Telegram-Init-Data'),env.TELEGRAM_BOT_TOKEN);
+ const telegram=cookieUser?null:await verifyTelegram(request.headers.get('X-Telegram-Init-Data'),env.TELEGRAM_BOT_TOKEN);
+ const user=cookieUser||{id:'tg:'+telegram.id};
+ if(path==='/api/me/state'&&/^tg:[1-9][0-9]*$/.test(user.id)){
+  // Atomic re-key preserves payload, revision and timestamp. Never merge two rows.
+  const legacyId=user.id.slice(3);
+  await env.DB.prepare('UPDATE am_core_user_state SET user_id=? WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM am_core_user_state WHERE user_id=?)').bind(user.id,legacyId,user.id).run();
+  const legacy=await env.DB.prepare('SELECT revision FROM am_core_user_state WHERE user_id=?').bind(legacyId).first();
+  if(legacy)return json({error:'LEGACY_IDENTITY_CONFLICT',message:'Both records are preserved; explicit reconciliation is required.'},409);
+ }
+
  if(path!=='/api/me/state')return await rewardsApi(request,env.DB,user,json,limitedText);
  if(request.method==='GET'){const row=await env.DB.prepare('SELECT payload,revision,updated_at FROM am_core_user_state WHERE user_id=?').bind(user.id).first();return json({state:row?JSON.parse(row.payload):null,revision:row?.revision||0,updatedAt:row?.updated_at||null})}
  if(!(request.headers.get('Content-Type')||'').startsWith('application/json'))return json({error:'JSON_REQUIRED'},415);
@@ -49,5 +58,5 @@ export async function api(request,env={},headers={}){
  else result=await env.DB.prepare('UPDATE am_core_user_state SET payload=?, revision=revision+1, updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND revision=?').bind(payload,user.id,revision).run();
  if(result.meta?.changes!==1)return json({error:'REVISION_CONFLICT',message:'Fetch remote state before retrying.'},409);
  return json({saved:true,revision:revision+1});
- }catch(err){if(err.message==='UNAUTHORIZED')return json({error:'UNAUTHORIZED'},401);if(err.message==='BODY_TOO_LARGE')return json({error:'BODY_TOO_LARGE'},413);return json({error:'SERVICE_UNAVAILABLE'},503)}
+ }catch(err){if(err.message==='AUTH_IDENTITY_CONFLICT')return json({error:'AUTH_IDENTITY_CONFLICT'},401);if(err.message==='UNAUTHORIZED')return json({error:'UNAUTHORIZED'},401);if(err.message==='BODY_TOO_LARGE')return json({error:'BODY_TOO_LARGE'},413);return json({error:'SERVICE_UNAVAILABLE'},503)}
 }

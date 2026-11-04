@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
 const base=process.env.RUNTIME_TEST_ORIGIN||'http://localhost:8787';
 const local=['localhost','127.0.0.1'].includes(new URL(base).hostname);
-const staging=process.env.STAGING_SYNTHETIC_E2E==='1'&&new URL(base).origin==='https://airdrop-museum-e2e-direct.xirraen.workers.dev';
+const staging=process.env.STAGING_SYNTHETIC_E2E==='1'&&['https://airdrop-museum-e2e-direct.xirraen.workers.dev','https://airdrop-museum-staging.airdrop-658.workers.dev'].includes(new URL(base).origin);
 if(!local&&!staging)throw Error('Runtime synthetic tests require localhost or the dedicated synthetic staging origin');
 const user=Math.floor(Date.now()/10),bot=staging?process.env.STAGING_TEST_BOT_TOKEN:'local-synthetic-bot-token';
 if(!bot)throw Error('Synthetic staging token required');

@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "legacy_response_observed": true,
+  "http_status": 200,
+  "request_id": "bb753bb6-9a96-42f8-a91d-1f56d742cebf",
+  "observed_at": "2026-11-04T02:16:47.175Z",
+  "previous_version": "92d069c1-24ab-44de-b270-7444b76fd3bf",
+  "schema_retained": 17,
+  "cloudflare_log_version_verified": true,
+  "production_rollback_target_approved": false
+}

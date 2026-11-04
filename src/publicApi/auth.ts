@@ -1,11 +1,12 @@
 import {platformUser} from '../platform-api.mjs';
 import {ApiError,fail,str,digest,fixedEqual,sql,bodyJson,json,TIER_LIMITS,TIER_DAILY} from './types.ts';
-export async function principal(request,env){
+export async function principal(request,env,{requireSchema=false}={}){
  const auth=request.headers.get('Authorization');
- if(!auth)return {tier:'anonymous',id:null,key:null,limit:TIER_LIMITS.anonymous};
+ if(!auth){if(requireSchema&&!(await sql(env.DB,'SELECT version FROM am_core_schema WHERE version=8').first()))fail('PUBLIC_API_MIGRATION_REQUIRED',503);return {tier:'anonymous',id:null,key:null,limit:TIER_LIMITS.anonymous};}
  if(!/^Bearer am_v1_[a-f0-9]{64}$/.test(auth))fail('INVALID_API_KEY',401);
  const value=auth.slice(7),hash=await digest(value);
- const found=await sql(env.DB,'SELECT * FROM api_keys WHERE key_hash=?',hash).first();
+ const found=await sql(env.DB,requireSchema?'SELECT k.*,EXISTS(SELECT 1 FROM am_core_schema WHERE version=8) AS public_schema_ready FROM api_keys k WHERE key_hash=?':'SELECT * FROM api_keys WHERE key_hash=?',hash).first();
+ if(requireSchema&&found&&!found.public_schema_ready)fail('PUBLIC_API_MIGRATION_REQUIRED',503);
  // Compare the computed hash in constant time even after a keyed lookup.
  const good=fixedEqual(hash,found?.key_hash||'0'.repeat(64));
  if(!found||!good||!found.enabled||found.revoked_at||(found.expires_at&&Date.parse(found.expires_at)<=Date.now()))fail('INVALID_API_KEY',401);

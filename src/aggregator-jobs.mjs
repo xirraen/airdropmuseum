@@ -74,6 +74,7 @@ export async function scanStoredWallet(env,id,fetcher=fetch){
  for(const campaign of pendingAlerts)await enqueueAlert(env,campaign,'eligibility_change',w.id+':'+now,w.user_id);
 }
 export async function deliverAlerts(env,fetcher=fetch){
+ if(env.SIDE_EFFECTS_ENABLED==='0')return;
  const now=Math.floor(Date.now()/1000);
  await s(env.DB,"UPDATE alerts SET status=CASE WHEN attempts>=5 THEN 'failed' ELSE 'pending' END WHERE status='sending' AND next_at<?",now).run();
  const jobs=(await s(env.DB,"SELECT a.* FROM alerts a JOIN alert_preferences p ON p.user_id=a.user_id WHERE a.status='pending' AND a.next_at<=? AND a.attempts<5 AND p.enabled=1 ORDER BY a.created_at LIMIT 20",now).all()).results;

@@ -15,7 +15,7 @@ class D1{
  prepare(query){const stmt=this.sqlite.prepare(query);let p=[];const handle={bind(...args){p=args;return handle;},first(){return stmt.get(...p)||null;},all(){return {results:stmt.all(...p)};},run(){return {meta:{changes:Number(stmt.run(...p).changes)}};}};return handle;}
 }
 const ms=Date.parse('2026-10-28T12:00:00Z');
-function env(){return {DB:new D1(),MODERATOR_IDS:'tg:admin',API_HASH_PEPPER:'test-private-pepper',WEBHOOK_MASTER_SECRET:'a'.repeat(48),PUBLIC_API_ORIGIN:'https://museum.example.org',PUBLIC_API_ALLOWED_ORIGINS:'https://app.example.org',PUBLIC_API_RATE_LIMITER:{async limit(){return {success:true};}},PARTNER_WEBHOOK_QUEUE:{sent:[],async send(v){this.sent.push(v);}}};}
+function env(){return {DB:new D1(),MODERATOR_IDS:'tg:admin',API_HASH_PEPPER:'test-private-pepper',PARTNER_WEBHOOK_ALLOWED_HOSTS:'partner.example.org',WEBHOOK_MASTER_SECRET:'a'.repeat(48),PUBLIC_API_ORIGIN:'https://museum.example.org',PUBLIC_API_ALLOWED_ORIGINS:'https://app.example.org',PUBLIC_API_RATE_LIMITER:{async limit(){return {success:true};}},PARTNER_WEBHOOK_QUEUE:{sent:[],async send(v){this.sent.push(v);}}};}
 function insert(e,id,p,review='confirmed',updated='2026-10-28T12:00:00.000Z',verified=true){
  e.DB.prepare('INSERT INTO am_core_exhibits(id,payload,source_url,review_status,updated_at) VALUES(?,?,?,?,?)').bind(id,JSON.stringify(p),'https://official.example.org/source',review,updated).run();
  if(verified)e.DB.prepare("INSERT INTO verification_runs(id,run_key,campaign_id,trigger_type,status,started_at,finished_at,confidence_label) VALUES(?,?,?,?,?,?,?,?)").bind('verify:'+id,'key:'+id,id,'manual','complete',updated,updated,'medium_confidence').run();
@@ -93,6 +93,8 @@ test('webhook creation returns one-time secret; signed delivery uses exact raw b
  assert.equal((await publishPartnerEvent(e,'campaign.updated','a',{eventId:'event1'})).queued,1);
  const message={body:e.PARTNER_WEBHOOK_QUEUE.sent[0],ack(){this.acked=true;},retry(){throw Error('unexpected retry');}};
  await deliverPartnerWebhook(message,e,async(_url,init)=>{
+  const duplicate={body:message.body,ack(){this.acked=true;},retry(){throw Error('duplicate retried');}};
+  await deliverPartnerWebhook(duplicate,e,async()=>{throw Error('CONCURRENT_DUPLICATE_FETCH');});assert.equal(duplicate.acked,true);
   assert.equal(init.headers['X-AirdropMuseum-Event'],'campaign.updated');
   assert.equal(init.headers['X-AirdropMuseum-Signature'],await webhookSignature(result.body.webhook_secret,init.body));
   assert.equal(JSON.stringify(init.body).includes('must-not-leak'),false);
@@ -106,7 +108,7 @@ test('webhook failures retry exponentially then DLQ handles final status',async(
  const hook=(await webhooksRoute(req('/v1/webhooks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:'https://partner.example.org/hook',events:['campaign.updated']})}),e,p)).body;
  await publishPartnerEvent(e,'campaign.updated','a',{eventId:'failure1'});
  const mid=e.PARTNER_WEBHOOK_QUEUE.sent[0].delivery_id,message={body:{delivery_id:mid},acked:false,retries:[],ack(){this.acked=true;},retry(o){this.retries.push(o?.delaySeconds||0);}};
- for(let i=0;i<5;i++)await deliverPartnerWebhook(message,e,async()=>new Response('',{status:503}));
+ for(let i=0;i<5;i++){e.DB.prepare("UPDATE webhook_deliveries SET last_attempt_at=datetime('now','-2 minutes')").run();await deliverPartnerWebhook(message,e,async()=>new Response('',{status:503}));}
  assert.deepEqual(message.retries.slice(0,4),[60,120,240,480]);
  assert.equal(e.DB.prepare('SELECT attempts FROM webhook_deliveries').first().attempts,5);
  await handlePartnerQueue({queue:'airdrop-museum-partner-webhook-dlq',messages:[message]},e);
@@ -116,4 +118,22 @@ test('CORS origins restricted and 429 includes Retry-After',async()=>{
  const e=env();let response=await publicApiRoutes(req('/v1/campaigns',{headers:{Origin:'https://malicious.example'}}),e);assert.equal(response.headers.get('Access-Control-Allow-Origin'),null);
  response=await publicApiRoutes(req('/v1/campaigns',{headers:{Origin:'https://app.example.org'}}),e);assert.equal(response.headers.get('Access-Control-Allow-Origin'),'https://app.example.org');
  e.PUBLIC_API_RATE_LIMITER.limit=async()=>({success:false});response=await publicApiRoutes(req('/v1/campaigns'),e);assert.equal(response.status,429);assert.equal(response.headers.get('Retry-After'),'60');
+});
+
+test('atomic quota reservation returns remaining capacity without a second D1 read',async()=>{
+ const e=env();e.DB.prepare("INSERT INTO api_keys(id,name,key_hash,partner_scope,tier,rate_limit_per_minute,daily_quota,created_by) VALUES('atomic-limit','Quota test','quota-hash','','free',2,100,'admin')").run();
+ const p={tier:'free',id:'atomic-limit',key:{daily_quota:100},limit:2};
+ const results=await Promise.allSettled(Array.from({length:4},()=>checkRate(req('/v1/campaigns'),e,p)));
+ const accepted=results.filter(r=>r.status==='fulfilled').map(r=>r.value['X-RateLimit-Remaining']).sort();
+ assert.deepEqual(accepted,['0','1']);assert.equal(results.filter(r=>r.status==='rejected').length,2);
+ assert.equal(e.DB.prepare("SELECT request_count FROM api_usage_log WHERE api_key_id='atomic-limit'").first().request_count,2);
+});
+
+test('combined API-key/schema lookup preserves the migration gate for authenticated and anonymous reads',async()=>{
+ const e=env(),token='am_v1_'+'a'.repeat(64);
+ e.DB.prepare("INSERT INTO api_keys(id,name,key_hash,partner_scope,tier,rate_limit_per_minute,daily_quota,created_by) VALUES('schema-key','Test',?,'','free',60,100,'admin')").bind(await digest(token)).run();
+ e.DB.prepare('DELETE FROM am_core_schema WHERE version=8').run();
+ for(const headers of [{},{Authorization:'Bearer '+token}]){
+  const r=await publicApiRoutes(req('/v1/campaigns',{headers}),e);assert.equal(r.status,503);assert.equal((await r.json()).error,'PUBLIC_API_MIGRATION_REQUIRED');
+ }
 });

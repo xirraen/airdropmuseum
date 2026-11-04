@@ -18,8 +18,7 @@ export async function publicApiRoutes(request,env,ctx){
    return new Response(null,{status:204,headers:base});
   }
   if(!env.DB)fail('DATABASE_UNAVAILABLE',503);
-  if(!(await env.DB.prepare('SELECT version FROM am_core_schema WHERE version=8').first()))fail('PUBLIC_API_MIGRATION_REQUIRED',503);
-  const auth=await principal(request,env);
+  const auth=await principal(request,env,{requireSchema:true});
   rateHeaders['X-RateLimit-Limit']=String(auth.limit);
   rateHeaders=await checkRate(request,env,auth);
   const responseHeaders={...base,...rateHeaders};

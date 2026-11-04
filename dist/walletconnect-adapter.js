@@ -40,13 +40,15 @@ function pairingDialog(uri,cancel){
 export async function createWalletConnect(options,{factory=UniversalProvider,showPairing=pairingDialog}={}){
  if(!/^[a-fA-F0-9]{32}$/.test(options.projectId||''))throw Error('WALLETCONNECT_PROJECT_ID_REQUIRED');
  const universal=await factory.init({projectId:options.projectId,metadata:options.metadata,logger:'error'});
- let chain=1,close=()=>{};
+ let chain=1,closed=false,close=()=>{};
  /** @type {(reason:Error)=>void} */ let rejectCancel=()=>{};
  /** @type {ReturnType<typeof setTimeout>|undefined} */ let timer;
  const cancellation=new Promise((_,reject)=>{rejectCancel=reject;});
  const transport={
   /** @param {import('./wallet-provider.js').WalletRequest} args */
   async request(args){
+   if(closed||!universal.session)throw Error('WALLET_DISCONNECTED');
+   if(universal.session.expiry!==undefined&&(!Number.isFinite(universal.session.expiry)||universal.session.expiry<=Date.now()/1000))throw Error('WALLET_SESSION_EXPIRED');
    if(['eth_accounts','eth_requestAccounts'].includes(args.method))return sessionAccounts(universal.session,chain);
    if(args.method==='eth_chainId')return '0x'+chain.toString(16);
    if(args.method==='wallet_switchEthereumChain'){
@@ -59,15 +61,18 @@ export async function createWalletConnect(options,{factory=UniversalProvider,sho
    return universal.request(args,'eip155:'+chain);
   },
   on:(/** @type {string} */ event,/** @type {import('./wallet-provider.js').WalletListener} */ listener)=>universal.on(event,listener),removeListener:(/** @type {string} */ event,/** @type {import('./wallet-provider.js').WalletListener} */ listener)=>universal.removeListener(event,listener),
-  disconnect:async()=>{close();await universal.disconnect();}
+  disconnect:async()=>{closed=true;close();await universal.disconnect();}
  };
  const display=(/** @type {string} */ uri)=>{close();close=showPairing(validPairingUri(uri),()=>{universal.abortPairingAttempt();rejectCancel(Error('WALLET_CONNECTION_CANCELLED'));});};
  universal.on('display_uri',display);
  try{
   if(!universal.session)await Promise.race([universal.connect({namespaces:{eip155:{chains:['eip155:1'],methods:METHODS,events:['accountsChanged','chainChanged']}},optionalNamespaces:{eip155:{chains:CHAINS.slice(1).map(c=>'eip155:'+c),methods:METHODS,events:['accountsChanged','chainChanged']}}}),cancellation,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('WALLET_CONNECTION_TIMEOUT')),120000);})]);
+  if(universal.session?.expiry!==undefined&&(!Number.isFinite(universal.session.expiry)||universal.session.expiry<=Date.now()/1000))throw Error('WALLET_SESSION_EXPIRED');
   if(!sessionAccounts(universal.session,chain).length)throw Error('INVALID_WALLET_SESSION');
  }catch(error){await universal.disconnect().catch(()=>{});throw error;}
  finally{clearTimeout(timer);close();universal.removeListener('display_uri',display);}
+ universal.on('session_delete',()=>{closed=true;close();});
+ universal.on('disconnect',()=>{closed=true;close();});
  universal.on('chainChanged',(/** @type {unknown} */ value)=>{const next=Number(typeof value==='string'&&value.startsWith('eip155:')?value.slice(7):value);if(CHAINS.includes(next))chain=next;});
  return readOnlyProvider(transport);
 }

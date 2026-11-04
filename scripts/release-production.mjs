@@ -5,6 +5,7 @@
  * Required: CLOUDFLARE_API_TOKEN, PRIVATE_BACKUP_ROOT, PRIVATE_BACKUP_KEY_ROOT,
  * AIRDROP_PRODUCTION_RELEASE=APPROVED, RESTORE_DRILL_VERIFIED=YES.
  */
+import {verifyReleaseEvidence} from './release-evidence.mjs';
 import {execFileSync} from 'node:child_process';
 import {existsSync,readFileSync,realpathSync} from 'node:fs';
 import {resolve,relative,isAbsolute,sep} from 'node:path';
@@ -30,17 +31,21 @@ const read=(cmd,args)=>execFileSync(cmd,args,{encoding:'utf8',timeout:60000}).tr
 if(read('git',['branch','--show-current'])!=='main')reject('Run only on main');
 if(read('git',['status','--porcelain']))reject('Working tree is dirty');
 if(!/^(https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)xirraen\/airdropmuseum(\.git)?$/.test(read('git',['remote','get-url','origin'])))reject('Wrong GitHub repository');
+const candidate=read('git',['rev-parse','HEAD']);
+verifyReleaseEvidence(process.env.RELEASE_EVIDENCE_FILE,candidate);
 run('npm',['ci'],'Install frozen dependencies');
 const wrangler=resolve('node_modules/wrangler/bin/wrangler.js');
 if(!existsSync(wrangler))reject('Wrangler not installed');
-for(const [label,args] of [['Lint',['run','lint']],['Typecheck',['run','typecheck']],['Build',['run','build']],['Unit tests',['test']],['Worker runtime tests',['run','test:runtime']],['Audit',['audit','--omit=dev','--audit-level=high']]])run('npm',args,label);
+for(const [label,args] of [['Lint',['run','lint']],['Typecheck',['run','typecheck']],['Build',['run','build']],['Unit tests',['test']],['Worker runtime tests',['run','test:runtime']],['Browser E2E',['run','test:e2e']],['Audit',['audit','--omit=dev','--audit-level=high']]])run('npm',args,label);
 run('node',['scripts/security-scan.mjs'],'Credential scan');
 run('node',['--experimental-sqlite','scripts/validate-migrations.mjs'],'Migration validation');
+if(read('git',['status','--porcelain']))reject('Build changed candidate artifacts; commit and reverify');
+run('node',['scripts/verify-production-bindings.mjs'],'Verify live binding destinations and deployment credential separation');
 run('node',['scripts/private-db-backup.mjs'],'Encrypted production backup + private SQLite restore');
 run('node',[wrangler,'d1','migrations','list','airdrop-museum','--remote','--config','wrangler.jsonc'],'Pending migration review');
 run('node',[wrangler,'d1','migrations','apply','airdrop-museum','--remote','--config','wrangler.jsonc'],'Apply pending migrations');
 const query=sql=>JSON.parse(read('node',[wrangler,'d1','execute','airdrop-museum','--remote','--config','wrangler.jsonc','--json','--command',sql]))[0]?.results||[];
-if(query('SELECT MAX(version) AS v FROM am_core_schema')[0]?.v!==16)reject('Live schema is not version 16; Worker deployment aborted');
+if(query('SELECT MAX(version) AS v FROM am_core_schema')[0]?.v!==17)reject('Live schema is not version 17; Worker deployment aborted');
 if(query('PRAGMA foreign_key_check').length)reject('Live D1 foreign key violations; Worker deployment aborted');
 run('node',[wrangler,'deploy','--config','wrangler.jsonc'],'Deploy versioned Worker');
 console.log('WORKER_DEPLOYED: now verify Telegram owner session, public API privacy, WalletConnect, and scheduled queues.');

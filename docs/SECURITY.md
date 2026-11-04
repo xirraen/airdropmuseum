@@ -1,3 +1,5 @@
+> **2026-11-04 remediation update:** release is **BLOCKED**. Production was observed at schema 5; candidate now requires schema 17 through migration `0020`. Follow [the canonical release procedure](CONTROLLED_PRODUCTION_RELEASE.md) and [current evidence](FULL_SYSTEM_REMEDIATION.md). Historical PASS/deployment statements below do not certify this candidate.
+
 # Sprint 10 Security Review and Responsible Disclosure
 
 Review date: 2026-10-28. Code review of inspected Sprint 9 service modules and incremental Sprint 10 hardening. **This is not a full penetration test and does not certify production readiness.**
@@ -41,3 +43,11 @@ Use private security advisories at https://github.com/xirraen/airdropmuseum/secu
 ## Release sign-off
 
 Require a reviewed PR, successful CI, verified Cloudflare bindings, valid legal/security contact, production secret audit, privacy compliance review, staged load test, backup/restore drill and human production approval.
+
+## Remediation security boundaries
+
+Telegram ownership is canonical `tg:<id>`. Competing cookie/initData principals are rejected. Telegram session exchange consumes each signed hash once; API bearer initData remains valid only in the bounded verification window. Reopen the Mini App for fresh login data after an exchange replay rejection. Wallet state never authenticates an account. Expired/disconnected WalletConnect sessions fail before provider requests.
+
+Partner destinations require exact operator-approved `PARTNER_WEBHOOK_ALLOWED_HOSTS`, reviewed DNS ownership and egress policy; empty configuration denies delivery. Do not approve arbitrary partner-controlled DNS. Registration and delivery both enforce the policy. HMAC covers raw bytes; consumers must deduplicate delivery IDs. The service has at-least-once semantics.
+
+`CLOUDFLARE_API_TOKEN` belongs only to operator/CI deployment environments. The production binding gate rejects it in Worker runtime. Removal or rotation of the observed live binding is pending production approval.

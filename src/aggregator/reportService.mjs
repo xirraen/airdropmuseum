@@ -30,7 +30,7 @@ export async function weeklyReport(db,scope,{now=Date.now(),filters={}}={}){
  return {text:sections.join('\n').slice(0,3900),counts:{verified:Number(quest?.n||0),points:Number(points?.n||0),deadlines:items.length,campaigns:recent.length,manual_review:review.length}};
 }
 export async function sendWeeklyReports(env,fetcher=fetch,now=Date.now()){
- if(!env.DB||!env.TELEGRAM_BOT_TOKEN)return {skipped:true};
+ if(env.SIDE_EFFECTS_ENABLED==='0'||!env.DB||!env.TELEGRAM_BOT_TOKEN)return {skipped:true};
  const users=await q(env.DB,'SELECT user_id,filters,weekly_timezone FROM alert_preferences WHERE enabled=1 AND weekly_enabled=1 ORDER BY user_id LIMIT 500').all();
  let sent=0,skipped=0,failed=0;
  for(const p of rows(users)){
