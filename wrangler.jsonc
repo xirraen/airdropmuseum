@@ -122,5 +122,8 @@
       "binding": "AGGREGATOR_BACKUP_BUCKET",
       "bucket_name": "airdrop-museum-user-backups"
     }
-  ]
+  ],
+  "placement": {
+    "region": "aws:ap-southeast-1"
+  }
 }
