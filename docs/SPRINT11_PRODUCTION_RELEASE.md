@@ -1,3 +1,5 @@
+> **2026-11-04 remediation update:** release is **BLOCKED**. Production was observed at schema 5; candidate now requires schema 17 through migration `0020`. Follow [the canonical release procedure](CONTROLLED_PRODUCTION_RELEASE.md) and [current evidence](FULL_SYSTEM_REMEDIATION.md). Historical PASS/deployment statements below do not certify this candidate.
+
 # Production completion candidate
 
 Updated 29 October 2026 (Asia/Jakarta). The user authorized merge and production and explicitly authorized bypassing GitHub Actions because of its limit. Release validation now uses local checks and direct authenticated Cloudflare operations. No production migration or Worker replacement has occurred.

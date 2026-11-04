@@ -1,0 +1,12 @@
+npm run test:e2e
+  ✓   1 [mobile-chromium] › e2e/miniapp.spec.mjs:6:1 › navigation renders every personal screen without overflow or browser errors (1.2s)
+  ✓   2 [mobile-chromium] › e2e/miniapp.spec.mjs:17:1 › campaign modal opens and closes and catalog navigation stays available (762ms)
+  ✓   3 [mobile-chromium] › e2e/miniapp.spec.mjs:27:1 › Decision Lab and admin deny unauthorized personal access (195ms)
+  ✓   4 [mobile-chromium] › e2e/miniapp.spec.mjs:35:1 › catalog backend failure is visible and never replaced with a successful empty response (494ms)
+  ✓   5 [mobile-chromium] › e2e/miniapp.spec.mjs:42:1 › profile form persists a real local update across reload (895ms)
+  ✓   6 [desktop-chromium] › e2e/miniapp.spec.mjs:6:1 › navigation renders every personal screen without overflow or browser errors (1.2s)
+  ✓   7 [desktop-chromium] › e2e/miniapp.spec.mjs:17:1 › campaign modal opens and closes and catalog navigation stays available (866ms)
+  ✓   8 [desktop-chromium] › e2e/miniapp.spec.mjs:27:1 › Decision Lab and admin deny unauthorized personal access (191ms)
+  ✓   9 [desktop-chromium] › e2e/miniapp.spec.mjs:35:1 › catalog backend failure is visible and never replaced with a successful empty response (513ms)
+  ✓  10 [desktop-chromium] › e2e/miniapp.spec.mjs:42:1 › profile form persists a real local update across reload (921ms)
+  10 passed (9.1s)

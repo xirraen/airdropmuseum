@@ -1,0 +1,10 @@
+npm test
+✔ filters combine project, kind and case-insensitive search; plans include all selected results (0.713374ms)
+ℹ tests 285
+ℹ suites 0
+ℹ pass 285
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8128.115376

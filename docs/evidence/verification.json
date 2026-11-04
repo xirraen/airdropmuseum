@@ -1,0 +1,117 @@
+{
+  "recorded_at": "2026-11-04T00:55:23.265517+00:00",
+  "tested_executable_commit": "14c6677f5438568f239913edd21a45ff5f7c5273",
+  "production_release_status": "BLOCKED",
+  "schema_target": 17,
+  "migration_count": 18,
+  "checks": {
+    "unit_integration": {
+      "command": "npm test",
+      "status": "PASS",
+      "artifact": "unit_integration.txt",
+      "sha256": "35a1a057eba68eb5d56be987aea85ec9f538a8141a9ceeb060753ad3da7b8871"
+    },
+    "workerd_runtime": {
+      "command": "npm run test:runtime",
+      "status": "PASS",
+      "artifact": "workerd_runtime.txt",
+      "sha256": "b2b14cc66a4f4d2bebcf38dbf69c7e4df583a1a5de115701da87ee7f5c1e67f5"
+    },
+    "browser": {
+      "command": "npm run test:e2e",
+      "status": "PASS",
+      "artifact": "browser.txt",
+      "sha256": "29fa4dd002fd2e9725a7e17e39ee6460f19bb8255d1d7572859536f2f3f8375f"
+    },
+    "dependency_audit": {
+      "command": "npm audit --omit=dev --audit-level=high",
+      "status": "PASS",
+      "artifact": "dependency_audit.txt",
+      "sha256": "aeede62f2ca52f4eb82a6a05074546e08f43e6c85626c73d39e3a025fe522fbe"
+    }
+  },
+  "additional_checks": {
+    "npm ci": "PASS",
+    "npm run lint": "PASS",
+    "npm run typecheck": "PASS",
+    "node scripts/security-scan.mjs": "PASS",
+    "node --experimental-sqlite scripts/validate-migrations.mjs": "PASS",
+    "npm run build": "PASS",
+    "Wrangler local deploy --dry-run": "PASS"
+  },
+  "external_gates": "BLOCKED \u2014 EXTERNAL VERIFICATION REQUIRED; see ../FULL_SYSTEM_REMEDIATION.md",
+  "migrations": [
+    {
+      "file": "migrations/0001_core.sql",
+      "sha256": "a95565380c6f755cee148364f4a15546f11e133d230326f23795f793cb627e93"
+    },
+    {
+      "file": "migrations/0002_rewards.sql",
+      "sha256": "f668805b82191fd87dc7e1b8c35dd7ab7c056309f97136b285701c18d454e5b6"
+    },
+    {
+      "file": "migrations/0003_platform.sql",
+      "sha256": "88b320a5133ad2275b2fb6dead3e06167060193e557674e338835ed75654e1c8"
+    },
+    {
+      "file": "migrations/0004_workbench.sql",
+      "sha256": "2c7d71331b68776b49e753d706c198b465555114915d3f7186bf53569b018d60"
+    },
+    {
+      "file": "migrations/0005_aggregator_core.sql",
+      "sha256": "f39ac7c7dff145821b3a5e8c0048648435dbb3f1a53674bec5e91cd9ae557d2c"
+    },
+    {
+      "file": "migrations/0008_quest_tracker.sql",
+      "sha256": "238e740e09b7b0ed45b433161fb00eb389cc76f91fb94ddeb6716bca6eacf02b"
+    },
+    {
+      "file": "migrations/0009_portfolio_intelligence.sql",
+      "sha256": "b2112e0ee92f21688798c105fe305cad3b820f1bb5366a9a6f646b9fd5aa9c30"
+    },
+    {
+      "file": "migrations/0010_discovery_automation.sql",
+      "sha256": "145e07f70e68fca3c5f7ec39c3bf5fce1e08ebf88d7c6e993105b76a9be6c5e0"
+    },
+    {
+      "file": "migrations/0011_source_trust.sql",
+      "sha256": "5bab624f494ab0e5c19cf33e2a2a35f22d629d27160a7a87b59548f48810136b"
+    },
+    {
+      "file": "migrations/0012_public_api.sql",
+      "sha256": "356b2e38f59e44b09f8ffceccbd9bb99f4f3a526c6fa920a5ca366a4cb44e295"
+    },
+    {
+      "file": "migrations/0013_admin_operations.sql",
+      "sha256": "c517543da45820b5edf85685978c4c6a5b6783cf2679aa710c377f6de854e1cf"
+    },
+    {
+      "file": "migrations/0014_claim_autopsy.sql",
+      "sha256": "8b18ade01307a47dccdb2b5d2c8251ae3523636f54687ffbd0d53a3c94f549b3"
+    },
+    {
+      "file": "migrations/0015_registry_decision_bridge.sql",
+      "sha256": "9d50a546d01693474b89cf5f4d783c274f033ce2bec4e1712c5a108242c511cc"
+    },
+    {
+      "file": "migrations/0016_registry_projection_guards.sql",
+      "sha256": "632e6d1144a207f6f0c22e820626f28c0c716581a012e61a42b5a166c90861bf"
+    },
+    {
+      "file": "migrations/0017_projection_repair_guards.sql",
+      "sha256": "757b8bfa4ab58bf6b736cb93f5ad2801998ab48ae540f95118c37676783a655b"
+    },
+    {
+      "file": "migrations/0018_journal_privacy_vault.sql",
+      "sha256": "c809b97f3a0808bb015d7c8f44ed956f216b705488f9b7050263976bab1047df"
+    },
+    {
+      "file": "migrations/0019_journal_payload_immutability.sql",
+      "sha256": "e4250a1d76c1bfa12d5c850a15ce46c16cec18c7ec9d95d6ec7af9cdf162b0fe"
+    },
+    {
+      "file": "migrations/0020_canonical_telegram_identity.sql",
+      "sha256": "eb727f2d7e6f645438ce09406a2f748fdd31c54d9bd6da22141bc101c0e6daf4"
+    }
+  ]
+}

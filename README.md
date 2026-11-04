@@ -1,3 +1,5 @@
+> **2026-11-04 remediation update:** release is **BLOCKED**. Production was observed at schema 5; candidate now requires schema 17 through migration `0020`. Follow [the canonical release procedure](docs/CONTROLLED_PRODUCTION_RELEASE.md) and [current evidence](docs/FULL_SYSTEM_REMEDIATION.md). Historical PASS/deployment statements below do not certify this candidate.
+
 # Airdrop Museum
 
 A mobile-first, Indonesian-language airdrop research museum deployed as `airdrop-museum` on **Cloudflare C0**. The editorial porcelain-and-teal UI is designed around evidence, provenance, lifecycle, and visitor judgment.

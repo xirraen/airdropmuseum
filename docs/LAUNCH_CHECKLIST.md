@@ -1,3 +1,5 @@
+> **2026-11-04 remediation update:** release is **BLOCKED**. Production was observed at schema 5; candidate now requires schema 17 through migration `0020`. Follow [the canonical release procedure](CONTROLLED_PRODUCTION_RELEASE.md) and [current evidence](FULL_SYSTEM_REMEDIATION.md). Historical PASS/deployment statements below do not certify this candidate.
+
 # Sprint 10 Launch Checklist
 
 **Every item starts unchecked.** Check only after collecting evidence (CI run, operator approval, screenshot, metrics, or restore/rollout record). Branch implementation is not evidence of a live production launch.
