@@ -24,7 +24,7 @@ export async function rewardsApi(request,DB,user,json,readText){
  await DB.batch([
  DB.prepare("INSERT OR IGNORE INTO am_xp_ledger(user_id,event_key,xp,kind) VALUES(?,'quiz:wallet-safety',50,'learning')").bind(user.id),
  DB.prepare('UPDATE am_xp_referrals SET qualified_at=CURRENT_TIMESTAMP WHERE invitee_id=? AND qualified_at IS NULL').bind(user.id),
- DB.prepare("INSERT OR IGNORE INTO am_xp_ledger(user_id,event_key,xp,kind) SELECT referrer_id,'referral:'||invitee_id,100,'referral' FROM am_xp_referrals r WHERE invitee_id=? AND qualified_at IS NOT NULL AND date(qualified_at)=date('now') AND (SELECT count(*) FROM am_xp_ledger l WHERE l.user_id=r.referrer_id AND l.kind='referral' AND date(l.created_at)=date('now'))<10").bind(user.id),
+ DB.prepare("INSERT OR IGNORE INTO am_xp_ledger(user_id,event_key,xp,kind) SELECT referrer_id,'referral:'||invitee_id,100,'referral' FROM am_xp_referrals r WHERE invitee_id=? AND qualified_at IS NOT NULL AND date(qualified_at)=date('now') AND NOT EXISTS(SELECT 1 FROM am_xp_ledger old WHERE old.user_id=r.referrer_id AND old.event_key IN ('referral:'||r.invitee_id,'referral:'||substr(r.invitee_id,4))) AND (SELECT count(*) FROM am_xp_ledger l WHERE l.user_id=r.referrer_id AND l.kind='referral' AND date(l.created_at)=date('now'))<10").bind(user.id),
  DB.prepare("INSERT OR IGNORE INTO am_xp_ledger(user_id,event_key,xp,kind) SELECT invitee_id,'invite-welcome',25,'welcome' FROM am_xp_referrals WHERE invitee_id=? AND qualified_at IS NOT NULL").bind(user.id)
  ]);
  return json({qualified:true,message:'XP events recorded once; check rewards balance.'});

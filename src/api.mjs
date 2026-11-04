@@ -37,7 +37,16 @@ export async function api(request,env={},headers={}){
  if(!cookieUser&&!env.TELEGRAM_BOT_TOKEN)return json({error:'AUTH_NOT_CONFIGURED',message:'Telegram bot secret is required.'},503);
  if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
  const origin=request.headers.get('Origin');if(origin&&origin!==url.origin)return json({error:'ORIGIN_NOT_ALLOWED'},403);
- const user=cookieUser||await verifyTelegram(request.headers.get('X-Telegram-Init-Data'),env.TELEGRAM_BOT_TOKEN);
+ const telegram=cookieUser?null:await verifyTelegram(request.headers.get('X-Telegram-Init-Data'),env.TELEGRAM_BOT_TOKEN);
+ const user=cookieUser||{id:'tg:'+telegram.id};
+ if(path==='/api/me/state'&&/^tg:[1-9][0-9]*$/.test(user.id)){
+  // Atomic re-key preserves payload, revision and timestamp. Never merge two rows.
+  const legacyId=user.id.slice(3);
+  await env.DB.prepare('UPDATE am_core_user_state SET user_id=? WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM am_core_user_state WHERE user_id=?)').bind(user.id,legacyId,user.id).run();
+  const legacy=await env.DB.prepare('SELECT revision FROM am_core_user_state WHERE user_id=?').bind(legacyId).first();
+  if(legacy)return json({error:'LEGACY_IDENTITY_CONFLICT',message:'Both records are preserved; explicit reconciliation is required.'},409);
+ }
+
  if(path!=='/api/me/state')return await rewardsApi(request,env.DB,user,json,limitedText);
  if(request.method==='GET'){const row=await env.DB.prepare('SELECT payload,revision,updated_at FROM am_core_user_state WHERE user_id=?').bind(user.id).first();return json({state:row?JSON.parse(row.payload):null,revision:row?.revision||0,updatedAt:row?.updated_at||null})}
  if(!(request.headers.get('Content-Type')||'').startsWith('application/json'))return json({error:'JSON_REQUIRED'},415);
@@ -49,5 +58,5 @@ export async function api(request,env={},headers={}){
  else result=await env.DB.prepare('UPDATE am_core_user_state SET payload=?, revision=revision+1, updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND revision=?').bind(payload,user.id,revision).run();
  if(result.meta?.changes!==1)return json({error:'REVISION_CONFLICT',message:'Fetch remote state before retrying.'},409);
  return json({saved:true,revision:revision+1});
- }catch(err){if(err.message==='UNAUTHORIZED')return json({error:'UNAUTHORIZED'},401);if(err.message==='BODY_TOO_LARGE')return json({error:'BODY_TOO_LARGE'},413);return json({error:'SERVICE_UNAVAILABLE'},503)}
+ }catch(err){if(err.message==='AUTH_IDENTITY_CONFLICT')return json({error:'AUTH_IDENTITY_CONFLICT'},401);if(err.message==='UNAUTHORIZED')return json({error:'UNAUTHORIZED'},401);if(err.message==='BODY_TOO_LARGE')return json({error:'BODY_TOO_LARGE'},413);return json({error:'SERVICE_UNAVAILABLE'},503)}
 }
