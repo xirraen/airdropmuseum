@@ -1,0 +1,20 @@
+
+> airdrop-museum@1.2.0 test:runtime
+> node scripts/run-runtime-tests.mjs
+
+PASS real Worker serves blue dashboard, source-backed aggregator and Telegram frame policy
+PASS unauthenticated journal access denied
+PASS Telegram signature creates HttpOnly session without wallet signing
+PASS cross-user read cannot expose journal
+PASS concurrent D1 writes accept one version and reject the other
+PASS HTTPS evidence and hypothesis commands succeed
+PASS invalid evidence and outcome revision are rejected
+PASS consent, finalization and projection repair run in workerd
+PASS consent withdrawal removes cohort from future analysis
+PASS admin scope and public evidence privacy are enforced
+PASS private export is bounded and owner-scoped
+PASS large streamed journal payload is rejected
+PASS journal erasure requires explicit confirmation and preserves another owner
+PASS owner journal erasure removes private data and persists external restore protection
+{"runtime":"workerd + local D1","passed":14,"failed":0,"aggregate_id":"bf224d64-d070-433a-bd7b-8801bf6dba23","erasure_request_id":"5442f2c2-55f3-4ae8-ae1d-e73cdd5dc6d3"}
+PASS local D1 rejects immutable event UPDATE and DELETE

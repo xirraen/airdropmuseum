@@ -1,5 +1,8 @@
 // Connected operator transport: creates an inactive release version, never activates it.
 // Credentials stay in the connector; existing runtime secrets are explicitly inherited.
+// After activation, apply config.placement and config.observability via settings PATCH.
+// Cloudflare versions upload/activation does not preserve targeted placement.
+// Include provenance annotations in that PATCH and compare downloaded code to expectedHash.
 export async function prepareProductionVersion(request,accountId,source,expectedHash,config,commit){
  if(accountId!=='9880cf2cc57c2096f8c3ae253d9852e6'||config.account_id!==accountId||config.name!=='airdrop-museum'||config.d1_databases?.[0]?.database_id!=='4e75c8b9-6c58-4bac-a180-01e5bec0d0a3')throw Error('PRODUCTION_TARGET_MISMATCH');
  if(!/^[a-f0-9]{40}$/.test(commit))throw Error('VERIFIED_COMMIT_REQUIRED');

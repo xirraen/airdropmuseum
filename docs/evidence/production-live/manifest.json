@@ -1,0 +1,114 @@
+{
+  "binding_inventory": {
+    "verified": true,
+    "binding_names": [
+      "ADMIN_CSRF_PEPPER",
+      "AGGREGATOR_ALLOWED_HOSTS",
+      "AGGREGATOR_BACKUP_BUCKET",
+      "AGGREGATOR_DISCOVERY_URLS",
+      "AGGREGATOR_MONITOR_SOURCES",
+      "AGGREGATOR_QUEUE",
+      "AI",
+      "API_HASH_PEPPER",
+      "BACKUP_SIGNING_KEY",
+      "DB",
+      "DISCOVERY_QUEUE",
+      "ENVIRONMENT",
+      "JOURNAL_ERASURE_LEDGER",
+      "PARTNER_WEBHOOK_ALLOWED_HOSTS",
+      "PARTNER_WEBHOOK_QUEUE",
+      "PUBLIC_API_ALLOWED_ORIGINS",
+      "PUBLIC_API_ORIGIN",
+      "PUBLIC_API_RATE_LIMITER",
+      "PUBLIC_APP_URL",
+      "REQUIRE_RATE_LIMIT_BINDINGS",
+      "RPC_1",
+      "RPC_8453",
+      "TELEGRAM_BOT_TOKEN",
+      "TRUST_CACHE",
+      "TRUST_PUBLIC_ORIGIN",
+      "VAPID_PRIVATE_KEY",
+      "VAPID_PUBLIC_KEY",
+      "WALLETCONNECT_PROJECT_ID",
+      "WEBHOOK_MASTER_SECRET"
+    ]
+  },
+  "placement": {
+    "mode": "targeted",
+    "target": [
+      30
+    ]
+  },
+  "query_string_redacted": true,
+  "version_id": "241ce348-7b41-4fbc-ae6a-56ec03a4eb85",
+  "deployment_id": "26576456-e095-4329-acee-37f4a2e70b27",
+  "deployed_at": "2026-11-04T04:11:47.893534Z",
+  "cron_events": [],
+  "pending_erasure_receipts": 0,
+  "foreign_key_errors": 0,
+  "verified_at": "2026-11-04T04:13:41.870Z",
+  "code_commit": "eb29226ae06b9320085410a971f4e01a4c35d950",
+  "artifact_sha256": "059dfc775c87bc9bf5b7fd5bae494b5d8b2aa34c0134fdc5ef52a35658ee3852",
+  "live_downloaded_source_hash_matches": true,
+  "schema": 17,
+  "migration_count": 18,
+  "applied_migrations": [
+    {
+      "name": "0008_quest_tracker.sql",
+      "sha256": "238e740e09b7b0ed45b433161fb00eb389cc76f91fb94ddeb6716bca6eacf02b"
+    },
+    {
+      "name": "0009_portfolio_intelligence.sql",
+      "sha256": "b2112e0ee92f21688798c105fe305cad3b820f1bb5366a9a6f646b9fd5aa9c30"
+    },
+    {
+      "name": "0010_discovery_automation.sql",
+      "sha256": "145e07f70e68fca3c5f7ec39c3bf5fce1e08ebf88d7c6e993105b76a9be6c5e0"
+    },
+    {
+      "name": "0011_source_trust.sql",
+      "sha256": "5bab624f494ab0e5c19cf33e2a2a35f22d629d27160a7a87b59548f48810136b"
+    },
+    {
+      "name": "0012_public_api.sql",
+      "sha256": "356b2e38f59e44b09f8ffceccbd9bb99f4f3a526c6fa920a5ca366a4cb44e295"
+    },
+    {
+      "name": "0013_admin_operations.sql",
+      "sha256": "c517543da45820b5edf85685978c4c6a5b6783cf2679aa710c377f6de854e1cf"
+    },
+    {
+      "name": "0014_claim_autopsy.sql",
+      "sha256": "8b18ade01307a47dccdb2b5d2c8251ae3523636f54687ffbd0d53a3c94f549b3"
+    },
+    {
+      "name": "0015_registry_decision_bridge.sql",
+      "sha256": "9d50a546d01693474b89cf5f4d783c274f033ce2bec4e1712c5a108242c511cc"
+    },
+    {
+      "name": "0016_registry_projection_guards.sql",
+      "sha256": "632e6d1144a207f6f0c22e820626f28c0c716581a012e61a42b5a166c90861bf"
+    },
+    {
+      "name": "0017_projection_repair_guards.sql",
+      "sha256": "757b8bfa4ab58bf6b736cb93f5ad2801998ab48ae540f95118c37676783a655b"
+    },
+    {
+      "name": "0018_journal_privacy_vault.sql",
+      "sha256": "c809b97f3a0808bb015d7c8f44ed956f216b705488f9b7050263976bab1047df"
+    },
+    {
+      "name": "0019_journal_payload_immutability.sql",
+      "sha256": "e4250a1d76c1bfa12d5c850a15ce46c16cec18c7ec9d95d6ec7af9cdf162b0fe"
+    },
+    {
+      "name": "0020_canonical_telegram_identity.sql",
+      "sha256": "eb727f2d7e6f645438ce09406a2f748fdd31c54d9bd6da22141bc101c0e6daf4"
+    }
+  ],
+  "original_user_profiles_preserved": 2,
+  "encrypted_backup_remote_sha256": "b3935e0463fee589727088cde91ab7da0a9b983758ed7755b600c7165853f0ee",
+  "status": "DEPLOYED; acceptance BLOCKED pending external device and admin verification",
+  "analytics_engine": "BLOCKED — C0 product not activated",
+  "cron_execution": "PENDING provider trigger propagation; configuration verified"
+}

@@ -1,0 +1,9 @@
+✔ filters combine project, kind and case-insensitive search; plans include all selected results (0.73569ms)
+ℹ tests 297
+ℹ suites 0
+ℹ pass 297
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10097.206378

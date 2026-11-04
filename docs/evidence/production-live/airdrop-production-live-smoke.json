@@ -1,0 +1,66 @@
+{
+  "verified_at": "2026-11-04T04:09:10.642Z",
+  "results": [
+    {
+      "path": "/",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "path": "/api/health",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "path": "/api/v1/airdrops",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "path": "/v1/campaigns",
+      "status": 200,
+      "expected": 200,
+      "pass": true,
+      "private_fields_absent": true
+    },
+    {
+      "path": "/v1/openapi.json",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "path": "/admin.html",
+      "status": 403,
+      "expected": 403,
+      "pass": true
+    },
+    {
+      "path": "/api/admin/overview",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "path": "/api/me/state",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "path": "/api/autopsy/export",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "path": "/api/aggregator/portfolio",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    }
+  ]
+}

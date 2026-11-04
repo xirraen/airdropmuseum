@@ -1,4 +1,4 @@
-> Follow-up execution: [deployed staging verification](STAGING_VERIFICATION.md) supersedes the earlier staging-unavailable status below. Production remains BLOCKED; historical local test counts remain evidence for their recorded commits.
+> **Current production status, 2026-11-04:** deployed from `main`, D1 schema **17**. Live browser/API checks passed; full acceptance remains **BLOCKED — EXTERNAL VERIFICATION REQUIRED** for real devices and owner admin bootstrap. Analytics Engine awaits C0 activation. See [current live release evidence](PRODUCTION_LIVE_RELEASE.md). Statements below describing schema 5 or an undeployed candidate are historical and superseded by that record.
 
 # Full system remediation — 4 November 2026
 
