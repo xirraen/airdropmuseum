@@ -1,0 +1,23 @@
+
+> airdrop-museum@1.2.0 test:e2e
+> playwright test
+
+
+Running 10 tests using 1 worker
+
+(node:40029) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [mobile-chromium] › e2e/miniapp.spec.mjs:6:1 › navigation renders every personal screen without overflow or browser errors (2.9s)
+  ✓   2 [mobile-chromium] › e2e/miniapp.spec.mjs:17:1 › campaign modal opens and closes and catalog navigation stays available (2.5s)
+  ✓   3 [mobile-chromium] › e2e/miniapp.spec.mjs:27:1 › Decision Lab and admin deny unauthorized personal access (1.8s)
+  ✓   4 [mobile-chromium] › e2e/miniapp.spec.mjs:35:1 › catalog backend failure is visible and never replaced with a successful empty response (2.2s)
+  ✓   5 [mobile-chromium] › e2e/miniapp.spec.mjs:42:1 › profile form persists a real local update across reload (3.9s)
+(node:40166) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   6 [desktop-chromium] › e2e/miniapp.spec.mjs:6:1 › navigation renders every personal screen without overflow or browser errors (2.9s)
+  ✓   7 [desktop-chromium] › e2e/miniapp.spec.mjs:17:1 › campaign modal opens and closes and catalog navigation stays available (2.2s)
+  ✓   8 [desktop-chromium] › e2e/miniapp.spec.mjs:27:1 › Decision Lab and admin deny unauthorized personal access (1.7s)
+  ✓   9 [desktop-chromium] › e2e/miniapp.spec.mjs:35:1 › catalog backend failure is visible and never replaced with a successful empty response (2.0s)
+  ✓  10 [desktop-chromium] › e2e/miniapp.spec.mjs:42:1 › profile form persists a real local update across reload (3.8s)
+
+  10 passed (27.1s)

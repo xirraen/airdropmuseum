@@ -1,6 +1,4 @@
-> Staging is now deployed at https://airdrop-museum-staging.airdrop-658.workers.dev. It uses synthetic data/authentication and has explicit infrastructure blockers. See [current staging verification](docs/STAGING_VERIFICATION.md). Production is not deployed from this candidate.
-
-> **2026-11-04 remediation update:** release is **BLOCKED**. Production was observed at schema 5; candidate now requires schema 17 through migration `0020`. Follow [the canonical release procedure](docs/CONTROLLED_PRODUCTION_RELEASE.md) and [current evidence](docs/FULL_SYSTEM_REMEDIATION.md). Historical PASS/deployment statements below do not certify this candidate.
+> **Current production status, 2026-11-04:** deployed from `main`, D1 schema **17**. Live browser/API checks passed; full acceptance remains **BLOCKED — EXTERNAL VERIFICATION REQUIRED** for real devices and owner admin bootstrap. Analytics Engine awaits C0 activation. See [current live release evidence](docs/PRODUCTION_LIVE_RELEASE.md). Statements below describing schema 5 or an undeployed candidate are historical and superseded by that record.
 
 # Airdrop Museum
 

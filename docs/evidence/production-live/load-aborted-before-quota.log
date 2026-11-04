@@ -1,0 +1,110 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /tmp/airdrop-production-public-load.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 5 max VUs, 1m30s max duration (incl. graceful stop):
+              * default: 5 looping VUs for 1m0s (gracefulStop: 30s)
+
+
+running (0m01.0s), 5/5 VUs, 5 complete and 0 interrupted iterations
+default   [   2% ] 5 VUs  0m01.0s/1m0s
+
+running (0m02.0s), 5/5 VUs, 10 complete and 0 interrupted iterations
+default   [   3% ] 5 VUs  0m02.0s/1m0s
+
+running (0m03.0s), 5/5 VUs, 16 complete and 0 interrupted iterations
+default   [   5% ] 5 VUs  0m03.0s/1m0s
+
+running (0m04.0s), 5/5 VUs, 23 complete and 0 interrupted iterations
+default   [   7% ] 5 VUs  0m04.0s/1m0s
+
+running (0m05.0s), 5/5 VUs, 30 complete and 0 interrupted iterations
+default   [   8% ] 5 VUs  0m05.0s/1m0s
+
+running (0m06.0s), 5/5 VUs, 37 complete and 0 interrupted iterations
+default   [  10% ] 5 VUs  0m06.0s/1m0s
+
+running (0m07.0s), 5/5 VUs, 44 complete and 0 interrupted iterations
+default   [  12% ] 5 VUs  0m07.0s/1m0s
+
+running (0m08.0s), 5/5 VUs, 50 complete and 0 interrupted iterations
+default   [  13% ] 5 VUs  0m08.0s/1m0s
+
+running (0m09.0s), 5/5 VUs, 58 complete and 0 interrupted iterations
+default   [  15% ] 5 VUs  0m09.0s/1m0s
+
+running (0m10.0s), 5/5 VUs, 65 complete and 0 interrupted iterations
+default   [  17% ] 5 VUs  0m10.0s/1m0s
+
+running (0m11.0s), 5/5 VUs, 72 complete and 0 interrupted iterations
+default   [  18% ] 5 VUs  0m11.0s/1m0s
+
+running (0m12.0s), 5/5 VUs, 79 complete and 0 interrupted iterations
+default   [  20% ] 5 VUs  0m12.0s/1m0s
+
+running (0m13.0s), 5/5 VUs, 86 complete and 0 interrupted iterations
+default   [  22% ] 5 VUs  0m13.0s/1m0s
+
+running (0m14.0s), 5/5 VUs, 93 complete and 0 interrupted iterations
+default   [  23% ] 5 VUs  0m14.0s/1m0s
+
+running (0m15.0s), 5/5 VUs, 99 complete and 0 interrupted iterations
+default   [  25% ] 5 VUs  0m15.0s/1m0s
+
+running (0m16.0s), 5/5 VUs, 105 complete and 0 interrupted iterations
+default   [  27% ] 5 VUs  0m16.0s/1m0s
+
+running (0m17.0s), 5/5 VUs, 114 complete and 0 interrupted iterations
+default   [  28% ] 5 VUs  0m17.0s/1m0s
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate>0.99' rate=100.00%
+
+    http_req_duration
+    ✓ 'p(95)<500' p(95)=492.95ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 116     6.777766/s
+    checks_succeeded...: 100.00% 116 out of 116
+    checks_failed......: 0.00%   0 out of 116
+
+    ✓ public catalog returns HTTP 200
+
+    HTTP
+    http_req_duration..............: avg=332.8ms  min=265.24ms med=307.97ms max=632.45ms p(90)=450.31ms p(95)=492.95ms
+      { expected_response:true }...: avg=332.8ms  min=265.24ms med=307.97ms max=632.45ms p(90)=450.31ms p(95)=492.95ms
+    http_req_failed................: 0.00% 0 out of 116
+    http_reqs......................: 116   6.777766/s
+
+    EXECUTION
+    iteration_duration.............: avg=736.85ms min=666.47ms med=708.44ms max=1.03s    p(90)=865.21ms p(95)=899.63ms
+    iterations.....................: 114   6.660908/s
+    vus............................: 5     min=5        max=5
+    vus_max........................: 5     min=5        max=5
+
+    NETWORK
+    data_received..................: 68 kB 4.0 kB/s
+    data_sent......................: 14 kB 818 B/s
+
+
+
+
+running (0m17.1s), 0/5 VUs, 114 complete and 5 interrupted iterations
+default ✗ [  29% ] 5 VUs  0m17.1s/1m0s
+time="2026-11-04T04:09:47Z" level=error msg="test run was aborted because k6 received a 'interrupt' signal"

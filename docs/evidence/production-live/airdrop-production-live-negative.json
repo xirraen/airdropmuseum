@@ -1,0 +1,41 @@
+{
+  "verified_at": "2026-11-04T04:13:03.753Z",
+  "results": [
+    {
+      "name": "fake personal cookie",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "name": "body identity cannot authenticate",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "name": "unsupported method rejected",
+      "status": 405,
+      "expected": 405,
+      "pass": true
+    },
+    {
+      "name": "admin write without login",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "name": "public API rejects unapproved CORS origin",
+      "status": 403,
+      "expected": 403,
+      "pass": true
+    },
+    {
+      "name": "API key rejects invalid credential",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    }
+  ]
+}

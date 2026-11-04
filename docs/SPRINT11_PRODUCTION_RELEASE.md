@@ -1,4 +1,4 @@
-> **2026-11-04 remediation update:** release is **BLOCKED**. Production was observed at schema 5; candidate now requires schema 17 through migration `0020`. Follow [the canonical release procedure](CONTROLLED_PRODUCTION_RELEASE.md) and [current evidence](FULL_SYSTEM_REMEDIATION.md). Historical PASS/deployment statements below do not certify this candidate.
+> **Current production status, 2026-11-04:** deployed from `main`, D1 schema **17**. Live browser/API checks passed; full acceptance remains **BLOCKED — EXTERNAL VERIFICATION REQUIRED** for real devices and owner admin bootstrap. Analytics Engine awaits C0 activation. See [current live release evidence](PRODUCTION_LIVE_RELEASE.md). Statements below describing schema 5 or an undeployed candidate are historical and superseded by that record.
 
 # Production completion candidate
 
