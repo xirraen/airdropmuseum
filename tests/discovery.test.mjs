@@ -144,7 +144,7 @@ test('cron selects at most 20 enabled sources and does not publish',async()=>{
 });
 test('deployment declares discovery cron, producer, retries and DLQ',()=>{
  const cfg=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
- assert.ok(cfg.triggers.crons.includes('*/30 * * * *'));assert.ok(cfg.triggers.crons.includes('17 * * * *'));
+ assert.deepEqual(cfg.triggers.crons,['* * * * *']); // Cadences are behaviorally verified in schedule.test.mjs.
  assert.equal(cfg.queues.producers[0].binding,'DISCOVERY_QUEUE');
  assert.equal(cfg.queues.consumers[0].max_retries,3);
  assert.equal(cfg.queues.consumers[0].dead_letter_queue,'airdrop-museum-discovery-dlq');

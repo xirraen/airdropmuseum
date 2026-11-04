@@ -23,11 +23,7 @@
   },
   "triggers": {
     "crons": [
-      "17 * * * *",
-      "*/30 * * * *",
-      "37 */6 * * *",
-      "*/5 * * * *",
-      "*/15 * * * *"
+      "* * * * *"
     ]
   },
   "vars": {
@@ -94,12 +90,7 @@
       "id": "cb0cc6c853a74270b23771ab35515d1b"
     }
   ],
-  "analytics_engine_datasets": [
-    {
-      "binding": "ANALYTICS",
-      "dataset": "airdropmuseum_operations"
-    }
-  ],
+  "analytics_engine_datasets": [],
   "ratelimits": [
     {
       "name": "PUBLIC_API_RATE_LIMITER",
