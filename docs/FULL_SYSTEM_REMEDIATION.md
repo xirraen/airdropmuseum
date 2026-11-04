@@ -1,3 +1,5 @@
+> Follow-up execution: [deployed staging verification](STAGING_VERIFICATION.md) supersedes the earlier staging-unavailable status below. Production remains BLOCKED; historical local test counts remain evidence for their recorded commits.
+
 # Full system remediation — 4 November 2026
 
 Release status: **BLOCKED**. This is a reviewable remediation candidate, not a production verification certificate. No production migrations, secret changes, queue changes, deployments, or Journal deletions were performed.

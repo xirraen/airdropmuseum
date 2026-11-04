@@ -1,0 +1,127 @@
+{
+  "recorded_at": "2026-11-04T02:33:38.445503+00:00",
+  "source_commit": "8b6133f4b317eafb470e3cb0c958e714bc37eafe",
+  "worker_artifact_sha256": "7d5ff331d67e19d9b83effeb0ff91a87e46475f9d0469284e5a16cec03ad7e74",
+  "worker_version": "2869745d-3b41-4fa5-af94-8f949db887a6",
+  "origin": "https://airdrop-museum-staging.airdrop-658.workers.dev",
+  "unit_integration": {
+    "passed": 294,
+    "failed": 0
+  },
+  "browser": {
+    "passed": 10,
+    "failed": 0
+  },
+  "remote_runtime": {
+    "passed": 14,
+    "failed": 0
+  },
+  "load_runs": [
+    {
+      "name": "before-placement",
+      "status": "FAIL",
+      "requests": 315,
+      "error_rate": 0,
+      "p95_ms": {
+        "campaigns": 1685.1244487,
+        "detail": 1657.98189565,
+        "deadlines": 1641.8023095,
+        "feed": 1680.9848467
+      },
+      "artifact": "staging-load-before-placement.json"
+    },
+    {
+      "name": "placement-run",
+      "status": "PASS",
+      "requests": 485,
+      "error_rate": 0,
+      "p95_ms": {
+        "campaigns": 409.51725555,
+        "detail": 459.4409674,
+        "deadlines": 426.46659550000004,
+        "feed": 447.4221403999998
+      },
+      "artifact": "staging-load-placement-run.json"
+    },
+    {
+      "name": "pre-quota-optimization",
+      "status": "FAIL",
+      "requests": 478,
+      "error_rate": 0,
+      "p95_ms": {
+        "campaigns": 469.7092125,
+        "detail": 595.0601743,
+        "deadlines": 512.1838190000001,
+        "feed": 518.6514205999999
+      },
+      "artifact": "staging-load-pre-quota-optimization.json"
+    },
+    {
+      "name": "latest",
+      "status": "PASS",
+      "requests": 488,
+      "error_rate": 0,
+      "p95_ms": {
+        "campaigns": 403.0546447999999,
+        "detail": 393.87774325,
+        "deadlines": 399.28709549999985,
+        "feed": 397.18055259999994
+      },
+      "artifact": "staging-load-latest.json"
+    }
+  ],
+  "dependency_audit": "0 vulnerabilities",
+  "production_release_status": "BLOCKED",
+  "staging_status": "DEPLOYED_PARTIAL",
+  "blocked": [
+    "R2 unavailable in C1; owner selected partial staging",
+    "Analytics Engine not enabled in C1",
+    "Only 2 of 5 cron schedules fit remaining account capacity",
+    "Real Telegram test bot/device authentication evidence missing",
+    "Real WalletConnect device/provider evidence missing",
+    "Current encrypted production snapshot and isolated restore/erasure replay not performed",
+    "Live binding/secret/admin bootstrap and final rollback target review pending"
+  ],
+  "artifacts": [
+    {
+      "file": "staging-browser.txt",
+      "sha256": "00fb6288f86d5cfca8f51e7264549af5e37d5426ccf12269df6aad3e1e475c71"
+    },
+    {
+      "file": "staging-runtime.txt",
+      "sha256": "1f44a5b83bd818cdb789903fd9e96a110e9d1757122be46062196661784e1afc"
+    },
+    {
+      "file": "current-unit-integration.txt",
+      "sha256": "67106f96a07fd10a06974a40dd065897081eabaecfda44e065311e15c7978817"
+    },
+    {
+      "file": "staging-inventory.json",
+      "sha256": "21f03930d43ca9a5b9c17cc93f2c9d5aae893fd52ce1f7b9f112466fd123a196"
+    },
+    {
+      "file": "staging-rollback.json",
+      "sha256": "f980573e642bb00eec1afb5d8f5c2a9df8ec3b46d3f51348f9f1447fc2dce517"
+    },
+    {
+      "file": "staging-credential-cleanup.json",
+      "sha256": "fe4e4d5f00b397b154e8eba3ca695bd5cda09baefac2438c5266b376deb7626f"
+    },
+    {
+      "file": "staging-load-before-placement.json",
+      "sha256": "bf12a042aef5259332ce5ccac4260b3ab98496f97a4f4963cfe5613fd4f11d10"
+    },
+    {
+      "file": "staging-load-placement-run.json",
+      "sha256": "4e5fec2796960b8fb825a728cf55031e775f0eb54101b7c86a2e3563a0967333"
+    },
+    {
+      "file": "staging-load-pre-quota-optimization.json",
+      "sha256": "9e133c0fac2943bf3c44cdae1a73e96bca5470990d1eea243deb5741cc93fd34"
+    },
+    {
+      "file": "staging-load-latest.json",
+      "sha256": "3eea1d76dd4c2274c819bf999af6e818d85991d91f6aa3307b0caa6837069b1c"
+    }
+  ]
+}

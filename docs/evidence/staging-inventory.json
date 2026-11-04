@@ -1,0 +1,167 @@
+{
+  "checked_at": "2026-11-04T02:32:11.174Z",
+  "account_id": "658ab460492b61f87b42ba96a813f176",
+  "worker": "airdrop-museum-staging",
+  "origin": "https://airdrop-museum-staging.airdrop-658.workers.dev",
+  "active_deployment": "75e55ea9-7e94-43d9-b5a1-999cae0b5b66",
+  "active_versions": [
+    {
+      "version_id": "2869745d-3b41-4fa5-af94-8f949db887a6",
+      "percentage": 100
+    }
+  ],
+  "placement": {
+    "mode": "targeted",
+    "target": [
+      30
+    ]
+  },
+  "bindings": [
+    {
+      "name": "ADMIN_CSRF_PEPPER",
+      "type": "secret_text"
+    },
+    {
+      "name": "AGGREGATOR_QUEUE",
+      "type": "queue",
+      "queue_name": "airdrop-museum-staging-aggregator"
+    },
+    {
+      "name": "AGGREGATOR_QUEUE_NAME",
+      "type": "plain_text"
+    },
+    {
+      "name": "API_HASH_PEPPER",
+      "type": "secret_text"
+    },
+    {
+      "name": "BACKUP_SIGNING_KEY",
+      "type": "secret_text"
+    },
+    {
+      "name": "DB",
+      "type": "d1",
+      "id": "2befecb7-2d37-43df-aec6-113c6d1d7bf5"
+    },
+    {
+      "name": "DISCOVERY_QUEUE",
+      "type": "queue",
+      "queue_name": "airdrop-museum-staging-discovery"
+    },
+    {
+      "name": "ENVIRONMENT",
+      "type": "plain_text"
+    },
+    {
+      "name": "JOURNAL_ERASURE_LEDGER",
+      "type": "kv_namespace",
+      "namespace_id": "9e20e83ce7b041588bc7589e83294e57"
+    },
+    {
+      "name": "PARTNER_WEBHOOK_ALLOWED_HOSTS",
+      "type": "plain_text"
+    },
+    {
+      "name": "PARTNER_WEBHOOK_DLQ_NAME",
+      "type": "plain_text"
+    },
+    {
+      "name": "PARTNER_WEBHOOK_QUEUE",
+      "type": "queue",
+      "queue_name": "airdrop-museum-staging-partner-webhook"
+    },
+    {
+      "name": "PARTNER_WEBHOOK_QUEUE_NAME",
+      "type": "plain_text"
+    },
+    {
+      "name": "PUBLIC_API_ALLOWED_ORIGINS",
+      "type": "plain_text"
+    },
+    {
+      "name": "PUBLIC_API_ORIGIN",
+      "type": "plain_text"
+    },
+    {
+      "name": "PUBLIC_API_RATE_LIMITER",
+      "type": "ratelimit",
+      "namespace_id": "2026110401"
+    },
+    {
+      "name": "PUBLIC_APP_URL",
+      "type": "plain_text"
+    },
+    {
+      "name": "REQUIRE_RATE_LIMIT_BINDINGS",
+      "type": "plain_text"
+    },
+    {
+      "name": "SIDE_EFFECTS_ENABLED",
+      "type": "plain_text"
+    },
+    {
+      "name": "TELEGRAM_AUTH_MODE",
+      "type": "plain_text"
+    },
+    {
+      "name": "TELEGRAM_BOT_TOKEN",
+      "type": "secret_text"
+    },
+    {
+      "name": "TRUST_CACHE",
+      "type": "kv_namespace",
+      "namespace_id": "a605893fc7cf4c3a9b1dbae7a39f6774"
+    },
+    {
+      "name": "TRUST_PUBLIC_ORIGIN",
+      "type": "plain_text"
+    },
+    {
+      "name": "WALLETCONNECT_PROJECT_ID",
+      "type": "secret_text"
+    },
+    {
+      "name": "WEBHOOK_MASTER_SECRET",
+      "type": "secret_text"
+    }
+  ],
+  "telegram_auth_mode": "synthetic",
+  "external_delivery_enabled": false,
+  "schedules": [
+    "*/15 * * * *",
+    "*/5 * * * *"
+  ],
+  "schema": 17,
+  "foreign_key_violations": 0,
+  "unsynced_erasure_receipts": 0,
+  "dlq_probe": [
+    {
+      "status": "dead",
+      "error": "DLQ_EXHAUSTED"
+    }
+  ],
+  "observed_cron_events": [
+    {
+      "event_type": "cron_run",
+      "status": "*/5 * * * *",
+      "created_at": "2026-11-04 02:30:48"
+    },
+    {
+      "event_type": "cron_run",
+      "status": "*/15 * * * *",
+      "created_at": "2026-11-04 02:30:41"
+    },
+    {
+      "event_type": "cron_run",
+      "status": "*/5 * * * *",
+      "created_at": "2026-11-04 02:25:48"
+    },
+    {
+      "event_type": "cron_run",
+      "status": "*/5 * * * *",
+      "created_at": "2026-11-04 02:20:48"
+    }
+  ],
+  "enabled_synthetic_qa_admins": 0,
+  "production_ready": false
+}
