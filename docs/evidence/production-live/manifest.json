@@ -43,7 +43,18 @@
   "version_id": "241ce348-7b41-4fbc-ae6a-56ec03a4eb85",
   "deployment_id": "26576456-e095-4329-acee-37f4a2e70b27",
   "deployed_at": "2026-11-04T04:11:47.893534Z",
-  "cron_events": [],
+  "cron_events": [
+    {
+      "event_type": "cron_run",
+      "status": "* * * * *",
+      "created_at": "2026-11-04 04:16:37"
+    },
+    {
+      "event_type": "cron_run",
+      "status": "* * * * *",
+      "created_at": "2026-11-04 04:17:37"
+    }
+  ],
   "pending_erasure_receipts": 0,
   "foreign_key_errors": 0,
   "verified_at": "2026-11-04T04:13:41.870Z",
@@ -109,6 +120,8 @@
   "original_user_profiles_preserved": 2,
   "encrypted_backup_remote_sha256": "b3935e0463fee589727088cde91ab7da0a9b983758ed7755b600c7165853f0ee",
   "status": "DEPLOYED; acceptance BLOCKED pending external device and admin verification",
-  "analytics_engine": "BLOCKED — C0 product not activated",
-  "cron_execution": "PENDING provider trigger propagation; configuration verified"
+  "analytics_engine": "BLOCKED \u2014 C0 product not activated",
+  "cron_execution": "PASS \u2014 actual production cron_run observed",
+  "cron_observed_at": "2026-11-04T04:17:45.864Z",
+  "backup_buckets_public_access_disabled": true
 }
