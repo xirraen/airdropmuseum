@@ -13,7 +13,7 @@ These operations use the existing `am_session` HttpOnly session, Admin Console o
 | Route | Role | Behavior |
 | --- | --- | --- |
 | `GET /api/admin/discovery/sources` | moderator/admin/super_admin | List at most 200 feed sources and their operational status. |
-| `POST /api/admin/discovery/sources` | admin/super_admin | Register a validated HTTPS RSS/Atom/JSON Feed; **disabled by default**. |
+| `POST /api/admin/discovery/sources` | admin/super_admin | Register a validated HTTPS RSS/Atom/JSON Feed; **always disabled**. Sending `enabled: true` on creation is rejected with HTTP 400; activation is a separate audited `PUT`. |
 | `PUT /api/admin/discovery/sources/:id` | admin/super_admin | Change metadata or enable/disable scanning. |
 | `POST /api/admin/discovery/sources/:id/fetch` | admin/super_admin | Explicitly fetch an enabled source into the private discovery queue; no publish. |
 
@@ -27,7 +27,7 @@ Audit trails record the actor, action and sanitized source metadata, but not ful
 2. Sign in to the Telegram Mini App and activate its secure server session, then open `/admin`.
 3. Open **Discovery** and inspect the source list, last fetch, error and new item counters.
 4. Confirm each publisher's official RSS/Atom/JSON Feed URL, HTTPS host, robots/ToS permission, editorial ownership, and trust level. No broad crawling and no automatically generated list of feeds.
-5. Register the feed. Newly registered sources are deliberately disabled.
+5. Register the feed. Newly registered sources are deliberately disabled, including for direct API callers. Do not combine registration and activation in one request.
 6. Enable only the reviewed feed, then optionally run **Ambil feed**. This places short metadata in `DISCOVERY_QUEUE`; downstream review still starts as `pending_review`.
 7. Review candidate items via the existing moderated queue. Conversion is a private draft, not an automatic campaign publication.
 
