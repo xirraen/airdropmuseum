@@ -60,6 +60,7 @@ export async function discoveryRoute(request,env,actor){
    const result=await fetchDiscoverySource(env,source);
    await audit(env,request,actor,'discovery.source.fetch','discovery_source',id,{},{
     id,status:result.error?'failed':'queued',reason:result.error||''});
+   if(result.error)fail(result.error,502);
    return {id,...result};
   }
   if(request.method!=='PUT')fail('METHOD_NOT_ALLOWED',405);
