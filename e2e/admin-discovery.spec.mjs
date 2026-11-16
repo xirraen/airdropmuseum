@@ -41,7 +41,17 @@ test('admin can onboard an inactive discovery source, enable it and queue a manu
   await route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  });
  await page.goto('/admin.html',{waitUntil:'domcontentloaded'});
- await page.getByRole('button',{name:'Discovery',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Discovery belum memiliki sumber aktif'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Kelola sumber Discovery'})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ const nav=page.locator('#tabs');
+ await expect(nav.getByRole('button',{name:'Overview',exact:true})).toHaveAttribute('aria-current','page');
+ if((await page.viewportSize()).width<=800){
+  await expect(page.locator('#nav-hint')).toBeVisible();
+  expect(await nav.evaluate(node=>node.scrollWidth>node.clientWidth)).toBe(true);
+ }
+ await page.getByRole('button',{name:'Kelola sumber Discovery'}).click();
+ await expect(nav.getByRole('button',{name:'Discovery',exact:true})).toHaveAttribute('aria-current','page');
  await expect(page.getByText(/Belum ada sumber/)).toBeVisible();
  await page.getByRole('textbox',{name:'Nama sumber'}).fill('Official Feed');
  await page.getByRole('textbox',{name:'URL feed HTTPS'}).fill('https://news.example.org/rss');
