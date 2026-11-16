@@ -158,3 +158,44 @@ test('redirects cannot fetch an unapproved new host',async()=>{
  assert.equal(result.error,'FETCH_FAILED');assert.equal(hits,1);
  }finally{DB.sql.close();}
 });
+
+test('feed revision prevents stale messages being saved after an operator replaces a source URL',async()=>{
+ const DB=database();try{
+  source(DB);
+  const sourceRow=DB.sql.prepare('SELECT * FROM discovery_sources WHERE id=?').get('s1');
+  const queued=[];
+  const env={DB,DISCOVERY_QUEUE:{async sendBatch(messages){queued.push(...messages);}}};
+  const xml='<rss><channel><item><title>Protocol points update</title><link>https://project.example/news</link><guid>rev-1</guid></item></channel></rss>';
+  const first=await fetchDiscoverySource(env,sourceRow,{fetcher:async()=>new Response(xml)});
+  assert.equal(first.queued,1);
+  assert.match(queued[0].body.source_version,/^[a-f0-9]{64}$/);
+  assert.equal(JSON.stringify(queued[0]).includes('https://news.example/rss'),false);
+  DB.sql.prepare("UPDATE discovery_sources SET feed_url='https://new.example/rss' WHERE id='s1'").run();
+  let acked=0;
+  await consumeDiscoveryBatch({messages:[{body:queued[0].body,attempts:1,ack(){acked++;},retry(){throw Error('unexpected retry');}}]},env);
+  assert.equal(acked,1);
+  assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM discovery_items').get().n,0);
+  DB.sql.prepare("UPDATE discovery_sources SET feed_url='https://news.example/rss' WHERE id='s1'").run();
+  await consumeDiscoveryBatch({messages:[{body:queued[0].body,attempts:1,ack(){acked++;},retry(){throw Error('unexpected retry');}}]},env);
+  assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM discovery_items').get().n,1);
+ }finally{DB.sql.close();}
+});
+test('source changed while a fetch is in-flight cannot queue stale items or update the new source cursor',async()=>{
+ const DB=database();try{
+  source(DB);
+  const sourceRow=DB.sql.prepare('SELECT * FROM discovery_sources WHERE id=?').get('s1');
+  let queued=0;
+  const env={DB,DISCOVERY_QUEUE:{async sendBatch(){queued++;}}};
+  const xml='<rss><channel><item><title>Airdrop announcement</title><link>https://project.example/news</link></item></channel></rss>';
+  const result=await fetchDiscoverySource(env,sourceRow,{fetcher:async()=>{
+   DB.sql.prepare("UPDATE discovery_sources SET feed_url='https://other.example/rss' WHERE id='s1'").run();
+   return new Response(xml);
+  }});
+  assert.equal(result.error,'SOURCE_CONFIGURATION_CHANGED');
+  assert.equal(queued,0);
+  const row=DB.sql.prepare("SELECT last_error,last_fetched_at,feed_url FROM discovery_sources WHERE id='s1'").get();
+  assert.equal(row.last_error,null);
+  assert.equal(row.last_fetched_at,null);
+  assert.equal(row.feed_url,'https://other.example/rss');
+ }finally{DB.sql.close();}
+});

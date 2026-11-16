@@ -1,5 +1,5 @@
 import {hash,sql,select} from './types.ts';
-const allow=['id','name','title','status','review_status','source_url','visibility','category','chain','project_name','classification','confidence_label','reviewer','role','enabled','tier','rate_limit_per_minute','daily_quota','expires_at','revoked_at','rollout_percentage','allowed_scopes','reason','mode','field','resolution_note','url','events','failure_count','updated_at'];
+const allow=['id','name','title','status','review_status','source_url','visibility','category','chain','project_name','classification','source_type','trust_level','confidence_label','reviewer','role','enabled','tier','rate_limit_per_minute','daily_quota','expires_at','revoked_at','rollout_percentage','allowed_scopes','reason','mode','field','resolution_note','url','events','failure_count','updated_at'];
 export function auditProjection(value){if(!value||typeof value!=='object')return {};const safe=select(value,allow);for(const field of ['url','source_url'])if(safe[field]){try{safe[field]=new URL(safe[field]).origin;}catch{safe[field]='[redacted]';}}return safe;}
 export async function audit(env,request,actor,action,targetType,targetId,before={},after={}){
  const ip=await hash((env.ADMIN_AUDIT_PEPPER||'')+':'+(request.headers.get('CF-Connecting-IP')||'unknown'));

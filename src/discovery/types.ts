@@ -25,6 +25,11 @@ export function normalizeUrl(value){
  for(const key of [...url.searchParams.keys()])if(/^utm_/i.test(key)||/^(fbclid|gclid|dclid|msclkid|mc_cid|mc_eid|ref_src|igshid)$/i.test(key))url.searchParams.delete(key);
  return url.href;
 }
+// Public-feed revision used only to discard messages from a changed source.
+export async function sourceVersion(feedUrl){
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(normalizeUrl(feedUrl)));
+ return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 export function validateSource(body){
  if(!body||typeof body!=='object'||Array.isArray(body))throw new DiscoveryError('INVALID_SOURCE');
  const name=cleanText(body.name,120),source_type=body.source_type,feed_url=normalizeUrl(body.feed_url),
