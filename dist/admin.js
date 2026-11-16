@@ -29,13 +29,14 @@ async function show(tab){
  try{
   if(tab==='overview'){const d=await api('overview');$('mode').textContent=d.mode;$('mode').className='badge '+d.mode;$('panel').append(cards([['Campaign',d.campaigns],['Sumber Discovery',d.discovery_sources],['Discovery pending',d.discovery_pending],['Konflik terbuka',d.conflicts_open],['Webhook pending',d.webhook_pending]]));}
   if(tab==='health'){const d=await api('health');$('mode').textContent=d.status;$('mode').className='badge '+d.status;
-   const reason={NO_SOURCES:'Belum ada sumber feed',NO_ACTIVE_SOURCES:'Semua sumber nonaktif',FETCH_ERRORS:'Ada kegagalan pemindaian',SOURCE_STALE:'Pemindaian belum terbaru',READY:'Discovery aktif',DATABASE_UNAVAILABLE:'Diagnostik tidak tersedia'};
+   const reason={NO_SOURCES:'Belum ada sumber feed',NO_ACTIVE_SOURCES:'Semua sumber nonaktif',FETCH_ERRORS:'Ada kegagalan pemindaian',SOURCE_STALE:'Pemindaian belum terbaru',SCHEDULER_BLOCKED:'Scheduler discovery tertahan',READY:'Discovery aktif',DATABASE_UNAVAILABLE:'Diagnostik tidak tersedia'};
    const discovery=d.discovery||{};
    $('panel').append(cards([['Status',d.status],['Latensi D1',d.d1_latency_ms+' ms'],
     ['Discovery',reason[discovery.reason]||discovery.reason||'—'],
     ['Sumber terdaftar',discovery.sources_total??'—'],['Sumber aktif',discovery.sources_enabled??'—'],
     ['Sumber terbaru',discovery.sources_recent??'—'],['Sumber bermasalah',discovery.sources_with_errors??'—'],
     ['Menunggu review',discovery.pending_review??'—'],['Terakhir sukses',discovery.last_successful_fetch||'Belum pernah'],
+    ['Status cron discovery',discovery.last_run_status||'Belum dicatat'],['Cron discovery terakhir',discovery.last_run_at||'Belum dicatat'],
     ...Object.entries(d.checks)]));
   }
   if(tab==='campaigns'){const d=await api('campaigns');$('panel').append(table(d.campaigns,[['ID','id'],['Judul','title'],['Status','status'],['Review','review_status'],['Sumber','source_url']],role==='admin'||role==='super_admin'));

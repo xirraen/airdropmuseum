@@ -54,6 +54,20 @@ The authenticated `GET /api/admin/health` endpoint now includes a source-aggrega
 
 Fields: `sources_total`, `sources_enabled`, `sources_recent`, `sources_with_errors`, `pending_review`, `last_successful_fetch`. The lag window is the validated `discovery_lag_warning_minutes` setting or 240 minutes by default. A successful fetch is **not** a guarantee that item records were classified, stored or published. In particular, `READY` can coexist with zero new feed items. The Admin Console health tab shows these metrics to authorized roles.
 
+## Scheduled intake reliability and aggregate runtime evidence
+
+The scheduler now runs each due source with bounded concurrency (three per batch; at most 20 per run) and isolates failures per feed. A malformed historic source or an upstream error does not prevent later sources from being scanned. A thrown exception is reduced to `DISCOVERY_FETCH_FAILED` and recorded on the matching active source only. Existing per-feed sanitized codes and 25-minute retry pacing remain intact.
+
+On schema 9+ the scheduler also writes **aggregate-only** records in existing `operational_events`, without a migration:
+
+- `discovery_run` — `idle`, `ok`, `partial`, `failed`, or `blocked`; `count` equals sources scanned and `duration_ms` measures runtime.
+- `discovery_queued` — `count` equals extracted metadata sent to the private review queue.
+- `discovery_fetch_failed` — `count` equals sources failing a fetch in that run.
+
+No source URLs, source IDs, wallet addresses, Telegram data, or raw exception strings enter these aggregate records. If the telemetry store is unavailable, the fetch result is still returned. Admin Health now exposes `last_run_at` and `last_run_status`; `SCHEDULER_BLOCKED` distinguishes a missing queue from a healthy source with a previous successful fetch. A `cron_run` event alone is **not evidence** that discovery scanned or enqueued anything.
+
+This does not add a discovery feed, activate a disabled source, or publish a campaign. Register sources only after manual source verification; do not treat elapsed cron time as a guarantee of verified airdrop intelligence.
+
 ## Safety and deployment status
 
 No remote production source was seeded, no admin identity changed, no secret read, and no production write was needed to implement this feature. Keep the PR unmerged until CI and review pass. Rebuild generated assets via `npm run build`; source files `dist/admin.js` and `src/admin/*.ts` are the editable inputs.

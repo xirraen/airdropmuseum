@@ -199,3 +199,47 @@ test('source changed while a fetch is in-flight cannot queue stale items or upda
   assert.equal(row.feed_url,'https://other.example/rss');
  }finally{DB.sql.close();}
 });
+
+test('scheduler isolates a malformed historic source and records aggregate telemetry without source URLs',async()=>{
+ const DB=database();try{
+  DB.sql.exec("CREATE TABLE operational_events(id TEXT PRIMARY KEY,event_type TEXT NOT NULL,status TEXT NOT NULL,duration_ms INTEGER,count INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+  DB.sql.exec("INSERT OR IGNORE INTO am_core_schema(version) VALUES(9)");
+  source(DB);
+  DB.sql.prepare("INSERT INTO discovery_sources(id,name,source_type,feed_url,enabled) VALUES('bad','Legacy bad host','rss','https://localhost/rss',1)").run();
+  const batches=[],env={DB,DISCOVERY_QUEUE:{async sendBatch(x){batches.push(...x);}}};
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>new Response('<rss><channel><item><title>Airdrop project update</title><link>https://project.example/post</link></item></channel></rss>');
+  try{
+   const result=await scheduledDiscovery(env);
+   assert.deepEqual({scanned:result.scanned,queued:result.queued,failed:result.failed,status:result.status},
+    {scanned:2,queued:1,failed:1,status:'partial'});
+   assert.equal(batches.length,1);
+   assert.equal(DB.sql.prepare("SELECT last_error FROM discovery_sources WHERE id='bad'").get().last_error,'DISCOVERY_FETCH_FAILED');
+   const events=DB.sql.prepare('SELECT event_type,status,count FROM operational_events ORDER BY rowid').all();
+   assert.deepEqual(events.map(e=>[e.event_type,e.status,e.count]),[
+    ['discovery_run','partial',2],
+    ['discovery_queued','ok',1],
+    ['discovery_fetch_failed','failed',1]
+   ]);
+   assert.equal(JSON.stringify(events).includes('localhost'),false);
+   assert.equal(JSON.stringify(events).includes('project.example'),false);
+  }finally{globalThis.fetch=original;}
+ }finally{DB.sql.close();}
+});
+test('missing discovery queue records blocked status without losing scheduler safety',async()=>{
+ const DB=database();try{
+  DB.sql.exec("CREATE TABLE operational_events(id TEXT PRIMARY KEY,event_type TEXT NOT NULL,status TEXT NOT NULL,duration_ms INTEGER,count INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+  DB.sql.exec("INSERT OR IGNORE INTO am_core_schema(version) VALUES(9)");
+  const blocked=await scheduledDiscovery({DB});
+  assert.equal(blocked.status,'blocked');
+  assert.equal(blocked.scanned,0);
+  const event=DB.sql.prepare("SELECT event_type,status,count FROM operational_events").get();
+  assert.equal(event.event_type,'discovery_run');
+  assert.equal(event.status,'blocked');
+  assert.equal(event.count,0);
+  const idle=await scheduledDiscovery({DB,DISCOVERY_QUEUE:{sendBatch:async()=>{}}});
+  assert.equal(idle.status,'idle');
+  assert.equal(idle.scanned,0);
+  assert.equal(DB.sql.prepare("SELECT COUNT(*) AS n FROM operational_events WHERE status='idle'").get().n,1);
+ }finally{DB.sql.close();}
+});

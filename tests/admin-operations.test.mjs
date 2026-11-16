@@ -254,3 +254,22 @@ test('admin health explains absent, inactive, stale and failing discovery source
  assert.equal(roleHealth.status,200);
  assert.equal((await roleHealth.json()).discovery.reason,'FETCH_ERRORS');
 });
+
+test('discovery health exposes a blocked cron without feed URLs or actor identifiers',async()=>{
+ const a=await env('super_admin');
+ await a.e.DB.prepare("INSERT INTO discovery_sources(id,name,source_type,feed_url,enabled,last_fetched_at) VALUES('s1','Publisher','rss','https://private-publisher.example.org/feed',1,CURRENT_TIMESTAMP)").run();
+ const healthy=await health(a.e);
+ assert.equal(healthy.discovery.reason,'READY');
+ assert.equal(healthy.discovery.last_run_status,null);
+ await a.e.DB.prepare("INSERT INTO operational_events(id,event_type,status,duration_ms,count) VALUES('run1','discovery_run','blocked',15,0)").run();
+ const report=await health(a.e);
+ assert.equal(report.discovery.reason,'SCHEDULER_BLOCKED');
+ assert.equal(report.checks.discovery,'degraded');
+ assert.equal(report.discovery.last_run_status,'blocked');
+ assert.ok(report.discovery.last_run_at);
+ assert.equal(JSON.stringify(report.discovery).includes('private-publisher'),false);
+ await a.e.DB.prepare("INSERT INTO operational_events(id,event_type,status,duration_ms,count,created_at) VALUES('run2','discovery_run','ok',20,1,datetime('now','+1 second'))").run();
+ const recovered=await health(a.e);
+ assert.equal(recovered.discovery.reason,'READY');
+ assert.equal(recovered.discovery.last_run_status,'ok');
+});
