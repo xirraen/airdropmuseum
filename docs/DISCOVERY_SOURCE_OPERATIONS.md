@@ -23,7 +23,7 @@ Audit trails record the actor, action and sanitized source metadata, but not ful
 
 ## Operator workflow
 
-1. Complete identity verification and a least-privilege superadmin bootstrap **outside the application**. Production currently has no active admin. Do not guess the owner principal.
+1. Verify that the owner has an active `super_admin` session. On 17 November 2026, production D1 and a real Telegram device confirmed one enabled superadmin; do not assume this dated status remains true without rechecking. Never guess or auto-select a different principal.
 2. Sign in to the Telegram Mini App and activate its secure server session, then open `/admin`.
 3. Open **Discovery** and inspect the source list, last fetch, error and new item counters.
 4. Confirm each publisher's official RSS/Atom/JSON Feed URL, HTTPS host, robots/ToS permission, editorial ownership, and trust level. No broad crawling and no automatically generated list of feeds.
@@ -37,7 +37,7 @@ An empty source list is an **operational configuration gap**, not a scheduler fa
 
 Every newly enqueued feed item includes a SHA-256 fingerprint of the configured, normalized public feed URL **and its parser format** (`rss`, `atom`, or `json_feed`). The D1 queue consumer compares that fingerprint with the currently registered source. Messages already in flight when an operator changes the source URL are acknowledged but ignored, rather than being misattributed to the replacement feed. The fetcher also rechecks the active source before enqueueing and conditionally updates its ETag/fetch cursor only when the original feed URL remains enabled.
 
-Legacy queued messages **without** a revision remain compatible during deployment; messages with the previous URL-only revision now fail closed because they cannot prove parser-format consistency. A source that already has discovery history cannot change either its feed URL or its parser format through the authenticated Admin API. Changing the parser on a source without history clears its ETag, Last-Modified, last-fetch timestamp, and stale fetch error, forcing a full validated fetch. No migrations or additional Cloudflare bindings are required.
+Legacy queued messages **without** a revision remain compatible during deployment; messages with the previous URL-only revision now fail closed because they cannot prove parser-format consistency. A source that already has discovery history cannot change either its feed URL or its parser format through the authenticated Admin API. Changing the endpoint or parser on a source without history clears its ETag, Last-Modified, last-fetch timestamp and stale fetch error, **automatically disables the source**, and requires explicit operator re-verification before the next scan. No migrations or additional Cloudflare bindings are required.
 
 ## Discovery health diagnostics
 
@@ -70,6 +70,6 @@ This does not add a discovery feed, activate a disabled source, or publish a cam
 
 ## Safety and deployment status
 
-No remote production source was seeded, no admin identity changed, no secret read, and no production write was needed to implement this feature. Keep the PR unmerged until CI and review pass. Rebuild generated assets via `npm run build`; source files `dist/admin.js` and `src/admin/*.ts` are the editable inputs.
+The source-management feature was integrated into main through PR #25; follow-up PR #26 added runtime telemetry and PR #28 added parser-aware provenance. This document also covers the later mobile management UI and automatic disable-on-change guard. These changes do not imply deployment: the production Worker was still on its 4 November version during the 17 November D1 check. No source was auto-seeded or campaign automatically published. Rebuild generated assets via `npm run build`; source files `dist/admin.js` and `src/admin/*.ts` are the editable inputs.
 
 Perform `npm ci`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm test`, `npm run test:runtime`, `npm run test:e2e`, and dependency/security scans before a controlled release. A real Telegram device and authorized admin session remain mandatory for final acceptance.
