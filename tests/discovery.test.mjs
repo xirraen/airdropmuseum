@@ -233,8 +233,10 @@ test('missing discovery queue records blocked status without losing scheduler sa
   const blocked=await scheduledDiscovery({DB});
   assert.equal(blocked.status,'blocked');
   assert.equal(blocked.scanned,0);
-  assert.deepEqual(DB.sql.prepare("SELECT event_type,status,count FROM operational_events").get(),
-   {event_type:'discovery_run',status:'blocked',count:0});
+  const event=DB.sql.prepare("SELECT event_type,status,count FROM operational_events").get();
+  assert.equal(event.event_type,'discovery_run');
+  assert.equal(event.status,'blocked');
+  assert.equal(event.count,0);
   const idle=await scheduledDiscovery({DB,DISCOVERY_QUEUE:{sendBatch:async()=>{}}});
   assert.equal(idle.status,'idle');
   assert.equal(idle.scanned,0);
