@@ -219,3 +219,38 @@ test('manual feed fetch queues only metadata and never publishes automatically',
   assert.equal((await a.e.DB.prepare('SELECT COUNT(*) AS n FROM am_core_exhibits').first()).n,0);
  }finally{globalThis.fetch=original;}
 });
+
+test('admin health explains absent, inactive, stale and failing discovery sources',async()=>{
+ const a=await env('super_admin');
+ const empty=await health(a.e);
+ assert.equal(empty.checks.discovery,'degraded');
+ assert.equal(empty.discovery.reason,'NO_SOURCES');
+ assert.equal(empty.discovery.sources_total,0);
+ assert.equal(empty.discovery.sources_enabled,0);
+ assert.equal(empty.discovery.pending_review,0);
+ await a.e.DB.prepare("INSERT INTO discovery_sources(id,name,source_type,feed_url,enabled) VALUES('feed1','Feed','rss','https://feed.example.org/rss',0)").run();
+ const inactive=await health(a.e);
+ assert.equal(inactive.discovery.reason,'NO_ACTIVE_SOURCES');
+ assert.equal(inactive.discovery.sources_total,1);
+ await a.e.DB.prepare("UPDATE discovery_sources SET enabled=1 WHERE id='feed1'").run();
+ const stale=await health(a.e);
+ assert.equal(stale.discovery.reason,'SOURCE_STALE');
+ assert.equal(stale.discovery.sources_recent,0);
+ await a.e.DB.prepare("UPDATE discovery_sources SET last_fetched_at=CURRENT_TIMESTAMP,last_error=NULL WHERE id='feed1'").run();
+ const fresh=await health(a.e);
+ assert.equal(fresh.checks.discovery,'healthy');
+ assert.equal(fresh.discovery.reason,'READY');
+ assert.equal(fresh.discovery.sources_recent,1);
+ assert.ok(fresh.discovery.last_successful_fetch);
+ await a.e.DB.prepare("UPDATE discovery_sources SET last_error='FETCH_FAILED' WHERE id='feed1'").run();
+ await a.e.DB.prepare("INSERT INTO discovery_items(id,source_id,url,title,content_fingerprint) VALUES('item1','feed1','https://feed.example.org/item1','Example','fingerprint-1')").run();
+ const failed=await health(a.e);
+ assert.equal(failed.discovery.reason,'FETCH_ERRORS');
+ assert.equal(failed.discovery.sources_with_errors,1);
+ assert.equal(failed.discovery.pending_review,1);
+ assert.equal(failed.checks.discovery,'degraded');
+ assert.equal(JSON.stringify(failed.discovery).includes('https://feed.example.org'),false);
+ const roleHealth=await run('health',a);
+ assert.equal(roleHealth.status,200);
+ assert.equal((await roleHealth.json()).discovery.reason,'FETCH_ERRORS');
+});
