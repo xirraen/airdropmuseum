@@ -39,7 +39,7 @@ export async function discoveryRoute(request,env,actor){
    return {sources:result.results||[]};
   }
   if(request.method==='POST'){
-   const input=await body(request),data=sourceInput({...input,enabled:input.enabled===true});
+   const input=await body(request),data=sourceInput({...input,enabled:input.enabled===undefined?false:input.enabled});
    const id=crypto.randomUUID();
    await sourceWrite(db,'INSERT INTO discovery_sources(id,name,source_type,feed_url,project_hint,enabled,trust_level) VALUES(?,?,?,?,?,?,?)',
     id,data.name,data.source_type,data.feed_url,data.project_hint,data.enabled,data.trust_level);
@@ -67,7 +67,9 @@ export async function discoveryRoute(request,env,actor){
   if(!Object.keys(changes).length)fail('EMPTY_SOURCE_UPDATE');
   if(Object.keys(changes).some(key=>!sourceFields.has(key)))fail('INVALID_SOURCE_FIELDS');
   if(Object.hasOwn(changes,'enabled')&&typeof changes.enabled!=='boolean')fail('INVALID_SOURCE_ENABLED');
-  const data=sourceInput({...source,...changes,enabled:changes.enabled===undefined?!!source.enabled:changes.enabled});
+  const candidate=Object.fromEntries([...sourceFields].map(key=>[key,changes[key]===undefined?source[key]:changes[key]]));
+  candidate.enabled=changes.enabled===undefined?!!source.enabled:changes.enabled;
+  const data=sourceInput(candidate);
   const feedChanged=data.feed_url!==source.feed_url;
   const updated=await sourceWrite(db,
    'UPDATE discovery_sources SET name=?,source_type=?,feed_url=?,project_hint=?,enabled=?,trust_level=?,updated_at=CURRENT_TIMESTAMP'+
