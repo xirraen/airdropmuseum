@@ -149,3 +149,73 @@ test('super_admin may change safe operational settings with audit and validation
  const trail=await a.e.DB.prepare("SELECT COUNT(*) n FROM admin_audit_log WHERE action='system_setting.update'").first();
  assert.equal(trail.n,1);
 });
+
+test('source onboarding is default-disabled, validated, auditable and preserves provenance',async()=>{
+ const a=await env('admin');
+ const initial=await run('discovery/sources',a);
+ assert.equal(initial.status,200);
+ assert.deepEqual((await initial.json()).sources,[]);
+ const candidate={name:'Official protocol feed',source_type:'rss',feed_url:'https://official.example.org/feed?utm_source=promo',trust_level:'low'};
+ const created=await run('discovery/sources',a,'POST',candidate);
+ assert.equal(created.status,200);
+ const {id,enabled}=await created.json();
+ assert.equal(enabled,false);
+ const listed=await (await run('discovery/sources',a)).json();
+ assert.equal(listed.sources.length,1);
+ assert.equal(listed.sources[0].feed_url,'https://official.example.org/feed');
+ assert.equal(listed.sources[0].enabled,0);
+ assert.equal((await run('discovery/sources',a,'POST',candidate)).status,409);
+ assert.equal((await run('discovery/sources',a,'POST',{...candidate,feed_url:'http://localhost/feed'})).status,400);
+ assert.equal((await run('discovery/sources',a,'POST',{...candidate,enabled:'true'})).status,400);
+ assert.equal((await run('discovery/sources',a,'POST',{...candidate,token:'secret'})).status,400);
+ assert.equal((await run('discovery/sources/'+id+'/fetch',a,'POST',{})).status,409);
+ assert.equal((await run('discovery/sources/'+id,a,'PUT',{enabled:true})).status,200);
+ assert.equal((await run('discovery/sources/'+id+'/fetch',a,'POST',{})).status,503);
+ await a.e.DB.prepare('INSERT INTO discovery_items(id,source_id,url,title,content_fingerprint) VALUES(?,?,?,?,?)')
+  .bind('historic',id,'https://official.example.org/item','Historical item','historical-fingerprint').run();
+ assert.equal((await run('discovery/sources/'+id,a,'PUT',{feed_url:'https://other.example.org/rss'})).status,409);
+ const saved=await a.e.DB.prepare('SELECT enabled,feed_url FROM discovery_sources WHERE id=?').bind(id).first();
+ assert.equal(saved.enabled,1);
+ assert.equal(saved.feed_url,'https://official.example.org/feed');
+ assert.equal((await run('discovery/sources/'+id,a,'PUT',{enabled:false})).status,200);
+ assert.equal((await run('discovery/sources/'+id,a,'DELETE')).status,405);
+ const log=await a.e.DB.prepare("SELECT action,before_state,after_state FROM admin_audit_log WHERE target_type='discovery_source' ORDER BY created_at").all();
+ assert.ok(log.results.some(row=>row.action==='discovery.source.create'));
+ assert.ok(log.results.some(row=>row.action==='discovery.source.update'));
+ assert.equal(JSON.stringify(log.results).includes('utm_source'),false);
+});
+test('only admin and super_admin may mutate discovery sources; CSRF still applies',async()=>{
+ for(const role of ['readonly','moderator','admin','super_admin']){
+  const a=await env(role);
+  const list=await run('discovery/sources',a);
+  assert.equal(list.status,role==='readonly'?403:200,role);
+  const create=await run('discovery/sources',a,'POST',{name:'Official',source_type:'rss',feed_url:'https://feed.example.org/rss'});
+  assert.equal(create.status,['admin','super_admin'].includes(role)?200:403,role);
+  if(create.status===200){
+   const id=(await create.json()).id;
+   const mutation=await adminRoutes(req('/api/admin/discovery/sources/'+id,{
+    method:'PUT',headers:headers(a.cookie),body:'{"enabled":true}'
+   }),a.e);
+   assert.equal(mutation.status,403);
+  }
+ }
+});
+test('manual feed fetch queues only metadata and never publishes automatically',async()=>{
+ const a=await env('super_admin');
+ const created=await run('discovery/sources',a,'POST',{name:'Reviewed RSS',source_type:'rss',feed_url:'https://news.example.org/rss',enabled:true});
+ const {id}=await created.json();
+ const queued=[];
+ a.e.DISCOVERY_QUEUE={async sendBatch(messages){queued.push(...messages);}};
+ const original=globalThis.fetch;
+ globalThis.fetch=async()=>new Response('<rss><channel><item><title>Protocol points update</title><link>https://news.example.org/post</link><guid>g1</guid></item></channel></rss>',{status:200});
+ try{
+  const result=await run('discovery/sources/'+id+'/fetch',a,'POST',{});
+  assert.equal(result.status,200);
+  assert.equal((await result.json()).queued,1);
+  assert.equal(queued.length,1);
+  assert.equal(queued[0].body.source_id,id);
+  assert.equal(queued[0].body.item.title,'Protocol points update');
+  assert.equal((await a.e.DB.prepare('SELECT COUNT(*) AS n FROM discovery_items').first()).n,0);
+  assert.equal((await a.e.DB.prepare('SELECT COUNT(*) AS n FROM am_core_exhibits').first()).n,0);
+ }finally{globalThis.fetch=original;}
+});
