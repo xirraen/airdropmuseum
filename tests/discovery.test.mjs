@@ -8,6 +8,7 @@ import {parseFeed} from '../src/discovery/feedParser.ts';
 import {classify} from '../src/discovery/classifier.ts';
 import {fingerprint,storeDiscoveredItem} from '../src/discovery/dedupeService.ts';
 import {consumeDiscoveryBatch,fetchDiscoverySource} from '../src/discovery/ingestService.ts';
+import {previewDiscoverySource} from '../src/discovery/previewService.ts';
 import {scheduledDiscovery} from '../src/discovery/scheduled.ts';
 import {reviewItem} from '../src/discovery/reviewService.ts';
 import {discoveryRoutes} from '../src/discovery/discoveryRoutes.ts';
@@ -242,4 +243,55 @@ test('missing discovery queue records blocked status without losing scheduler sa
   assert.equal(idle.scanned,0);
   assert.equal(DB.sql.prepare("SELECT COUNT(*) AS n FROM operational_events WHERE status='idle'").get().n,1);
  }finally{DB.sql.close();}
+});
+
+test('dry-run preview inspects a disabled source without queue, database or publication writes',async()=>{
+ const DB=database();try{
+  source(DB,'preview-off',0);
+  const row=DB.sql.prepare("SELECT * FROM discovery_sources WHERE id='preview-off'").get();
+  let called=0;
+  const xml='<rss><channel><item><title>Protocol points season</title><link>https://project.example/points?utm_source=ads</link><guid>item-1</guid><description><![CDATA[<p>Earn points</p>]]></description></item></channel></rss>';
+  const result=await previewDiscoverySource(row,{fetcher:async(url,opts)=>{
+   called++;assert.equal(url,'https://news.example/rss');assert.equal(opts.method,'GET');
+   assert.equal(opts.redirect,'manual');assert.equal(opts.headers['If-None-Match'],undefined);
+   return new Response(xml);
+  }});
+  assert.equal(called,1);
+  assert.equal(result.source_id,'preview-off');
+  assert.equal(result.total_sampled,1);
+  assert.equal(result.truncated,false);
+  assert.deepEqual(result.items.map(({title,url,summary,classification})=>({title,url,summary,classification})),[
+   {title:'Protocol points season',url:'https://project.example/points',summary:'Earn points',classification:'points'}
+  ]);
+  assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM discovery_items').get().n,0);
+  assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM am_core_exhibits').get().n,0);
+  const after=DB.sql.prepare("SELECT * FROM discovery_sources WHERE id='preview-off'").get();
+  assert.deepEqual(after,row);
+ }finally{DB.sql.close();}
+});
+test('dry-run preview is capped to ten metadata samples and never sends article bodies',async()=>{
+ const rows=Array.from({length:14},(_,i)=>({id:'item-'+i,title:'Points season '+i,url:'https://example.org/item/'+i,summary:'Summary '+i,content_html:'secret '+i}));
+ const source={id:'json-preview',source_type:'json_feed',feed_url:'https://example.org/feed.json'};
+ const result=await previewDiscoverySource(source,{fetcher:async()=>new Response(JSON.stringify({
+  version:'https://jsonfeed.org/version/1.1',items:rows
+ }))});
+ assert.equal(result.total_sampled,14);
+ assert.equal(result.items.length,10);
+ assert.equal(result.truncated,true);
+ assert.ok(result.items.every(item=>item.classification==='points'));
+ assert.ok(!JSON.stringify(result).includes('secret 0'));
+ assert.ok(!JSON.stringify(result).includes('content_html'));
+});
+test('dry-run preview shares HTTPS redirect, unsafe-host, body-size and parser safeguards',async()=>{
+ const source={id:'safe',source_type:'rss',feed_url:'https://feed.example.org/rss'};
+ let hits=0;
+ await assert.rejects(previewDiscoverySource(source,{fetcher:async()=>{
+  hits++;return new Response(null,{status:302,headers:{location:'https://localhost/admin'}});
+ }}),/UNSAFE_FEED_HOST/);
+ assert.equal(hits,1);
+ await assert.rejects(previewDiscoverySource(source,{fetcher:async()=>new Response('<bad/>')}),/INVALID_XML_FEED/);
+ await assert.rejects(previewDiscoverySource(source,{fetcher:async()=>new Response('A'.repeat(524289))}),/FEED_TOO_LARGE/);
+ await assert.rejects(previewDiscoverySource({...source,feed_url:'http://localhost/'},{fetcher:async()=>{
+  throw Error('fetch should not run');
+ }}),/INVALID_HTTPS_URL/);
 });
