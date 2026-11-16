@@ -20,6 +20,7 @@ function permission(path,method){
  if(path.startsWith('/api/admin/api-keys'))return read?'keys.read':'keys.write';
  if(path.startsWith('/api/admin/webhooks'))return read?'webhooks.read':'webhooks.write';
  if(path.startsWith('/api/admin/conflicts'))return read?'conflict.read':'conflict.review';
+ if(path.startsWith('/api/admin/discovery/sources'))return read?'discovery.read':'discovery.sources.write';
  if(path.startsWith('/api/admin/discovery'))return path.endsWith('/bulk-preview')||path.endsWith('/bulk-action')?'discovery.bulk':read?'discovery.read':'discovery.review';
  if(path.startsWith('/api/admin/campaigns'))return path.endsWith('/bulk-preview')||path.endsWith('/bulk-action')?'campaign.bulk':read?'campaign.read':'campaign.limited';
  fail('NOT_FOUND',404);
