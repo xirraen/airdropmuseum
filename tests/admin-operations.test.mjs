@@ -206,8 +206,8 @@ test('manual feed fetch queues only metadata and never publishes automatically',
  const blocked=await run('discovery/sources',a,'POST',{name:'Reviewed RSS',source_type:'rss',feed_url:'https://news.example.org/rss',enabled:true});
  assert.equal(blocked.status,400);
  const created=await run('discovery/sources',a,'POST',{name:'Reviewed RSS',source_type:'rss',feed_url:'https://news.example.org/rss'});
- const {id}=await created.json();
- assert.equal((await created.clone().json()).enabled,false);
+ const {id,enabled}=await created.json();
+ assert.equal(enabled,false);
  assert.equal((await run('discovery/sources/'+id,a,'PUT',{enabled:true})).status,200);
  const queued=[];
  a.e.DISCOVERY_QUEUE={async sendBatch(messages){queued.push(...messages);}};
