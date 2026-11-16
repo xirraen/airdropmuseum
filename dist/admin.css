@@ -30,3 +30,10 @@
  .card{padding:12px}
  .card strong{font-size:22px}
 }
+
+.source-editor{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;margin-top:0}
+.source-editor[hidden]{display:none!important}
+.source-editor label{display:block;min-width:0}
+.source-editor p{grid-column:1/-1;color:#60778b;font-size:13px;margin:0}
+.source-editor button{grid-column:1/-1;justify-self:start;min-height:44px}
+@media(max-width:650px){.source-editor{grid-template-columns:minmax(0,1fr)}}
