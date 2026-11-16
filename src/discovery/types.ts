@@ -25,9 +25,14 @@ export function normalizeUrl(value){
  for(const key of [...url.searchParams.keys()])if(/^utm_/i.test(key)||/^(fbclid|gclid|dclid|msclkid|mc_cid|mc_eid|ref_src|igshid)$/i.test(key))url.searchParams.delete(key);
  return url.href;
 }
-// Public-feed revision used only to discard messages from a changed source.
-export async function sourceVersion(feedUrl){
- const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(normalizeUrl(feedUrl)));
+// Source revision covers both its canonical endpoint and parser format.
+// The optional type preserves compatibility with messages emitted before this
+// version, whose hash used the feed URL alone.
+export async function sourceVersion(feedUrl,sourceType){
+ const url=normalizeUrl(feedUrl);
+ if(sourceType!==undefined&&!SOURCE_TYPES.includes(sourceType))throw new DiscoveryError('INVALID_SOURCE_TYPE');
+ const input=sourceType===undefined?url:url+'\n'+sourceType;
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(input));
  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
 export function validateSource(body){

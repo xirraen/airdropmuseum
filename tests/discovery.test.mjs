@@ -243,3 +243,46 @@ test('missing discovery queue records blocked status without losing scheduler sa
   assert.equal(DB.sql.prepare("SELECT COUNT(*) AS n FROM operational_events WHERE status='idle'").get().n,1);
  }finally{DB.sql.close();}
 });
+
+test('source revision includes parser type and refuses old-format queued data',async()=>{
+ const DB=database();try{
+  source(DB);
+  const original=DB.sql.prepare('SELECT * FROM discovery_sources WHERE id=?').get('s1');
+  const queued=[];
+  const env={DB,DISCOVERY_QUEUE:{async sendBatch(messages){queued.push(...messages);}}};
+  const xml='<rss><channel><item><title>Airdrop research update</title><link>https://project.example/latest</link><guid>format-test</guid></item></channel></rss>';
+  const response=await fetchDiscoverySource(env,original,{fetcher:async()=>new Response(xml)});
+  assert.equal(response.queued,1);
+  assert.match(queued[0].body.source_version,/^[a-f0-9]{64}$/);
+  DB.sql.prepare("UPDATE discovery_sources SET source_type='atom' WHERE id='s1'").run();
+  let ack=0;
+  await consumeDiscoveryBatch({messages:[{
+   body:queued[0].body,attempts:1,ack(){ack++;},retry(){throw Error('unexpected retry');}
+  }]},env);
+  assert.equal(ack,1);
+  assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM discovery_items').get().n,0);
+  DB.sql.prepare("UPDATE discovery_sources SET source_type='rss' WHERE id='s1'").run();
+  await consumeDiscoveryBatch({messages:[{
+   body:queued[0].body,attempts:1,ack(){ack++;},retry(){throw Error('unexpected retry');}
+  }]},env);
+  assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM discovery_items').get().n,1);
+ }finally{DB.sql.close();}
+});
+
+test('changing parser while fetch is running cannot enqueue data or overwrite cursor',async()=>{
+ const DB=database();try{
+  source(DB);
+  const original=DB.sql.prepare('SELECT * FROM discovery_sources WHERE id=?').get('s1');
+  let batches=0;const env={DB,DISCOVERY_QUEUE:{async sendBatch(){batches++;}}};
+  const rss='<rss><channel><item><title>Airdrop update</title><link>https://project.example/update</link></item></channel></rss>';
+  const result=await fetchDiscoverySource(env,original,{fetcher:async()=>{
+   DB.sql.prepare("UPDATE discovery_sources SET source_type='atom' WHERE id='s1'").run();
+   return new Response(rss);
+  }});
+  assert.equal(result.error,'SOURCE_CONFIGURATION_CHANGED');
+  assert.equal(batches,0);
+  const row=DB.sql.prepare("SELECT source_type,last_fetched_at FROM discovery_sources WHERE id='s1'").get();
+  assert.equal(row.source_type,'atom');
+  assert.equal(row.last_fetched_at,null);
+ }finally{DB.sql.close();}
+});

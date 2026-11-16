@@ -273,3 +273,25 @@ test('discovery health exposes a blocked cron without feed URLs or actor identif
  assert.equal(recovered.discovery.reason,'READY');
  assert.equal(recovered.discovery.last_run_status,'ok');
 });
+
+test('parser format changes reset conditional fetch state and lock when discovery has history',async()=>{
+ const a=await env('admin');
+ const created=await run('discovery/sources',a,'POST',{name:'Official',source_type:'rss',feed_url:'https://feed.example.org/rss'});
+ assert.equal(created.status,200);
+ const {id}=await created.json();
+ await a.e.DB.prepare("UPDATE discovery_sources SET etag=?,last_modified=?,last_fetched_at=CURRENT_TIMESTAMP,last_error=? WHERE id=?")
+  .bind('"cached"','Tue, 10 Nov 2026 00:00:00 GMT','FETCH_FAILED',id).run();
+ const changed=await run('discovery/sources/'+id,a,'PUT',{source_type:'atom'});
+ assert.equal(changed.status,200);
+ const current=await a.e.DB.prepare('SELECT source_type,etag,last_modified,last_fetched_at,last_error FROM discovery_sources WHERE id=?').bind(id).first();
+ assert.equal(current.source_type,'atom');
+ assert.equal(current.etag,null);
+ assert.equal(current.last_modified,null);
+ assert.equal(current.last_fetched_at,null);
+ assert.equal(current.last_error,null);
+ await a.e.DB.prepare('INSERT INTO discovery_items(id,source_id,url,title,content_fingerprint) VALUES(?,?,?,?,?)')
+  .bind('parser-history',id,'https://feed.example.org/announcement','Original evidence','parser-fingerprint').run();
+ const blocked=await run('discovery/sources/'+id,a,'PUT',{source_type:'rss'});
+ assert.equal(blocked.status,409);
+ assert.equal((await a.e.DB.prepare('SELECT source_type FROM discovery_sources WHERE id=?').bind(id).first()).source_type,'atom');
+});
