@@ -273,3 +273,53 @@ test('discovery health exposes a blocked cron without feed URLs or actor identif
  assert.equal(recovered.discovery.reason,'READY');
  assert.equal(recovered.discovery.last_run_status,'ok');
 });
+
+test('admin can preview a disabled feed, with no discovery or campaign mutations',async()=>{
+ const a=await env('admin');
+ const created=await run('discovery/sources',a,'POST',{
+  name:'Candidate feed',source_type:'rss',feed_url:'https://publisher.example.org/rss'
+ });
+ assert.equal(created.status,200);
+ const {id}=await created.json();
+ let calls=0;const oldFetch=globalThis.fetch;
+ globalThis.fetch=async()=>{calls++;return new Response('<rss><channel><item><title>Airdrop claim is live</title><link>https://publisher.example.org/post</link><description>Public announcement</description></item></channel></rss>');};
+ try{
+  const response=await run('discovery/sources/'+id+'/preview',a,'POST',{});
+  assert.equal(response.status,200);
+  const result=await response.json();
+  assert.equal(result.total_sampled,1);
+  assert.equal(result.items[0].classification,'airdrop');
+  assert.equal(calls,1);
+  assert.equal((await a.e.DB.prepare('SELECT COUNT(*) AS n FROM discovery_items').first()).n,0);
+  assert.equal((await a.e.DB.prepare('SELECT COUNT(*) AS n FROM am_core_exhibits').first()).n,0);
+  const stored=await a.e.DB.prepare('SELECT enabled,last_fetched_at,new_item_count FROM discovery_sources WHERE id=?').bind(id).first();
+  assert.equal(stored.enabled,0);
+  assert.equal(stored.last_fetched_at,null);
+  assert.equal(stored.new_item_count,0);
+  const log=await a.e.DB.prepare("SELECT action,after_state FROM admin_audit_log WHERE action='discovery.source.preview'").first();
+  assert.equal(log.action,'discovery.source.preview');
+  assert.ok(!JSON.stringify(log).includes('publisher.example.org'));
+ }finally{globalThis.fetch=oldFetch;}
+});
+test('feed preview requires elevated permission and CSRF and maps failure to sanitized codes',async()=>{
+ for(const role of ['readonly','moderator']){
+  const a=await env(role);
+  await a.e.DB.prepare("INSERT INTO discovery_sources(id,name,source_type,feed_url,enabled) VALUES('x','Feed','rss','https://publisher.example.org/rss',0)").run();
+  assert.equal((await run('discovery/sources/x/preview',a,'POST',{})).status,403);
+ }
+ const a=await env('super_admin');
+ await a.e.DB.prepare("INSERT INTO discovery_sources(id,name,source_type,feed_url,enabled) VALUES('x','Feed','rss','https://publisher.example.org/rss',0)").run();
+ const noCsrf=await adminRoutes(req('/api/admin/discovery/sources/x/preview',{
+  method:'POST',headers:headers(a.cookie),body:'{}'
+ }),a.e);
+ assert.equal(noCsrf.status,403);
+ assert.equal((await run('discovery/sources/x/preview',a)).status,405);
+ const oldFetch=globalThis.fetch;
+ globalThis.fetch=async()=>new Response('<not-a-feed>');
+ try{
+  const response=await run('discovery/sources/x/preview',a,'POST',{});
+  assert.equal(response.status,502);
+  assert.equal((await response.json()).error,'INVALID_XML_FEED');
+  assert.equal((await a.e.DB.prepare('SELECT last_fetched_at FROM discovery_sources WHERE id=?').bind('x').first()).last_fetched_at,null);
+ }finally{globalThis.fetch=oldFetch;}
+});
