@@ -34,6 +34,9 @@ test('admin can onboard an inactive discovery source, enable it and queue a manu
    const body=request.postDataJSON();
    sources[0].enabled=body.enabled?1:0;
    data={id:'source-1',updated:true,enabled:!!body.enabled};
+  }else if(path==='/api/admin/discovery/sources/source-1/preview'&&method==='POST'){
+   expect(sources[0].enabled).toBe(0);
+   data={source_id:'source-1',total_sampled:1,truncated:false,warning:'Review metadata before enabling.',items:[{title:'Points season 3',url:'https://news.example.org/points',summary:'Official source',classification:'points',classification_confidence:0.6,published_at:null}]};
   }else if(path==='/api/admin/discovery/sources/source-1/fetch'&&method==='POST'){
    expect(sources[0].enabled).toBe(1);
    data={id:'source-1',queued:1,not_modified:false};
@@ -48,6 +51,10 @@ test('admin can onboard an inactive discovery source, enable it and queue a manu
  await page.getByRole('button',{name:'Tambahkan sumber (nonaktif)'}).click();
  await expect(page.getByRole('button',{name:'Aktifkan Official Feed'})).toBeVisible();
  expect(sources[0].enabled).toBe(0);
+ await page.getByRole('button',{name:'Pratinjau Official Feed'}).click();
+ await expect(page.locator('#feed-preview')).toContainText('Points season 3');
+ await expect(page.getByText('Pratinjau selesai. Tidak ada item yang diantrekan atau diterbitkan.')).toBeVisible();
+ expect(sources[0].enabled).toBe(0);
  await page.getByRole('button',{name:'Aktifkan Official Feed'}).click();
  await expect(page.locator('#confirm')).toBeVisible();
  await page.locator('#confirm-text').fill('KONFIRMASI');
@@ -59,6 +66,7 @@ test('admin can onboard an inactive discovery source, enable it and queue a manu
  await expect(page.getByText('Metadata masuk antrean: 1')).toBeVisible();
  expect(writes.map(w=>w.path)).toEqual([
   '/api/admin/discovery/sources',
+  '/api/admin/discovery/sources/source-1/preview',
   '/api/admin/discovery/sources/source-1',
   '/api/admin/discovery/sources/source-1/fetch'
  ]);
