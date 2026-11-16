@@ -33,6 +33,21 @@ Audit trails record the actor, action and sanitized source metadata, but not ful
 
 An empty source list is an **operational configuration gap**, not a scheduler failure. One UTC-minute Cloudflare trigger continues to run scheduled jobs at their previous cadences; existing database and queue bindings remain unchanged.
 
+## Discovery health diagnostics
+
+The authenticated `GET /api/admin/health` endpoint now includes a source-aggregate `discovery` object. This gives operators an actionable reason when the global health status is degraded, without exposing full feed URLs or private user data.
+
+| `discovery.reason` | Interpretation | Operator action |
+| --- | --- | --- |
+| `NO_SOURCES` | No sources registered. | Verify and register official publisher feeds. |
+| `NO_ACTIVE_SOURCES` | Registered feeds are all disabled. | Review publisher permission, then enable a source. |
+| `SOURCE_STALE` | One or more enabled feeds has not had a recent successful fetch. | Check cron, queue binding and last error for each feed. |
+| `FETCH_ERRORS` | One or more enabled feeds has a recorded fetch/queue failure. | Inspect sanitized error code and the associated queue/DLQ. |
+| `READY` | All enabled feeds have fetched successfully within the configured threshold. | Continue manual review. This does **not** certify campaign accuracy. |
+| `DATABASE_UNAVAILABLE` | Discovery health query failed. | Investigate D1 without exposing raw database errors. |
+
+Fields: `sources_total`, `sources_enabled`, `sources_recent`, `sources_with_errors`, `pending_review`, `last_successful_fetch`. The lag window is the validated `discovery_lag_warning_minutes` setting or 240 minutes by default. A successful fetch is **not** a guarantee that item records were classified, stored or published. In particular, `READY` can coexist with zero new feed items. The Admin Console health tab shows these metrics to authorized roles.
+
 ## Safety and deployment status
 
 No remote production source was seeded, no admin identity changed, no secret read, and no production write was needed to implement this feature. Keep the PR unmerged until CI and review pass. Rebuild generated assets via `npm run build`; source files `dist/admin.js` and `src/admin/*.ts` are the editable inputs.
