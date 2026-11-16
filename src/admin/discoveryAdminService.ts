@@ -72,11 +72,15 @@ export async function discoveryRoute(request,env,actor){
   candidate.enabled=changes.enabled===undefined?!!source.enabled:changes.enabled;
   const data=sourceInput(candidate);
   const feedChanged=data.feed_url!==source.feed_url;
+  const parserChanged=data.source_type!==source.source_type;
+  const sourceChanged=feedChanged||parserChanged;
+  // Parser changes invalidate conditional HTTP cursors as well: a 304 from
+  // the previous feed format is not evidence of a successful new-format parse.
   const updated=await sourceWrite(db,
    'UPDATE discovery_sources SET name=?,source_type=?,feed_url=?,project_hint=?,enabled=?,trust_level=?,updated_at=CURRENT_TIMESTAMP'+
-   (feedChanged?',etag=NULL,last_modified=NULL,last_fetched_at=NULL,last_error=NULL,error_at=NULL':'')+
-   ' WHERE id=?'+(feedChanged?' AND NOT EXISTS(SELECT 1 FROM discovery_items WHERE source_id=?)':''),
-   data.name,data.source_type,data.feed_url,data.project_hint,data.enabled,data.trust_level,id,...(feedChanged?[id]:[]));
+   (sourceChanged?',etag=NULL,last_modified=NULL,last_fetched_at=NULL,last_error=NULL,error_at=NULL':'')+
+   ' WHERE id=?'+(sourceChanged?' AND NOT EXISTS(SELECT 1 FROM discovery_items WHERE source_id=?)':''),
+   data.name,data.source_type,data.feed_url,data.project_hint,data.enabled,data.trust_level,id,...(sourceChanged?[id]:[]));
   if(updated.meta?.changes!==1)fail('SOURCE_HISTORY_LOCKED',409);
   await audit(env,request,actor,'discovery.source.update','discovery_source',id,{
    id,name:source.name,source_type:source.source_type,enabled:source.enabled,trust_level:source.trust_level},{
