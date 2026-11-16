@@ -27,13 +27,47 @@ async function show(tab){
  active=tab;selected.clear();$('title').textContent=nav.find(n=>n[1]===tab)?.[0]||tab;$('description').textContent='Konsol manajemen yang dapat diaudit.';$('panel').replaceChildren();
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));notify('');
  try{
-  if(tab==='overview'){const d=await api('overview');$('mode').textContent=d.mode;$('mode').className='badge '+d.mode;$('panel').append(cards([['Campaign',d.campaigns],['Discovery pending',d.discovery_pending],['Konflik terbuka',d.conflicts_open],['Webhook pending',d.webhook_pending]]));}
+  if(tab==='overview'){const d=await api('overview');$('mode').textContent=d.mode;$('mode').className='badge '+d.mode;$('panel').append(cards([['Campaign',d.campaigns],['Sumber Discovery',d.discovery_sources],['Discovery pending',d.discovery_pending],['Konflik terbuka',d.conflicts_open],['Webhook pending',d.webhook_pending]]));}
   if(tab==='health'){const d=await api('health');$('mode').textContent=d.status;$('mode').className='badge '+d.status;$('panel').append(cards([['Status',d.status],['Latensi D1',d.d1_latency_ms+' ms'],...Object.entries(d.checks)]));}
   if(tab==='campaigns'){const d=await api('campaigns');$('panel').append(table(d.campaigns,[['ID','id'],['Judul','title'],['Status','status'],['Review','review_status'],['Sumber','source_url']],role==='admin'||role==='super_admin'));
    for(const row of d.campaigns)if(role!=='readonly')$('panel').append(btn('Edit '+row.id,()=>editCampaign(row)));
    if(role==='admin'||role==='super_admin'){const bar=el('div','');bar.className='toolbar';const type=document.createElement('select');['archive','expire','republish','update_status','assign_reviewer'].forEach(x=>type.append(el('option',x)));const value=el('input','');value.placeholder='Status / reviewer';const go=btn('Preview bulk',async()=>bulk('campaigns',type.value,value.value),'primary');bar.append(type,value,go);$('panel').prepend(bar);}
   }
-  if(tab==='discovery'){const d=await api('discovery/queue?status=pending_review');$('panel').append(table(d.items,[['ID','id'],['Judul','title'],['Sumber','source'],['Klasifikasi','classification'],['Confidence','classification_confidence']],role==='admin'||role==='super_admin'));
+  if(tab==='discovery'){
+   const data=await api('discovery/sources'),sources=data.sources||[];
+   const section=el('div','');section.className='section';
+   section.append(el('h3','Sumber Discovery ('+sources.length+')'),
+    el('p',sources.length?'Hanya sumber RSS, Atom, atau JSON Feed yang diaktifkan operator akan dipindai.':'Belum ada sumber. Pemindaian otomatis belum dapat menemukan item sampai admin menambahkan dan mengaktifkan feed.'));
+   section.append(table(sources,[['Nama','name'],['Jenis','source_type'],['URL','feed_url'],['Aktif',r=>r.enabled?'Ya':'Tidak'],['Trust','trust_level'],['Terakhir diambil','last_fetched_at'],['Kesalahan','last_error'],['Item baru','new_item_count']]));
+   if(role==='admin'||role==='super_admin'){
+    const form=el('div','');form.className='form';
+    const name=el('input','');name.placeholder='Nama feed resmi';name.setAttribute('aria-label','Nama sumber');
+    const feed=el('input','');feed.type='url';feed.placeholder='https://example.org/rss';feed.setAttribute('aria-label','URL feed HTTPS');
+    const kind=document.createElement('select');kind.setAttribute('aria-label','Format feed');
+    for(const type of ['rss','atom','json_feed'])kind.append(el('option',type));
+    const trust=document.createElement('select');trust.setAttribute('aria-label','Kepercayaan sumber');
+    for(const level of ['low','medium','high'])trust.append(el('option',level));
+    form.append(name,feed,kind,trust,btn('Tambahkan sumber (nonaktif)',async()=>{
+     try{
+      await api('discovery/sources',{method:'POST',body:JSON.stringify({name:name.value,feed_url:feed.value,source_type:kind.value,trust_level:trust.value,enabled:false})});
+      await show('discovery');notify('Sumber disimpan nonaktif. Aktifkan setelah URL dan izin feed diverifikasi.');
+     }catch(e){notify(e.message);}
+    },'primary'));section.prepend(form);
+    for(const source of sources){
+     const bar=el('div','');bar.className='toolbar';
+     bar.append(btn((source.enabled?'Nonaktifkan ':'Aktifkan ')+source.name,()=>confirmAction(
+      (source.enabled?'Hentikan pemindaian ':'Mulai pemindaian ')+'sumber '+source.name+'. Pastikan URL resmi dan izin pengambilan feed telah ditinjau.',
+      async()=>{await api('discovery/sources/'+source.id,{method:'PUT',body:JSON.stringify({enabled:!source.enabled})});await show('discovery');notify('Status sumber diperbarui.');}
+     )));
+     if(source.enabled)bar.append(btn('Ambil feed '+source.name,()=>confirmAction(
+      'Ambil metadata publik dari '+source.name+' ke antrean review privat. Tidak ada campaign yang diterbitkan otomatis.',
+      async()=>{const result=await api('discovery/sources/'+source.id+'/fetch',{method:'POST',body:'{}'});await show('discovery');notify(result.error?'Feed gagal: '+result.error:'Metadata masuk antrean: '+result.queued);}
+     )));
+     section.append(bar);
+    }
+   }
+   $('panel').append(section);
+   const d=await api('discovery/queue?status=pending_review');$('panel').append(table(d.items,[['ID','id'],['Judul','title'],['Sumber','source'],['Klasifikasi','classification'],['Confidence','classification_confidence']],role==='admin'||role==='super_admin'));
    if(role==='moderator')for(const row of d.items){$('panel').append(btn('Tinjau '+row.id,()=>moderate(row)));}
    if(role==='admin'||role==='super_admin'){const bar=el('div','');bar.className='toolbar';const type=document.createElement('select');['approve','reject','convert','duplicate'].forEach(x=>type.append(el('option',x)));const reason=el('input','');reason.placeholder='Alasan penolakan / duplikat';bar.append(type,reason,btn('Preview moderasi',()=>bulk('discovery',type.value,reason.value),'primary'));$('panel').prepend(bar);}
   }
