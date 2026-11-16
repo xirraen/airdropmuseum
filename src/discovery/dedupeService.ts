@@ -8,12 +8,13 @@ export async function fingerprint(item){
 export async function storeDiscoveredItem(db,message){
  const item=message?.item,sourceId=message?.source_id;
  if(!item||typeof sourceId!=='string'||sourceId.length>80)throw Error('INVALID_DISCOVERY_MESSAGE');
- const source=await db.prepare('SELECT id,enabled,feed_url FROM discovery_sources WHERE id=?').bind(sourceId).first();
+ const source=await db.prepare('SELECT id,enabled,feed_url,source_type FROM discovery_sources WHERE id=?').bind(sourceId).first();
  if(!source||!source.enabled)return {status:'ignored'};
- // Older in-flight messages without a revision remain compatible; all new
- // messages carry a fingerprint that prevents stale item provenance.
+ // Only accept the new URL+format revision. Old queue messages with no
+ // revision remain compatible, but URL-only revision messages fail closed:
+ // their parser format cannot be authenticated after a source edit.
  if(message.source_version!==undefined&&
-  (typeof message.source_version!=='string'||message.source_version!==await sourceVersion(source.feed_url)))
+  (typeof message.source_version!=='string'||message.source_version!==await sourceVersion(source.feed_url,source.source_type)))
   return {status:'ignored'};
  const url=normalizeUrl(item.url),title=cleanText(item.title,240),summary=cleanText(item.summary||'',500);
  if(!title)return {status:'ignored'};
