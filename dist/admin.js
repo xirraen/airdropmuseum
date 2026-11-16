@@ -86,7 +86,26 @@ async function show(tab){
       'Ambil metadata publik dari '+source.name+' ke antrean review privat. Tidak ada campaign yang diterbitkan otomatis.',
       async()=>{const result=await api('discovery/sources/'+source.id+'/fetch',{method:'POST',body:'{}'});await show('discovery');notify(result.error?'Feed gagal: '+result.error:'Metadata masuk antrean: '+result.queued);}
      )));
-     section.append(bar);
+     const editor=el('div','');editor.className='form source-editor';editor.hidden=true;
+     const label=(caption,control)=>{const holder=el('label',caption);holder.append(control);return holder;};
+     const editName=el('input','');editName.value=source.name;editName.maxLength=120;
+     const editUrl=el('input','');editUrl.type='url';editUrl.value=source.feed_url;editUrl.maxLength=2048;
+     const editKind=document.createElement('select');
+     for(const type of ['rss','atom','json_feed']){const option=el('option',type);option.value=type;editKind.append(option);}editKind.value=source.source_type;
+     const editTrust=document.createElement('select');
+     for(const level of ['low','medium','high']){const option=el('option',level);option.value=level;editTrust.append(option);}editTrust.value=source.trust_level;
+     const editHint=el('input','');editHint.value=source.project_hint||'';editHint.maxLength=120;
+     editor.append(label('Nama sumber',editName),label('URL feed HTTPS',editUrl),
+      label('Format sumber',editKind),label('Trust level',editTrust),label('Petunjuk proyek',editHint),
+      el('p','Mengubah URL atau format akan menonaktifkan pemindaian hingga sumber diverifikasi kembali.'));
+     editor.append(btn('Simpan metadata sumber',async()=>{
+      try{const result=await api('discovery/sources/'+source.id,{method:'PUT',body:JSON.stringify({
+       name:editName.value,feed_url:editUrl.value,source_type:editKind.value,trust_level:editTrust.value,project_hint:editHint.value
+      })});await show('discovery');notify(result.enabled?'Metadata tersimpan.':'Konfigurasi tersimpan. Sumber nonaktif hingga diverifikasi ulang.');}
+      catch(e){notify(e.message);}
+     },'primary'));
+     bar.append(btn('Edit sumber '+source.name,()=>{editor.hidden=!editor.hidden;}));
+     section.append(bar,editor);
     }
    }
    $('panel').append(section);
