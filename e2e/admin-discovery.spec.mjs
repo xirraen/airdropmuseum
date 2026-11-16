@@ -74,3 +74,33 @@ test('admin can onboard an inactive discovery source, enable it and queue a manu
  ]);
  expect(writes.some(w=>w.path.includes('/campaigns'))).toBe(false);
 });
+
+test('slower admin responses cannot overwrite a newer tab on mobile or desktop',async({page})=>{
+ await page.route('**/admin.html',route=>route.fulfill({
+  status:200,contentType:'text/html',body:html
+ }));
+ await page.route('**/api/admin/**',async route=>{
+  const path=new URL(route.request().url()).pathname;
+  if(path==='/api/admin/health'){
+   await new Promise(resolve=>setTimeout(resolve,300));
+   try{await route.fulfill({contentType:'application/json',body:JSON.stringify({
+    status:'healthy',d1_latency_ms:12,checks:{d1:'healthy'},
+    discovery:{reason:'READY',sources_total:1,last_run_status:'ok'}
+   })});}catch{/* Navigating away is expected to abort a stale health read. */}
+   return;
+  }
+  const body=path==='/api/admin/session'?
+   {role:'readonly',csrf_token:csrf}:
+   {mode:'normal',campaigns:3,discovery_pending:0,discovery_sources:0,conflicts_open:0,webhook_pending:0};
+  await route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
+ });
+ await page.goto('/admin.html',{waitUntil:'domcontentloaded'});
+ await page.getByRole('button',{name:'Health',exact:true}).click();
+ await page.getByRole('button',{name:'Overview',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Overview'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Discovery belum memiliki sumber aktif'})).toBeVisible();
+ await page.waitForTimeout(400);
+ await expect(page.getByText('Latensi D1')).toHaveCount(0);
+ await expect(page.locator('#feedback')).toBeEmpty();
+ await expect(page.locator('#tabs button[aria-current="page"]')).toHaveText('Overview');
+});
