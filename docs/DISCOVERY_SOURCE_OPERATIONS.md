@@ -33,6 +33,12 @@ Audit trails record the actor, action and sanitized source metadata, but not ful
 
 An empty source list is an **operational configuration gap**, not a scheduler failure. One UTC-minute Cloudflare trigger continues to run scheduled jobs at their previous cadences; existing database and queue bindings remain unchanged.
 
+## Source provenance across queued work
+
+Every newly enqueued feed item includes a SHA-256 fingerprint of the configured, normalized public feed URL. The D1 queue consumer compares that fingerprint with the currently registered source. Messages already in flight when an operator changes the source URL are acknowledged but ignored, rather than being misattributed to the replacement feed. The fetcher also rechecks the active source before enqueueing and conditionally updates its ETag/fetch cursor only when the original feed URL remains enabled.
+
+Legacy queued messages without this field remain compatible during deployment. A source that already has discovery history cannot change its feed URL through the authenticated Admin API. No migrations or additional Cloudflare bindings are required.
+
 ## Discovery health diagnostics
 
 The authenticated `GET /api/admin/health` endpoint now includes a source-aggregate `discovery` object. This gives operators an actionable reason when the global health status is degraded, without exposing full feed URLs or private user data.
