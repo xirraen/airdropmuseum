@@ -21,6 +21,18 @@ No hard-delete endpoint is exposed. Source URLs are immutable after discovery hi
 
 Audit trails record the actor, action and sanitized source metadata, but not full feed URLs, tokens, fetched content, or queue message bodies. The feed URL is visible only to authenticated admin/moderator readers of the source list; do not register URLs containing embedded credentials.
 
+## Side-effect-free feed preview (Sprint continuation)
+
+A registered feed can be previewed **while disabled** before an operator opts into scheduled collection. This is for source verification, not campaign publication.
+
+`POST /api/admin/discovery/sources/:id/preview` requires an authenticated admin/super_admin session, same-origin CSRF token, and rate limiting. It does not accept arbitrary URLs or changes to source parameters: only the stored HTTPS feed URL is fetched.
+
+The read uses the same bounded fetcher as ingestion: 9-second request timeout, at most two same-host HTTPS redirects, 512 KiB response cap, SSRF-oriented hostname validation, and RSS/Atom/JSON Feed metadata parsing. It sends no conditional ETag headers so the preview shows actual feed items rather than a 304 response.
+
+The response contains at most ten sample items (title, canonical URL, short summary, publication date, heuristic classification and confidence), an item count, and a warning requiring manual verification. Full article bodies, keys, wallet addresses, and feed credentials are neither needed nor returned. All rendered text uses DOM `textContent`, not remote HTML injection.
+
+A preview **never** changes `discovery_sources`, `discovery_items`, `am_core_exhibits`, or `DISCOVERY_QUEUE`. Only a sanitized admin audit entry records that a preview was requested, without storing source URL or feed contents. Invalid feeds return safe error codes; they do not enable the source.
+
 ## Operator workflow
 
 1. Complete identity verification and a least-privilege superadmin bootstrap **outside the application**. Production currently has no active admin. Do not guess the owner principal.
@@ -70,6 +82,6 @@ This does not add a discovery feed, activate a disabled source, or publish a cam
 
 ## Safety and deployment status
 
-No remote production source was seeded, no admin identity changed, no secret read, and no production write was needed to implement this feature. Keep the PR unmerged until CI and review pass. Rebuild generated assets via `npm run build`; source files `dist/admin.js` and `src/admin/*.ts` are the editable inputs.
+No remote production source was seeded, no admin identity changed, no secret read, and no production write was needed for this feature. Previous source-onboarding and telemetry PRs are merged; the preview extension has its own review and CI gate. Rebuild generated assets via `npm run build`; source files `dist/admin.js` and `src/admin/*.ts` are the editable inputs.
 
 Perform `npm ci`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm test`, `npm run test:runtime`, `npm run test:e2e`, and dependency/security scans before a controlled release. A real Telegram device and authorized admin session remain mandatory for final acceptance.
