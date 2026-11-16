@@ -4,6 +4,7 @@ import {reviewItem} from '../discovery/reviewService.ts';
 import {preview,execute} from './bulkService.ts';
 import {validateSource,DiscoveryError} from '../discovery/types.ts';
 import {fetchDiscoverySource} from '../discovery/ingestService.ts';
+import {previewDiscoverySource} from '../discovery/previewService.ts';
 const sourceFields=new Set(['name','source_type','feed_url','project_hint','trust_level','enabled']);
 function sourceInput(data){
  if(Object.keys(data).some(key=>!sourceFields.has(key)))fail('INVALID_SOURCE_FIELDS');
@@ -49,10 +50,26 @@ export async function discoveryRoute(request,env,actor){
   }
   fail('METHOD_NOT_ALLOWED',405);
  }
- const sourceMatch=/^\/api\/admin\/discovery\/sources\/([a-zA-Z0-9_-]{1,160})(?:\/(fetch))?$/.exec(p);
+ const sourceMatch=/^\/api\/admin\/discovery\/sources\/([a-zA-Z0-9_-]{1,160})(?:\/(fetch|preview))?$/.exec(p);
  if(sourceMatch){
   const id=sourceMatch[1],source=await sql(db,'SELECT * FROM discovery_sources WHERE id=?',id).first();
   if(!source)fail('SOURCE_NOT_FOUND',404);
+  if(sourceMatch[2]==='preview'){
+   if(request.method!=='POST')fail('METHOD_NOT_ALLOWED',405);
+   // Deliberately allow preview of disabled sources before their first activation.
+   // This calls the existing bounded fetcher but never enqueues or updates D1.
+   try{
+    const result=await previewDiscoverySource(source);
+    await audit(env,request,actor,'discovery.source.preview','discovery_source',id,{},{id,status:'previewed'});
+    return result;
+   }catch(error){
+    const safe=['FETCH_FAILED','FEED_TOO_LARGE','FEED_TIMEOUT','INVALID_XML_FEED','INVALID_JSON_FEED','UNSAFE_XML','INVALID_FEED','UNSUPPORTED_FEED','UNSAFE_FEED_HOST','INVALID_HTTPS_URL'];
+    const code=error?.name==='TimeoutError'?'FEED_TIMEOUT':
+     safe.includes(error?.message)?error.message:'DISCOVERY_PREVIEW_FAILED';
+    await audit(env,request,actor,'discovery.source.preview','discovery_source',id,{},{id,status:'failed',reason:code});
+    fail(code,code==='FEED_TOO_LARGE'?413:502);
+   }
+  }
   if(sourceMatch[2]==='fetch'){
    if(request.method!=='POST')fail('METHOD_NOT_ALLOWED',405);
    if(!source.enabled)fail('SOURCE_DISABLED',409);
