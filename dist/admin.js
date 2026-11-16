@@ -28,7 +28,16 @@ async function show(tab){
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));notify('');
  try{
   if(tab==='overview'){const d=await api('overview');$('mode').textContent=d.mode;$('mode').className='badge '+d.mode;$('panel').append(cards([['Campaign',d.campaigns],['Sumber Discovery',d.discovery_sources],['Discovery pending',d.discovery_pending],['Konflik terbuka',d.conflicts_open],['Webhook pending',d.webhook_pending]]));}
-  if(tab==='health'){const d=await api('health');$('mode').textContent=d.status;$('mode').className='badge '+d.status;$('panel').append(cards([['Status',d.status],['Latensi D1',d.d1_latency_ms+' ms'],...Object.entries(d.checks)]));}
+  if(tab==='health'){const d=await api('health');$('mode').textContent=d.status;$('mode').className='badge '+d.status;
+   const reason={NO_SOURCES:'Belum ada sumber feed',NO_ACTIVE_SOURCES:'Semua sumber nonaktif',FETCH_ERRORS:'Ada kegagalan pemindaian',SOURCE_STALE:'Pemindaian belum terbaru',READY:'Discovery aktif',DATABASE_UNAVAILABLE:'Diagnostik tidak tersedia'};
+   const discovery=d.discovery||{};
+   $('panel').append(cards([['Status',d.status],['Latensi D1',d.d1_latency_ms+' ms'],
+    ['Discovery',reason[discovery.reason]||discovery.reason||'—'],
+    ['Sumber terdaftar',discovery.sources_total??'—'],['Sumber aktif',discovery.sources_enabled??'—'],
+    ['Sumber terbaru',discovery.sources_recent??'—'],['Sumber bermasalah',discovery.sources_with_errors??'—'],
+    ['Menunggu review',discovery.pending_review??'—'],['Terakhir sukses',discovery.last_successful_fetch||'Belum pernah'],
+    ...Object.entries(d.checks)]));
+  }
   if(tab==='campaigns'){const d=await api('campaigns');$('panel').append(table(d.campaigns,[['ID','id'],['Judul','title'],['Status','status'],['Review','review_status'],['Sumber','source_url']],role==='admin'||role==='super_admin'));
    for(const row of d.campaigns)if(role!=='readonly')$('panel').append(btn('Edit '+row.id,()=>editCampaign(row)));
    if(role==='admin'||role==='super_admin'){const bar=el('div','');bar.className='toolbar';const type=document.createElement('select');['archive','expire','republish','update_status','assign_reviewer'].forEach(x=>type.append(el('option',x)));const value=el('input','');value.placeholder='Status / reviewer';const go=btn('Preview bulk',async()=>bulk('campaigns',type.value,value.value),'primary');bar.append(type,value,go);$('panel').prepend(bar);}
