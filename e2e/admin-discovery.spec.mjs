@@ -32,8 +32,11 @@ test('admin can onboard an inactive discovery source, enable it and queue a manu
   }else if(path==='/api/admin/discovery/queue')data={items:[]};
   else if(path==='/api/admin/discovery/sources/source-1'&&method==='PUT'){
    const body=request.postDataJSON();
-   sources[0].enabled=body.enabled?1:0;
-   data={id:'source-1',updated:true,enabled:!!body.enabled};
+   const changed=(body.source_type&&body.source_type!==sources[0].source_type)||
+    (body.feed_url&&body.feed_url!==sources[0].feed_url);
+   Object.assign(sources[0],body);
+   sources[0].enabled=changed?0:(body.enabled===undefined?sources[0].enabled:(body.enabled?1:0));
+   data={id:'source-1',updated:true,enabled:!!sources[0].enabled};
   }else if(path==='/api/admin/discovery/sources/source-1/fetch'&&method==='POST'){
    expect(sources[0].enabled).toBe(1);
    data={id:'source-1',queued:1,not_modified:false};
@@ -67,10 +70,17 @@ test('admin can onboard an inactive discovery source, enable it and queue a manu
  await page.locator('#confirm-text').fill('KONFIRMASI');
  await page.locator('#confirm-submit').click();
  await expect(page.getByText('Metadata masuk antrean: 1')).toBeVisible();
+ await page.getByRole('button',{name:'Edit sumber Official Feed'}).click();
+ await page.getByLabel('Format sumber').selectOption('atom');
+ await page.getByRole('button',{name:'Simpan metadata sumber'}).click();
+ await expect(page.getByRole('button',{name:'Aktifkan Official Feed'})).toBeVisible();
+ expect(sources[0].source_type).toBe('atom');
+ expect(sources[0].enabled).toBe(0);
  expect(writes.map(w=>w.path)).toEqual([
   '/api/admin/discovery/sources',
   '/api/admin/discovery/sources/source-1',
-  '/api/admin/discovery/sources/source-1/fetch'
+  '/api/admin/discovery/sources/source-1/fetch',
+  '/api/admin/discovery/sources/source-1'
  ]);
  expect(writes.some(w=>w.path.includes('/campaigns'))).toBe(false);
 });
