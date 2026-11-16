@@ -42,9 +42,10 @@ export async function adminRoutes(request,env,ctx){
     env.DB.prepare('SELECT COUNT(*) n FROM am_core_exhibits').first(),
     env.DB.prepare("SELECT COUNT(*) n FROM discovery_items WHERE status='pending_review'").first(),
     env.DB.prepare("SELECT COUNT(*) n FROM source_conflicts WHERE status='open'").first(),
-    env.DB.prepare("SELECT COUNT(*) n FROM webhook_deliveries WHERE status IN ('queued','retrying')").first()
+    env.DB.prepare("SELECT COUNT(*) n FROM webhook_deliveries WHERE status IN ('queued','retrying')").first(),
+    env.DB.prepare('SELECT COUNT(*) n FROM discovery_sources').first()
    ]);
-   result={campaigns:counts[0].n,discovery_pending:counts[1].n,conflicts_open:counts[2].n,webhook_pending:counts[3].n,mode:await maintenance(env)};
+   result={campaigns:counts[0].n,discovery_pending:counts[1].n,conflicts_open:counts[2].n,webhook_pending:counts[3].n,discovery_sources:counts[4].n,mode:await maintenance(env)};
   }
   else if(path==='/api/admin/audit'&&ro)result={entries:await logs(env.DB,new URL(request.url).searchParams)};
   else if(path==='/api/admin/health'&&ro)result=await health(env);
