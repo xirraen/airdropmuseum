@@ -1,4 +1,4 @@
-import {normalizeUrl,DiscoveryError} from './types.ts';
+import {normalizeUrl,DiscoveryError,sourceVersion} from './types.ts';
 import {parseFeed} from './feedParser.ts';
 import {metric} from '../admin/metrics.ts';
 const MAX_BYTES=524288;
@@ -28,27 +28,29 @@ async function download(url,headers,fetcher){
 export async function fetchDiscoverySource(env,source,{fetcher=fetch}={}){
  const db=env.DB;
  if(!env.DISCOVERY_QUEUE)throw new DiscoveryError('QUEUE_UNAVAILABLE',503);
- const url=normalizeUrl(source.feed_url);
+ const url=normalizeUrl(source.feed_url),version=await sourceVersion(url);
  const headers={'Accept':'application/rss+xml, application/atom+xml, application/feed+json, application/json, application/xml, text/xml;q=0.8'};
  if(source.etag)headers['If-None-Match']=source.etag;
  if(source.last_modified)headers['If-Modified-Since']=source.last_modified;
  try{
   const response=await download(url,headers,fetcher);
-  if(response.status===304){await db.prepare('UPDATE discovery_sources SET last_fetched_at=CURRENT_TIMESTAMP,last_error=NULL,error_at=NULL,new_item_count=0 WHERE id=?').bind(source.id).run();return {queued:0,not_modified:true};}
+  if(response.status===304){const update=await db.prepare('UPDATE discovery_sources SET last_fetched_at=CURRENT_TIMESTAMP,last_error=NULL,error_at=NULL,new_item_count=0 WHERE id=? AND feed_url=? AND enabled=1').bind(source.id,source.feed_url).run();return update.meta?.changes===1?{queued:0,not_modified:true}:{queued:0,error:'SOURCE_CONFIGURATION_CHANGED'};}
   if(!response.ok)throw new DiscoveryError('FETCH_FAILED',502);
   const content=await boundedResponse(response);
   const items=parseFeed(content,source.source_type,url);
-  // Only short metadata travels through the queue; no article bodies or private data.
+  const current=await db.prepare('SELECT feed_url,enabled FROM discovery_sources WHERE id=?').bind(source.id).first();
+  if(!current||!current.enabled||await sourceVersion(current.feed_url)!==version)return {queued:0,error:'SOURCE_CONFIGURATION_CHANGED'};
+  // Only short metadata and a public-feed revision travel through the queue; no article bodies or private data.
   for(let i=0;i<items.length;i+=10){
-   await env.DISCOVERY_QUEUE.sendBatch(items.slice(i,i+10).map(item=>({body:{source_id:source.id,item}})));
+   await env.DISCOVERY_QUEUE.sendBatch(items.slice(i,i+10).map(item=>({body:{source_id:source.id,source_version:version,item}})));
   }
   const etag=response.headers.get('etag'),modified=response.headers.get('last-modified');
-  await db.prepare('UPDATE discovery_sources SET last_fetched_at=CURRENT_TIMESTAMP,etag=?,last_modified=?,last_error=NULL,error_at=NULL,new_item_count=0,updated_at=CURRENT_TIMESTAMP WHERE id=?')
-   .bind(etag?.slice(0,200)||null,modified?.slice(0,200)||null,source.id).run();
-  return {queued:items.length,not_modified:false};
+  const update=await db.prepare('UPDATE discovery_sources SET last_fetched_at=CURRENT_TIMESTAMP,etag=?,last_modified=?,last_error=NULL,error_at=NULL,new_item_count=0,updated_at=CURRENT_TIMESTAMP WHERE id=? AND feed_url=? AND enabled=1')
+   .bind(etag?.slice(0,200)||null,modified?.slice(0,200)||null,source.id,source.feed_url).run();
+  return update.meta?.changes===1?{queued:items.length,not_modified:false}:{queued:0,error:'SOURCE_CONFIGURATION_CHANGED'};
  }catch(error){
   const code=error?.name==='TimeoutError'?'FEED_TIMEOUT':scrub(error?.message);
-  await db.prepare('UPDATE discovery_sources SET last_fetched_at=CURRENT_TIMESTAMP,last_error=?,error_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(code,source.id).run();
+  await db.prepare('UPDATE discovery_sources SET last_fetched_at=CURRENT_TIMESTAMP,last_error=?,error_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND feed_url=? AND enabled=1').bind(code,source.id,source.feed_url).run();
   return {queued:0,error:code};
  }
 }
