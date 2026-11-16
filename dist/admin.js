@@ -69,6 +69,19 @@ async function show(tab){
       (source.enabled?'Hentikan pemindaian ':'Mulai pemindaian ')+'sumber '+source.name+'. Pastikan URL resmi dan izin pengambilan feed telah ditinjau.',
       async()=>{await api('discovery/sources/'+source.id,{method:'PUT',body:JSON.stringify({enabled:!source.enabled})});await show('discovery');notify('Status sumber diperbarui.');}
      )));
+     bar.append(btn('Pratinjau '+source.name,async()=>{
+      try{
+       const result=await api('discovery/sources/'+source.id+'/preview',{method:'POST',body:'{}'});
+       $('feed-preview')?.remove();
+       const block=el('section','');block.id='feed-preview';block.className='section';
+       block.append(el('h3','Pratinjau: '+source.name),
+        el('p','Item terbaca: '+result.total_sampled+(result.truncated?' (10 contoh ditampilkan)':'')),
+        el('p',result.warning||'Informasi belum diverifikasi.'));
+       block.append(table(result.items||[],[['Judul','title'],['Sumber','url'],['Klasifikasi','classification'],['Confidence','classification_confidence'],['Tanggal','published_at']]));
+       $('panel').prepend(block);
+       notify('Pratinjau selesai. Tidak ada item yang diantrekan atau diterbitkan.');
+      }catch(e){notify('Pratinjau gagal: '+e.message);}
+     }));
      if(source.enabled)bar.append(btn('Ambil feed '+source.name,()=>confirmAction(
       'Ambil metadata publik dari '+source.name+' ke antrean review privat. Tidak ada campaign yang diterbitkan otomatis.',
       async()=>{const result=await api('discovery/sources/'+source.id+'/fetch',{method:'POST',body:'{}'});await show('discovery');notify(result.error?'Feed gagal: '+result.error:'Metadata masuk antrean: '+result.queued);}
