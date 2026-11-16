@@ -1,10 +1,11 @@
 const nav=[['Overview','overview'],['Campaigns','campaigns'],['Discovery','discovery'],['Conflicts','conflicts'],['API Keys','keys'],['Webhooks','webhooks'],['Feature Flags','flags'],['System Settings','settings'],['Audit Log','audit'],['Health','health']];
 const $=id=>document.getElementById(id),el=(tag,value)=>{const node=document.createElement(tag);node.textContent=value==null?'—':String(value);return node;};
-let csrf='',role='',selected=new Set(),active='overview';
+let csrf='',role='',selected=new Set(),active='overview',viewController;
 const permissions={readonly:['overview','audit','health'],moderator:['overview','campaigns','discovery','conflicts','audit','health'],admin:['overview','campaigns','discovery','conflicts','keys','webhooks','flags','settings','audit','health'],super_admin:nav.map(n=>n[1])};
 async function api(path,opts={}){
- const r=await fetch('/api/admin/'+path,{credentials:'same-origin',...opts,headers:{'X-CSRF-Token':csrf,...(opts.body?{'Content-Type':'application/json'}:{}),...opts.headers}});
- const out=await r.json();if(!r.ok)throw Error(out.error==='SOURCE_CAMPAIGN_EDIT_REQUIRED'?'Ubah data sumber campaign melalui Aggregator. Registry hanya mengatur publikasi dan reviewer.':out.error||'REQUEST_FAILED');return out;
+ const signal=opts.signal||((opts.method||'GET').toUpperCase()==='GET'?viewController?.signal:undefined);
+ const r=await fetch('/api/admin/'+path,{credentials:'same-origin',...opts,...(signal?{signal}:{}),headers:{'X-CSRF-Token':csrf,...(opts.body?{'Content-Type':'application/json'}:{}),...opts.headers}});
+ const out=await r.json();if(signal?.aborted)throw new DOMException('Navigation superseded','AbortError');if(!r.ok)throw Error(out.error==='SOURCE_CAMPAIGN_EDIT_REQUIRED'?'Ubah data sumber campaign melalui Aggregator. Registry hanya mengatur publikasi dan reviewer.':out.error||'REQUEST_FAILED');return out;
 }
 function notify(msg){$('feedback').textContent=msg;}
 function btn(text,cb,kind=''){const b=el('button',text);if(kind)b.className=kind;b.addEventListener('click',cb);return b;}
@@ -24,10 +25,22 @@ async function confirmAction(description,fn){
 }
 $('confirm-submit').addEventListener('click',e=>{if($('confirm-text').value!=='KONFIRMASI'){e.preventDefault();notify('Ketik KONFIRMASI terlebih dahulu.');}});
 async function show(tab){
+ viewController?.abort();viewController=new AbortController();
  active=tab;selected.clear();$('title').textContent=nav.find(n=>n[1]===tab)?.[0]||tab;$('description').textContent='Konsol manajemen yang dapat diaudit.';$('panel').replaceChildren();
- document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));notify('');
+ document.querySelectorAll('#tabs button').forEach(b=>{
+  const current=b.dataset.tab===tab;b.classList.toggle('active',current);
+  if(current)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+ });notify('');
  try{
-  if(tab==='overview'){const d=await api('overview');$('mode').textContent=d.mode;$('mode').className='badge '+d.mode;$('panel').append(cards([['Campaign',d.campaigns],['Sumber Discovery',d.discovery_sources],['Discovery pending',d.discovery_pending],['Konflik terbuka',d.conflicts_open],['Webhook pending',d.webhook_pending]]));}
+  if(tab==='overview'){const d=await api('overview');$('mode').textContent=d.mode;$('mode').className='badge '+d.mode;
+   $('panel').append(cards([['Campaign',d.campaigns],['Sumber Discovery',d.discovery_sources],['Discovery pending',d.discovery_pending],['Konflik terbuka',d.conflicts_open],['Webhook pending',d.webhook_pending]]));
+   if(Number(d.discovery_sources)===0){const notice=el('section','');notice.className='notice';notice.append(
+    el('h3','Discovery belum memiliki sumber aktif'),
+    el('p','Tambahkan sumber RSS, Atom, atau JSON Feed resmi melalui Discovery. Sumber baru selalu nonaktif sampai diverifikasi. Tidak ada campaign yang dipublikasikan otomatis.'));
+    if(role==='admin'||role==='super_admin')notice.append(btn('Kelola sumber Discovery',()=>show('discovery'),'primary'));
+    $('panel').append(notice);
+   }
+  }
   if(tab==='health'){const d=await api('health');$('mode').textContent=d.status;$('mode').className='badge '+d.status;
    const reason={NO_SOURCES:'Belum ada sumber feed',NO_ACTIVE_SOURCES:'Semua sumber nonaktif',FETCH_ERRORS:'Ada kegagalan pemindaian',SOURCE_STALE:'Pemindaian belum terbaru',SCHEDULER_BLOCKED:'Scheduler discovery tertahan',READY:'Discovery aktif',DATABASE_UNAVAILABLE:'Diagnostik tidak tersedia'};
    const discovery=d.discovery||{};
@@ -73,6 +86,30 @@ async function show(tab){
       'Ambil metadata publik dari '+source.name+' ke antrean review privat. Tidak ada campaign yang diterbitkan otomatis.',
       async()=>{const result=await api('discovery/sources/'+source.id+'/fetch',{method:'POST',body:'{}'});await show('discovery');notify(result.error?'Feed gagal: '+result.error:'Metadata masuk antrean: '+result.queued);}
      )));
+     let editor=null;
+     bar.append(btn('Edit sumber '+source.name,()=>{
+      if(editor){editor.remove();editor=null;return;}
+      // Build editors only on demand; up to 200 sources may be listed.
+      editor=el('div','');editor.className='form source-editor';
+      const label=(caption,control)=>{const holder=el('label',caption);holder.append(control);return holder;};
+      const editName=el('input','');editName.value=source.name;editName.maxLength=120;
+      const editUrl=el('input','');editUrl.type='url';editUrl.value=source.feed_url;editUrl.maxLength=2048;
+      const editKind=document.createElement('select');
+      for(const type of ['rss','atom','json_feed']){const option=el('option',type);option.value=type;editKind.append(option);}editKind.value=source.source_type;
+      const editTrust=document.createElement('select');
+      for(const level of ['low','medium','high']){const option=el('option',level);option.value=level;editTrust.append(option);}editTrust.value=source.trust_level;
+      const editHint=el('input','');editHint.value=source.project_hint||'';editHint.maxLength=120;
+      editor.append(label('Nama sumber',editName),label('URL feed HTTPS',editUrl),
+       label('Format sumber',editKind),label('Trust level',editTrust),label('Petunjuk proyek',editHint),
+       el('p','Mengubah URL atau format akan menonaktifkan pemindaian hingga sumber diverifikasi kembali.'));
+      editor.append(btn('Simpan metadata sumber',async()=>{
+       try{const result=await api('discovery/sources/'+source.id,{method:'PUT',body:JSON.stringify({
+        name:editName.value,feed_url:editUrl.value,source_type:editKind.value,trust_level:editTrust.value,project_hint:editHint.value
+       })});await show('discovery');notify(result.enabled?'Metadata tersimpan.':'Konfigurasi tersimpan. Sumber nonaktif hingga diverifikasi ulang.');}
+       catch(e){notify(e.message);}
+      },'primary'));
+      bar.after(editor);
+     }));
      section.append(bar);
     }
    }
@@ -104,14 +141,14 @@ async function show(tab){
    if(role==='super_admin')for(const mode of ['normal','read_only','maintenance'])$('panel').append(btn('Mode '+mode,()=>confirmAction('Ganti mode platform ke '+mode,async()=>{await api('maintenance-mode',{method:'POST',body:JSON.stringify({mode})});await show('settings');})));
   }
   if(tab==='audit'){const d=await api('audit');$('panel').append(table(d.entries,[['Waktu','created_at'],['Admin','admin_scope'],['Aksi','action'],['Target','target_type'],['ID','target_id']]));}
- }catch(e){notify(e.message);}
+ }catch(e){if(e.name!=='AbortError')notify(e.message);}
 }
 async function bulk(type,action,value){
  if(!selected.size){notify('Pilih minimal satu item.');return;}
  const query=new URLSearchParams({ids:[...selected].join(','),action,...(type==='discovery'?{reason:value}:{status:value,reviewer:value})});
  try{const preview=await api(type+'/bulk-preview?'+query);await confirmAction('Aksi '+action+' pada '+preview.count+' item. Preview berlaku lima menit.',async()=>{
   const r=await api(type+'/bulk-action',{method:'POST',body:JSON.stringify({preview_id:preview.preview_id,confirm_phrase:'KONFIRMASI'})});
-  notify('Berhasil: '+r.succeeded+', gagal: '+r.failed);});}catch(e){notify(e.message);}
+  await show(type==='campaigns'?'campaigns':'discovery');notify('Berhasil: '+r.succeeded+', gagal: '+r.failed);});}catch(e){notify(e.message);}
 }
 async function editCampaign(row){
  const field=prompt('Field campaign: title / description / category / reviewer'+((role==='admin'||role==='super_admin')?' / status / visibility / chain':''));
@@ -144,7 +181,7 @@ async function resolveConflict(row){
   await api('conflicts/'+row.id+'/'+(type==='ignore'?'ignore':'resolve'),{method:'POST',body:JSON.stringify({selected_value:type,confirm:'RESOLVE',resolution_note:reason})});await show('conflicts');
  });
 }
-async function init(){try{const d=await api('session');role=d.role;csrf=d.csrf_token;$('role').textContent=role;
+async function init(){try{const d=await api('session');role=d.role;csrf=d.csrf_token;$('role').textContent=role==='super_admin'?'Super Admin':role;
  for(const [label,tab] of nav){if(!permissions[role]?.includes(tab))continue;const b=btn(label,()=>show(tab));b.dataset.tab=tab;$('tabs').append(b);}
  await show('overview');}catch(e){$('panel').replaceChildren(el('p','Akses admin memerlukan session login Airdrop Museum dan role yang terdaftar.'));notify(e.message);}}
 init();

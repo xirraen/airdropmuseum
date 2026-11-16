@@ -295,3 +295,24 @@ test('parser format changes reset conditional fetch state and lock when discover
  assert.equal(blocked.status,409);
  assert.equal((await a.e.DB.prepare('SELECT source_type FROM discovery_sources WHERE id=?').bind(id).first()).source_type,'atom');
 });
+
+test('changing an active discovery source forces re-verification before cron can poll it again',async()=>{
+ const a=await env('super_admin');
+ const created=await run('discovery/sources',a,'POST',{name:'Official source',source_type:'rss',feed_url:'https://publisher.example.org/feed',enabled:true});
+ assert.equal(created.status,200);
+ const {id}=await created.json();
+ const changed=await run('discovery/sources/'+id,a,'PUT',{feed_url:'https://publisher.example.org/v2',enabled:true});
+ assert.equal(changed.status,200);
+ assert.equal((await changed.json()).enabled,false);
+ let row=await a.e.DB.prepare('SELECT feed_url,enabled FROM discovery_sources WHERE id=?').bind(id).first();
+ assert.equal(row.feed_url,'https://publisher.example.org/v2');
+ assert.equal(row.enabled,0);
+ assert.equal((await run('discovery/sources/'+id+'/fetch',a,'POST',{})).status,409);
+ assert.equal((await run('discovery/sources/'+id,a,'PUT',{enabled:true})).status,200);
+ const changedParser=await run('discovery/sources/'+id,a,'PUT',{source_type:'atom',enabled:true});
+ assert.equal(changedParser.status,200);
+ assert.equal((await changedParser.json()).enabled,false);
+ row=await a.e.DB.prepare('SELECT source_type,enabled FROM discovery_sources WHERE id=?').bind(id).first();
+ assert.equal(row.source_type,'atom');
+ assert.equal(row.enabled,0);
+});

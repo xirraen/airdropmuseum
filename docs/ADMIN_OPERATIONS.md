@@ -4,7 +4,7 @@
 
 Kandidat rilis saat ini memerlukan seluruh 17 migrasi sampai `0019_journal_payload_immutability.sql`, schema 16. Admin UI di `/admin` menggunakan cookie `am_session` (HttpOnly/Secure/SameSite=Strict) dari login platform. Di Mini App, buka Akun & privasi lalu pilih **Aktifkan sesi Telegram** sebelum membuka konsol admin. Header Telegram saja tidak menggantikan sesi admin. Endpoint memverifikasi initData di server; role dan CSRF tetap diperiksa terpisah.
 
-Pada 29 Oktober 2026 pemilik mengonfirmasi akun Telegram dalam video sebagai penerima superadmin. Konfirmasi ini belum berarti role sudah ditulis: bootstrap produksi masih menunggu migrasi dan verifikasi principal yang tepat. Jangan memilih principal pertama secara otomatis bila ada lebih dari satu kandidat.
+**Pembaruan operasional 17 November 2026:** Bootstrap `super_admin` telah dilakukan pada akun Telegram yang dikonfirmasi pemilik melalui D1 produksi. Pembacaan ulang D1 menunjukkan satu superadmin aktif, sesi Telegram yang masih aktif, dan `last_login_at` Admin Console yang terisi. Tampilan Admin Console berperan `super_admin` terlihat pada perangkat Telegram sungguhan. Verifikasi ini hanya membuktikan login/admin di perangkat tersebut; **bukan** kelulusan WalletConnect, staging, atau rilis terbaru. Worker produksi saat pemeriksaan masih memakai deployment 4 November 2026, sehingga fitur source-management dari main GitHub belum aktif di Worker. Jangan memilih principal pertama secara otomatis untuk bootstrap selanjutnya.
 
 ## Bootstrap / Role / least privilege
 

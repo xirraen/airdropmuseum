@@ -74,6 +74,9 @@ export async function discoveryRoute(request,env,actor){
   const feedChanged=data.feed_url!==source.feed_url;
   const parserChanged=data.source_type!==source.source_type;
   const sourceChanged=feedChanged||parserChanged;
+  // Replacing the feed endpoint or parser requires a fresh operator review.
+  // Never keep automatic polling enabled on a newly configured source.
+  if(sourceChanged)data.enabled=0;
   // Parser changes invalidate conditional HTTP cursors as well: a 304 from
   // the previous feed format is not evidence of a successful new-format parse.
   const updated=await sourceWrite(db,
