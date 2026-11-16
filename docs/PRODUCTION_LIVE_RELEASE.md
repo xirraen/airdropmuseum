@@ -1,5 +1,7 @@
 # Production release — 4 November 2026
 
+> **Current release gap — 17 November 2026:** The latest tested GitHub `main` is `6990acf571a19c0c68cbd291b01b05017e42ff62`, but the active production Worker remains deployment `26576456-e095-4329-acee-37f4a2e70b27` (4 November). A verified Telegram owner `super_admin` has been activated and a real mobile Admin Console session was observed; this fulfills only the admin-login acceptance portion, **not** the separate WalletConnect provider/device, staging, fresh encrypted backup, isolated restore, erasure ledger, rollback and final release-evidence gates. D1 schema 17 and zero foreign-key violations were read back on 17 November; discovery sources/items remain zero. The production application was not updated by merging the later source-management/Admin UI PRs. No additional production deployment may be claimed on the basis of CI alone.
+
 The owner authorized deployment from `main` without staging. Production is deployed and browser/API/data checks below passed. **Full acceptance remains BLOCKED — EXTERNAL VERIFICATION REQUIRED** for real Telegram/WalletConnect devices and verified owner superadmin bootstrap. Analytics Engine also requires C0 product activation. This is not a claim that the stricter automated release-evidence manifest passed.
 
 - Live URL: https://airdrop-museum.xirraen.workers.dev
