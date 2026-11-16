@@ -11,7 +11,7 @@ export async function health(env){
  checks.queue=check(!!(env.DISCOVERY_QUEUE&&env.PARTNER_WEBHOOK_QUEUE),true);
  checks.telegram=check(!!env.TELEGRAM_BOT_TOKEN,true);
  checks.etherscan=check(!!env.ETHERSCAN_API_KEY,true);
- const discovery={sources_total:0,sources_enabled:0,sources_recent:0,sources_with_errors:0,pending_review:0,last_successful_fetch:null,reason:'DATABASE_UNAVAILABLE'};
+ const discovery={sources_total:0,sources_enabled:0,sources_recent:0,sources_with_errors:0,pending_review:0,last_successful_fetch:null,last_run_at:null,last_run_status:null,reason:'DATABASE_UNAVAILABLE'};
  try{
   const configuredLag=configured.discovery_lag_warning_minutes;
   const lagMinutes=Number.isFinite(configuredLag)&&configuredLag>=15&&configuredLag<=1440?configuredLag:240;
@@ -31,6 +31,13 @@ export async function health(env){
   discovery.last_successful_fetch=row?.last_success||null;
   discovery.reason=!discovery.sources_total?'NO_SOURCES':!discovery.sources_enabled?'NO_ACTIVE_SOURCES':
    discovery.sources_with_errors?'FETCH_ERRORS':discovery.sources_recent<discovery.sources_enabled?'SOURCE_STALE':'READY';
+  // A recently blocked cron is distinct from a healthy idle cron with zero sources.
+  try{
+   const run=await sql(env.DB,"SELECT status,created_at FROM operational_events WHERE event_type='discovery_run' ORDER BY created_at DESC,rowid DESC LIMIT 1").first();
+   discovery.last_run_at=run?.created_at||null;
+   discovery.last_run_status=run?.status||null;
+   if(discovery.sources_enabled&&run?.status==='blocked')discovery.reason='SCHEDULER_BLOCKED';
+  }catch{/* A legacy schema without telemetry remains readable. */}
   checks.discovery=discovery.reason==='READY'?'healthy':'degraded';
  }catch{checks.discovery='degraded';}
  try{
