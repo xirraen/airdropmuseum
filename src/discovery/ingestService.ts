@@ -3,7 +3,7 @@ import {parseFeed} from './feedParser.ts';
 import {metric} from '../admin/metrics.ts';
 const MAX_BYTES=524288;
 function scrub(code){return ['FETCH_FAILED','FEED_TOO_LARGE','FEED_TIMEOUT','INVALID_XML_FEED','INVALID_JSON_FEED','UNSAFE_XML','INVALID_FEED','QUEUE_UNAVAILABLE','UNSAFE_FEED_HOST','INVALID_HTTPS_URL'].includes(code)?code:'DISCOVERY_FETCH_FAILED';}
-async function boundedResponse(response){
+export async function boundedResponse(response){
  const reader=response.body?.getReader();if(!reader)throw new DiscoveryError('INVALID_FEED');
  const pieces=[];let size=0;
  try{for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>MAX_BYTES){await reader.cancel();throw new DiscoveryError('FEED_TOO_LARGE',413);}pieces.push(value);}}
@@ -11,7 +11,7 @@ async function boundedResponse(response){
  const data=new Uint8Array(size);let n=0;for(const part of pieces){data.set(part,n);n+=part.byteLength;}
  return new TextDecoder('utf-8',{fatal:true}).decode(data);
 }
-async function download(url,headers,fetcher){
+export async function download(url,headers,fetcher){
  for(let i=0;i<3;i++){
   const response=await fetcher(url,{method:'GET',headers,redirect:'manual',signal:AbortSignal.timeout(9000)});
   if([301,302,303,307,308].includes(response.status)){
