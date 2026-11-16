@@ -39,7 +39,11 @@ export async function discoveryRoute(request,env,actor){
    return {sources:result.results||[]};
   }
   if(request.method==='POST'){
-   const input=await body(request),data=sourceInput({...input,enabled:input.enabled===undefined?false:input.enabled});
+   const input=await body(request);
+   // Registration never activates ingestion. Explicit enablement is a separate
+   // audited operator action, even if a direct API caller sends enabled:true.
+   if(input.enabled!==undefined&&input.enabled!==false)fail('SOURCE_MUST_START_DISABLED');
+   const data=sourceInput({...input,enabled:false});
    const id=crypto.randomUUID();
    await sourceWrite(db,'INSERT INTO discovery_sources(id,name,source_type,feed_url,project_hint,enabled,trust_level) VALUES(?,?,?,?,?,?,?)',
     id,data.name,data.source_type,data.feed_url,data.project_hint,data.enabled,data.trust_level);
