@@ -35,9 +35,9 @@ An empty source list is an **operational configuration gap**, not a scheduler fa
 
 ## Source provenance across queued work
 
-Every newly enqueued feed item includes a SHA-256 fingerprint of the configured, normalized public feed URL. The D1 queue consumer compares that fingerprint with the currently registered source. Messages already in flight when an operator changes the source URL are acknowledged but ignored, rather than being misattributed to the replacement feed. The fetcher also rechecks the active source before enqueueing and conditionally updates its ETag/fetch cursor only when the original feed URL remains enabled.
+Every newly enqueued feed item includes a SHA-256 fingerprint of the configured, normalized public feed URL **and its parser format** (`rss`, `atom`, or `json_feed`). The D1 queue consumer compares that fingerprint with the currently registered source. Messages already in flight when an operator changes the source URL are acknowledged but ignored, rather than being misattributed to the replacement feed. The fetcher also rechecks the active source before enqueueing and conditionally updates its ETag/fetch cursor only when the original feed URL remains enabled.
 
-Legacy queued messages without this field remain compatible during deployment. A source that already has discovery history cannot change its feed URL through the authenticated Admin API. No migrations or additional Cloudflare bindings are required.
+Legacy queued messages **without** a revision remain compatible during deployment; messages with the previous URL-only revision now fail closed because they cannot prove parser-format consistency. A source that already has discovery history cannot change either its feed URL or its parser format through the authenticated Admin API. Changing the parser on a source without history clears its ETag, Last-Modified, last-fetch timestamp, and stale fetch error, forcing a full validated fetch. No migrations or additional Cloudflare bindings are required.
 
 ## Discovery health diagnostics
 
