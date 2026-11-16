@@ -1,4 +1,4 @@
-import {normalizeUrl,cleanText,safeDate} from './types.ts';
+import {normalizeUrl,cleanText,safeDate,sourceVersion} from './types.ts';
 import {classify} from './classifier.ts';
 export async function fingerprint(item){
  const input=cleanText(item.title,240).toLowerCase()+'|'+item.url+'|'+(item.published_at||'');
@@ -8,8 +8,13 @@ export async function fingerprint(item){
 export async function storeDiscoveredItem(db,message){
  const item=message?.item,sourceId=message?.source_id;
  if(!item||typeof sourceId!=='string'||sourceId.length>80)throw Error('INVALID_DISCOVERY_MESSAGE');
- const source=await db.prepare('SELECT id,enabled FROM discovery_sources WHERE id=?').bind(sourceId).first();
+ const source=await db.prepare('SELECT id,enabled,feed_url FROM discovery_sources WHERE id=?').bind(sourceId).first();
  if(!source||!source.enabled)return {status:'ignored'};
+ // Older in-flight messages without a revision remain compatible; all new
+ // messages carry a fingerprint that prevents stale item provenance.
+ if(message.source_version!==undefined&&
+  (typeof message.source_version!=='string'||message.source_version!==await sourceVersion(source.feed_url)))
+  return {status:'ignored'};
  const url=normalizeUrl(item.url),title=cleanText(item.title,240),summary=cleanText(item.summary||'',500);
  if(!title)return {status:'ignored'};
  const external_id=cleanText(item.external_id||'',300)||null,published_at=safeDate(item.published_at),
