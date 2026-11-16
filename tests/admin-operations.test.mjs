@@ -166,6 +166,7 @@ test('source onboarding is default-disabled, validated, auditable and preserves 
  assert.equal(listed.sources[0].enabled,0);
  assert.equal((await run('discovery/sources',a,'POST',candidate)).status,409);
  assert.equal((await run('discovery/sources',a,'POST',{...candidate,feed_url:'http://localhost/feed'})).status,400);
+ assert.equal((await run('discovery/sources',a,'POST',{...candidate,enabled:true})).status,400);
  assert.equal((await run('discovery/sources',a,'POST',{...candidate,enabled:'true'})).status,400);
  assert.equal((await run('discovery/sources',a,'POST',{...candidate,token:'secret'})).status,400);
  assert.equal((await run('discovery/sources/'+id+'/fetch',a,'POST',{})).status,409);
@@ -202,8 +203,12 @@ test('only admin and super_admin may mutate discovery sources; CSRF still applie
 });
 test('manual feed fetch queues only metadata and never publishes automatically',async()=>{
  const a=await env('super_admin');
- const created=await run('discovery/sources',a,'POST',{name:'Reviewed RSS',source_type:'rss',feed_url:'https://news.example.org/rss',enabled:true});
+ const blocked=await run('discovery/sources',a,'POST',{name:'Reviewed RSS',source_type:'rss',feed_url:'https://news.example.org/rss',enabled:true});
+ assert.equal(blocked.status,400);
+ const created=await run('discovery/sources',a,'POST',{name:'Reviewed RSS',source_type:'rss',feed_url:'https://news.example.org/rss'});
  const {id}=await created.json();
+ assert.equal((await created.clone().json()).enabled,false);
+ assert.equal((await run('discovery/sources/'+id,a,'PUT',{enabled:true})).status,200);
  const queued=[];
  a.e.DISCOVERY_QUEUE={async sendBatch(messages){queued.push(...messages);}};
  const original=globalThis.fetch;
@@ -298,9 +303,10 @@ test('parser format changes reset conditional fetch state and lock when discover
 
 test('changing an active discovery source forces re-verification before cron can poll it again',async()=>{
  const a=await env('super_admin');
- const created=await run('discovery/sources',a,'POST',{name:'Official source',source_type:'rss',feed_url:'https://publisher.example.org/feed',enabled:true});
+ const created=await run('discovery/sources',a,'POST',{name:'Official source',source_type:'rss',feed_url:'https://publisher.example.org/feed'});
  assert.equal(created.status,200);
  const {id}=await created.json();
+ assert.equal((await run('discovery/sources/'+id,a,'PUT',{enabled:true})).status,200);
  const changed=await run('discovery/sources/'+id,a,'PUT',{feed_url:'https://publisher.example.org/v2',enabled:true});
  assert.equal(changed.status,200);
  assert.equal((await changed.json()).enabled,false);
