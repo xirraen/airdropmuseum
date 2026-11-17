@@ -7,7 +7,7 @@ import {trustRoutes} from './trust/trustRoutes.ts';
 import {rewardsApi} from './rewards-api.mjs';
 import {verifyTelegram} from './auth.mjs';
 import {backup} from '../dist/model.js';
-import {projects,projectFromCampaign} from '../dist/catalog.js';
+import {projectFromCampaign} from '../dist/catalog.js';
 import {listCampaigns} from './aggregator-store.mjs';
 export const VERSION='1.2.1';
 const LIMIT=1000000;
@@ -58,7 +58,7 @@ export async function api(request,env={},headers={}){
  if(!(request.headers.get('Content-Type')||'').startsWith('application/json'))return json({error:'JSON_REQUIRED'},415);
  const match=request.headers.get('If-Match');if(!/^"?\d+"?$/.test(match||''))return json({error:'REVISION_REQUIRED'},428);
  const revision=Number(match.replaceAll('"',''));if(!Number.isSafeInteger(revision)||revision<0)return json({error:'INVALID_REVISION'},400);
- let state;try{state=backup(await limitedText(request),projects)}catch(err){if(err.message==='BODY_TOO_LARGE')throw err;return json({error:'INVALID_STATE'},400)}
+ let state;try{state=backup(await limitedText(request),(await listCampaigns(env.DB)).map(projectFromCampaign).filter(Boolean))}catch(err){if(err.message==='BODY_TOO_LARGE')throw err;return json({error:'INVALID_STATE'},400)}
  const payload=JSON.stringify(state);let result;
  if(revision===0)result=await env.DB.prepare('INSERT INTO am_core_user_state(user_id,payload,revision) VALUES(?,?,1) ON CONFLICT(user_id) DO NOTHING').bind(user.id,payload).run();
  else result=await env.DB.prepare('UPDATE am_core_user_state SET payload=?, revision=revision+1, updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND revision=?').bind(payload,user.id,revision).run();
