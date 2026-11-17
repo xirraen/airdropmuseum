@@ -29,6 +29,7 @@ test('Airdrops.io feed requires explicit license, never crawls arbitrary pages',
  assert.throws(()=>requireProviderRights(row,{}),/PROVIDER_LICENSE_REQUIRED/);
  assert.equal(requireProviderRights(row,{AIRDROPS_IO_LICENSED:'YES'}),'airdrops_io');
  assert.throws(()=>requireProviderRights({...row,feed_url:'https://airdrops.io/latest-airdrops/'},{AIRDROPS_IO_LICENSED:'YES'}),/PROVIDER_FEED_URL_UNAPPROVED/);
+ assert.throws(()=>validateSource({name:'Unapproved page',source_type:'rss',feed_url:'https://airdrops.io/category/airdrops/'}),/PROVIDER_FEED_URL_UNAPPROVED/);
  assert.throws(()=>requireProviderRights({...row,feed_url:'https://cryptorank.io/drophunting'},{}),/PROVIDER_API_REQUIRED/);
 });
 
