@@ -5,7 +5,7 @@ import {requireProviderRights,parseCryptoRankActivities} from '../src/discovery/
 import {fetchDiscoverySource} from '../src/discovery/ingestService.ts';
 import {previewDiscoverySource} from '../src/discovery/previewService.ts';
 
-const cryptoSource={id:'crypto-source',source_type:'cryptorank_v2',feed_url:CRYPTORANK_SOURCE_URL,enabled:1};
+const cryptoSource={id:'crypto-source',source_type:'json_feed',feed_url:CRYPTORANK_SOURCE_URL,enabled:1};
 const cryptoEnv={CRYPTORANK_API_KEY:'unit-test-key',CRYPTORANK_API_LICENSED:'YES'};
 const apiPayload={status:{usedCredits:1},data:[
  {id:1309,key:'note-systems',coin:{name:'Note Systems'},status:'POTENTIAL',reward:'points',lastStatusUpdate:1794873600},
@@ -14,8 +14,8 @@ const apiPayload={status:{usedCredits:1},data:[
 
 test('official provider endpoint cannot be redirected to another host',()=>{
  assert.equal(validateSource({name:'CryptoRank licensed',...cryptoSource,enabled:false}).enabled,0);
- assert.throws(()=>validateSource({name:'Bad',source_type:'cryptorank_v2',feed_url:'https://example.org/api'}),/INVALID_PROVIDER_ENDPOINT/);
- assert.throws(()=>validateSource({name:'Bad',source_type:'json_feed',feed_url:CRYPTORANK_SOURCE_URL}),/PROVIDER_API_REQUIRED/);
+ assert.throws(()=>validateSource({name:'Bad',source_type:'json_feed',feed_url:'https://api.cryptorank.io/v2/drophunting/activities?limit=200'}),/INVALID_PROVIDER_ENDPOINT/);
+ assert.throws(()=>validateSource({name:'Bad',source_type:'rss',feed_url:CRYPTORANK_SOURCE_URL}),/INVALID_PROVIDER_ENDPOINT/);
 });
 
 test('CryptoRank requests require both licensed use and server-only key',()=>{
