@@ -6,6 +6,8 @@
  * AIRDROP_PRODUCTION_RELEASE=APPROVED, RESTORE_DRILL_VERIFIED=YES.
  */
 import {verifyReleaseEvidence} from './release-evidence.mjs';
+import {getLiveDeploymentIdentity,getLiveReleaseBaseline} from './release-policy.mjs';
+import {makeReleaseProvenance,requireExpectedLiveDeployment,assertNewReleaseProvenance} from './release-provenance.mjs';
 import {execFileSync} from 'node:child_process';
 import {existsSync,readFileSync,realpathSync} from 'node:fs';
 import {resolve,relative,isAbsolute,sep} from 'node:path';
@@ -32,7 +34,8 @@ if(read('git',['branch','--show-current'])!=='main')reject('Run only on main');
 if(read('git',['status','--porcelain']))reject('Working tree is dirty');
 if(!/^(https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)xirraen\/airdropmuseum(\.git)?$/.test(read('git',['remote','get-url','origin'])))reject('Wrong GitHub repository');
 const candidate=read('git',['rev-parse','HEAD']);
-verifyReleaseEvidence(process.env.RELEASE_EVIDENCE_FILE,candidate);
+const manifest=verifyReleaseEvidence(process.env.RELEASE_EVIDENCE_FILE,candidate);
+const baseline=requireExpectedLiveDeployment(manifest,await getLiveDeploymentIdentity(process.env.CLOUDFLARE_API_TOKEN));
 run('npm',['ci'],'Install frozen dependencies');
 const wrangler=resolve('node_modules/wrangler/bin/wrangler.js');
 if(!existsSync(wrangler))reject('Wrangler not installed');
@@ -42,10 +45,17 @@ run('node',['--experimental-sqlite','scripts/validate-migrations.mjs'],'Migratio
 if(read('git',['status','--porcelain']))reject('Build changed candidate artifacts; commit and reverify');
 run('node',['scripts/verify-production-bindings.mjs'],'Verify live binding destinations and deployment credential separation');
 run('node',['scripts/private-db-backup.mjs'],'Encrypted production backup + private SQLite restore');
+requireExpectedLiveDeployment(manifest,await getLiveDeploymentIdentity(process.env.CLOUDFLARE_API_TOKEN));
 run('node',[wrangler,'d1','migrations','list','airdrop-museum','--remote','--config','wrangler.jsonc'],'Pending migration review');
+requireExpectedLiveDeployment(manifest,await getLiveDeploymentIdentity(process.env.CLOUDFLARE_API_TOKEN));
 run('node',[wrangler,'d1','migrations','apply','airdrop-museum','--remote','--config','wrangler.jsonc'],'Apply pending migrations');
 const query=sql=>JSON.parse(read('node',[wrangler,'d1','execute','airdrop-museum','--remote','--config','wrangler.jsonc','--json','--command',sql]))[0]?.results||[];
 if(query('SELECT MAX(version) AS v FROM am_core_schema')[0]?.v!==17)reject('Live schema is not version 17; Worker deployment aborted');
 if(query('PRAGMA foreign_key_check').length)reject('Live D1 foreign key violations; Worker deployment aborted');
-run('node',[wrangler,'deploy','--config','wrangler.jsonc'],'Deploy versioned Worker');
-console.log('WORKER_DEPLOYED: now verify Telegram owner session, public API privacy, WalletConnect, and scheduled queues.');
+requireExpectedLiveDeployment(manifest,await getLiveDeploymentIdentity(process.env.CLOUDFLARE_API_TOKEN));
+const provenance=makeReleaseProvenance(candidate,readFileSync('src/worker.mjs','utf8'));
+run('node',[wrangler,'deploy','--strict','--config','wrangler.jsonc',
+ '--message',provenance.message,'--tag',provenance.tag],'Deploy versioned Worker with source provenance');
+const deployed=await getLiveReleaseBaseline(process.env.CLOUDFLARE_API_TOKEN);
+assertNewReleaseProvenance(baseline,deployed,candidate,provenance.artifact_sha256);
+console.log('WORKER_DEPLOYED_AND_SOURCE_ATTESTED: now verify Telegram owner session, public API privacy, WalletConnect, and scheduled queues.');
