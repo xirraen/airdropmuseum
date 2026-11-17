@@ -5,6 +5,7 @@ import {requireProviderRights,parseRootDataIncentiveEvents,parseRootDataFundingR
  downloadRootData,downloadDefiLlama} from '../src/discovery/providerAdapters.ts';
 import {fetchDiscoverySource} from '../src/discovery/ingestService.ts';
 import {previewDiscoverySource} from '../src/discovery/previewService.ts';
+import {classify} from '../src/discovery/classifier.ts';
 
 const asSource=url=>({id:'research',name:'Research',source_type:'json_feed',feed_url:url,enabled:1});
 const rootEnv={ROOTDATA_API_LICENSED:'YES',ROOTDATA_API_KEY:'test-key-not-real'};
@@ -52,7 +53,9 @@ test('RootData incentive event and financing produce evidence-only pending candi
  assert.equal(funding.length,1);
  assert.equal(funding[0].external_id,'rootdata-funding:500');
  assert.match(funding[0].title,/Seed funding/i);
- assert.match(funding[0].summary,/does NOT imply any future airdrop/);
+ assert.match(funding[0].summary,/does NOT imply future token issuance/);
+ assert.equal(classify(funding[0]).classification,'unknown');
+ assert.equal(classify(event[0]).classification,'unknown');
  assert.throws(()=>parseRootDataFundingRounds(JSON.stringify({result:403,data:{}})),/INVALID_PROVIDER_RESPONSE/);
  assert.deepEqual(parseRootDataFundingRounds(JSON.stringify({result:200,data:{items:[{id:1,name:'Unsafe',source_url:'javascript:alert(1)'}]}})),[]);
 });
@@ -62,7 +65,8 @@ test('DeFiLlama TVL only yields unconfirmed candidate metadata and never token e
  assert.equal(items.length,1);
  assert.equal(items[0].external_id,'defillama:example-protocol');
  assert.equal(items[0].url,'https://defillama.com/protocol/example-protocol');
- assert.match(items[0].summary,/token issuance and airdrop status UNVERIFIED/);
+ assert.match(items[0].summary,/token issuance and distribution status UNVERIFIED/);
+ assert.equal(classify(items[0]).classification,'unknown');
  assert.equal(items[0].published_at,null);
  assert.throws(()=>parseDefiLlamaProtocols('{"data":[]}'),/INVALID_PROVIDER_RESPONSE/);
 });
