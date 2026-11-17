@@ -8,7 +8,7 @@ export function actionQueue(projects,state,now=new Date()){
  for(const p of projects){
   const r=state.records[p.id],c=state.campaigns[p.id],h=state.hunts[p.id];
   if(!state.saved.includes(p.id)||!r||!c||!h||['completed','archived'].includes(r.status))continue;
-  const add=(kind,suffix,title,context,action,rank,extra={})=>out.push({id:p.id+':'+suffix,project:p,kind,title,context,action,rank,priority:r.priority,source:c.source||p.website||'',demo:!p.custom,...extra});
+  const add=(kind,suffix,title,context,action,rank,extra={})=>out.push({id:p.id+':'+suffix,project:p,kind,title,context,action,rank,priority:r.priority,source:c.source||p.website||'',demo:false,...extra});
   for(const [kind,date,label] of [['deadline',c.deadline,'Tenggat kampanye'],['snapshot',c.snapshot,'Tanggal snapshot'],['personal',r.due,'Target pribadi']]){
    if(!dateOnly(date))continue;const days=delta(date,today);if(days>7)continue;
    add('date',kind+':'+date,label,days<0?`Tanggal tercatat sudah ${Math.abs(days)} hari terlewat. Tinjau perubahan aturan atau sesuaikan rencana.`:days===0?'Tanggal tercatat adalah hari ini. Periksa jam dan zona waktu pada sumber.':`Tanggal tercatat ${days} hari lagi. Periksa kembali aturan pada sumber.`,kind==='personal'?'tasks':'campaign',days<=0?0:2,{date,days,source:kind==='personal'?'':c.source});
@@ -39,5 +39,5 @@ export function setActionTask(state,projects,key,status){
 const line=v=>String(v??'').replace(/[\r\n]+/g,' ').replace(/[\\`*_{}\[\]<>#|]/g,'\\$&');
 export function actionPlan(items,now=new Date()){
  return ['# Airdrop Museum — Action Plan',`Generated: ${now.toISOString()}`,'','Personal work plan. Self-reported records; not eligibility, on-chain verification or a reward promise.',`${items.length} actions in the current filter. Review private notes and URLs before sharing.`,
- ...items.flatMap(a=>['',`## ${line(a.project.name)} — ${line(ACTION_KINDS[a.kind])}`,`- [ ] ${line(a.title)}`,`Context: ${line(a.context)}`,`Chain: ${line(a.project.chain)} | ${a.demo?'Fictional demonstration':'Personal project'}`,`Recorded date: ${a.date||'Not set'}`,`Source: ${line(a.source||'Not recorded')}`])].join('\n');
+ ...items.flatMap(a=>['',`## ${line(a.project.name)} — ${line(ACTION_KINDS[a.kind])}`,`- [ ] ${line(a.title)}`,`Context: ${line(a.context)}`,`Chain: ${line(a.project.chain)} | ${a.project.custom?'Personal project':'Published source'}`,`Recorded date: ${a.date||'Not set'}`,`Source: ${line(a.source||'Not recorded')}`])].join('\n');
 }
