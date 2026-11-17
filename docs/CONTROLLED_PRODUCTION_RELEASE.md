@@ -20,6 +20,27 @@ Production target: C0 / `airdrop-museum` / D1 `4e75c8b9-6c58-4bac-a180-01e5bec0d
 
    **Encrypted-only recovery (18 November 2026):** The remote restore runner rejects legacy plaintext-only manifests and malformed AES-256-GCM metadata before any Cloudflare network request. The plaintext digest recorded in the authenticated backup manifest must agree with its encrypted metadata; the decrypted bytes are independently hashed after decryption. The backup runner also rejects key storage that contains the backup directory, or vice versa. Keep ciphertext and the separately stored key in distinct, non-nested private directories outside any Git repository. Do not treat a local decrypt roundtrip as a successful isolated D1 recovery.
 
+   **One-command isolated recovery (18 November 2026):** Use `npm run recovery:preflight` (GET-only Cloudflare metadata) and, only after controlled authorization, `npm run recovery:drill`. The drill orchestrator creates one new AES-256-GCM encrypted production export, keeps its generated decryption key in a separate private directory, checks source manifest and local SQLite restore, imports into a newly provisioned empty D1, applies missing migrations, verifies data counts/integrity, replays external privacy erasure ledger, and writes `recovery-drill-evidence.json` beside private encrypted backup evidence. It NEVER deploys a Worker and NEVER modifies production D1. It requires `RESTORE_STAGING_D1_ID`, optional `RESTORE_STAGING_ACCOUNT_ID`, `PRIVATE_BACKUP_ROOT`, `PRIVATE_BACKUP_KEY_ROOT`, `CLOUDFLARE_API_TOKEN` and explicit `AIRDROP_RECOVERY_DRILL=APPROVED`. Keys and artifacts must remain outside the repository and must never be pasted into chat or PRs. The helper does not approve the release: independently review backup, privacy replay and all 13 release gates. A fresh destination database must be no older than 72 hours; historical targets must not be reused.
+
+   An isolated target `airdrop-museum-restore-drill-20261118` (D1 UUID `8dd6f86a-7d64-4d3e-aaee-df7207fcc44b`) was **provisioned in C0 on 2026-11-17 21:18 UTC** and checked empty with no binding among six current Workers (including active serving versions). This is a provisioning/preflight result, **not** successful recovery. Its 72-hour freshness window expires around **2026-11-20 21:18 UTC** and it must not be treated as permanently eligible.
+
+   Example on a secured operator terminal (not CI):
+   ```bash
+   cd ~/airdropmuseum
+   umask 077
+   export RESTORE_STAGING_ACCOUNT_ID=9880cf2cc57c2096f8c3ae253d9852e6
+   export RESTORE_STAGING_D1_ID=8dd6f86a-7d64-4d3e-aaee-df7207fcc44b
+   export PRIVATE_BACKUP_ROOT="$HOME/.local/share/airdropmuseum-recovery/exports"
+   export PRIVATE_BACKUP_KEY_ROOT="$HOME/.local/share/airdropmuseum-recovery-keys"
+   read -r -s -p "Cloudflare API token: " CLOUDFLARE_API_TOKEN
+   printf '\\n'
+   export CLOUDFLARE_API_TOKEN
+   npm run recovery:preflight
+   AIRDROP_RECOVERY_DRILL=APPROVED npm run recovery:drill
+   unset CLOUDFLARE_API_TOKEN RESTORE_STAGING_ACCOUNT_ID RESTORE_STAGING_D1_ID PRIVATE_BACKUP_ROOT PRIVATE_BACKUP_KEY_ROOT
+   ```
+   Stop if the preflight reports a bound Worker, missing permissions, stale target, or any non-empty destination. The D1 script imports real production data to a separate private D1 and should only be run in an authorized operator environment with no public binding and an agreed retention/cleanup plan.
+
    **Target isolation gate (18 November 2026):** Before decrypting production data and immediately before any remote import, the restore runner now verifies the destination with read-only Cloudflare API calls. It accepts only a D1 created within the past **72 hours** and named `airdrop-museum-restore-drill` (optionally followed by a unique suffix), refuses known production/staging IDs, and scans the current Worker-script settings for D1 bindings referencing it. Any 403, missing permission, incomplete inventory or existing binding is a blocking error. The operator token needs **D1 Read** and **Workers Scripts Read**, plus the separately controlled D1 write permission used only for the authorized isolated restore. Empty table checks still run before import. This automated check is not proof of absence of indirect/future bindings; independently inspect the destination account and reserve a maintenance window. A private `restore-target-preflight.json` evidence file is created only after the read-only check passes.
 6. Review all bindings/secrets/cron schedules against `wrangler.jsonc`, admin bootstrap, egress/DNS policy, load results and code rollback. Remove/rotate the runtime deployment credential only in an explicitly approved production configuration window. Record checkpoints and Worker rollback version. No down migrations.
 
