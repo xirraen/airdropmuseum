@@ -53,7 +53,11 @@ test('chainChanged never selects unsupported, unapproved or expired session chai
  session.namespaces.eip155.accounts=['eip155:8453:'+address];
  changed('eip155:1');assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
  session.namespaces.eip155.accounts=['malformed-session-account'];
- changed('eip155:1');assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
+ changed('eip155:1');
+ await assert.rejects(()=>p.request({method:'eth_chainId'}),/INVALID_WALLET_SESSION/);
+ session.namespaces.eip155.accounts=['eip155:1:'+address];
+ await assert.rejects(()=>p.request({method:'eth_chainId'}),/CHAIN_NOT_APPROVED/);
+ await assert.rejects(()=>p.request({method:'eth_call',params:[{},'latest']}),/CHAIN_NOT_APPROVED/);
  assert.equal(transportCalls,0);
  await p.disconnect();changed('eip155:1');
  await assert.rejects(()=>p.request({method:'eth_chainId'}),/DISCONNECTED/);
