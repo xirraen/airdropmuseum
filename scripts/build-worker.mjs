@@ -2,7 +2,16 @@ import {gzipSync} from 'node:zlib';
 import {build} from 'esbuild';
 await build({entryPoints:['src/platform-api.mjs'],outfile:'src/platform-bundle.mjs',bundle:true,format:'esm',platform:'browser',minify:true});
 await build({entryPoints:['src/delivery.mjs'],outfile:'src/delivery-bundle.mjs',bundle:true,format:'esm',platform:'node',banner:{js:"import * as _crypto from 'node:crypto';import * as _https from 'node:https';import * as _http from 'node:http';import * as _url from 'node:url';import * as _stream from 'node:stream';import * as _buffer from 'node:buffer';import * as _util from 'node:util';const require=(n)=>({crypto:(_crypto.default||{..._crypto}),https:(_https.default||{..._https}),http:(_http.default||{..._http}),url:(_url.default||{..._url}),stream:(_stream.default||{..._stream}),buffer:(_buffer.default||{..._buffer}),util:(_util.default||{..._util})}[n]);"},external:['node:*','crypto','https','http','url','stream','buffer','util'],minify:true});
-await build({entryPoints:['dist/walletconnect-adapter.js'],outfile:'dist/walletconnect-bundle.js',bundle:true,format:'esm',platform:'browser',minify:true});
+const walletBundle=await build({entryPoints:['dist/walletconnect-adapter.js'],outfile:'dist/walletconnect-bundle.js',bundle:true,format:'esm',platform:'browser',minify:true,metafile:true});
+// Record actual bundled modules, not the full transitive npm installation.
+// This is containment evidence only: a clean bundle does NOT waive npm audit.
+const walletOutputs=Object.entries(walletBundle.metafile.outputs).filter(([path])=>path.endsWith('/walletconnect-bundle.js'));
+if(walletOutputs.length!==1)throw Error('WALLET_BUNDLE_OUTPUT_UNVERIFIED');
+const forbidden=Object.entries(walletOutputs[0][1].inputs).filter(([path,input])=>
+ Number(input.bytesInOutput)>0&&/(?:^|[/\\\\])node_modules[/\\\\](?:anymatch|picomatch)(?:[/\\\\]|$)/.test(path)
+).map(([path])=>path);
+if(forbidden.length)throw Error('VULNERABLE_GLOB_MODULE_BUNDLED: '+forbidden.join(', '));
+console.log('WalletConnect browser bundle reachability: PASS (no emitted anymatch/picomatch modules). npm dependency audit remains mandatory.');
 await build({entryPoints:['dist/platform.js'],outfile:'dist/platform-bundle.js',bundle:true,external:['./walletconnect-bundle.js'],format:'esm',platform:'browser',minify:true});
 await build({entryPoints:['dist/aggregator-ui.js'],outfile:'dist/aggregator-ui-bundle.js',bundle:true,format:'esm',platform:'browser',minify:true});
 import {readFileSync,writeFileSync} from 'node:fs';
