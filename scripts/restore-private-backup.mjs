@@ -17,22 +17,30 @@ for(let dir=folder;;dir=dirname(dir)){if(existsSync(join(dir,'.git')))throw Erro
 chmodSync(folder,0o700);
 const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
 if(manifest.format!=='private-d1-backup-v1'||!manifest.local_restore_verified||manifest.source_database_id!=='4e75c8b9-6c58-4bac-a180-01e5bec0d0a3')throw Error('BACKUP_MANIFEST_INVALID');
+// Production recovery must not fall back to an unauthenticated plaintext SQL file.
+if(!manifest.encrypted)throw Error('ENCRYPTED_BACKUP_REQUIRED');
+if(manifest.encrypted.algorithm!=='AES-256-GCM-v1'||
+   manifest.encrypted.file!=='production.sql.aesgcm'||
+   !/^[0-9a-f-]{36}$/.test(manifest.encrypted.key_id||'')||
+   !/^[0-9a-f]{64}$/.test(manifest.sha256||'')||
+   !/^[0-9a-f]{64}$/.test(manifest.encrypted.ciphertext_sha256||'')||
+   manifest.encrypted.plaintext_sha256!==manifest.sha256)
+ throw Error('ENCRYPTED_BACKUP_MANIFEST_INVALID');
 // Verify isolation before decrypting any production data to plaintext on disk.
 // Fail closed before any remote SQL executes. Keep returned non-secret evidence private.
 const initialTarget=await verifyRestoreTarget({accountId:restoreAccount,databaseId:id});
 writeFileSync(join(folder,'restore-target-preflight.json'),JSON.stringify(initialTarget,null,2)+'\n',{mode:0o600});
 
-let dump=join(folder,'production.sql'),temporaryDump=false;
+let dump,temporaryDump=false;
 // Guarantee removal of plaintext on every decrypt/import failure path.
 try{
-if(manifest.encrypted){
- if(manifest.encrypted.file!=='production.sql.aesgcm'||!/^[a-f0-9-]{36}$/.test(manifest.encrypted.key_id))throw Error('ENCRYPTED_BACKUP_MANIFEST_INVALID');
+{
  const keyRoot=process.env.PRIVATE_BACKUP_KEY_ROOT||join(homedir(),'.local','share','airdropmuseum-private-backup-keys');
  const sealed=join(folder,manifest.encrypted.file);if(createHash('sha256').update(readFileSync(sealed)).digest('hex')!==manifest.encrypted.ciphertext_sha256)throw Error('ENCRYPTED_BACKUP_HASH_INVALID');
  dump=join(folder,'restore-'+crypto.randomUUID()+'.sql');temporaryDump=true;
  decryptBackup(sealed,dump,join(keyRoot,manifest.encrypted.key_id+'.key'));
 }
-if(createHash('sha256').update(readFileSync(dump)).digest('hex')!==manifest.sha256){if(temporaryDump)rmSync(dump);throw Error('BACKUP_HASH_INVALID');}
+if(createHash('sha256').update(readFileSync(dump)).digest('hex')!==manifest.sha256)throw Error('BACKUP_HASH_INVALID');
 const config=join(folder,'restore-staging.json');
 writeFileSync(config,JSON.stringify({name:'airdrop-museum-restore-drill',account_id:restoreAccount,compatibility_date:'2026-10-27',d1_databases:[{binding:'DB',database_name:'airdrop-museum-restore-drill',database_id:id,migrations_dir:resolve('migrations')}]}),{mode:0o600});
 const wrangler=resolve('node_modules/wrangler/bin/wrangler.js');
