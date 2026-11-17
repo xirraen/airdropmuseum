@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {projects,projectFromCampaign} from '../dist/catalog.js';
 import {api} from '../src/api.mjs';
-import {normalize,backup} from '../dist/model.js';
+import {normalize,backup,mergeBackup} from '../dist/model.js';
 
 const row = {
   id:'layer3-cube-research',
@@ -83,4 +83,15 @@ test('private user state retains real D1 campaign bookmark and manual checklist'
   const roundtrip=backup(JSON.stringify(state),[p]);
   assert.equal(roundtrip.saved[0],p.id);
   assert.equal(roundtrip.done[p.id+':0'],true);
+});
+
+test('loading live catalogue rehydrates saved notes that a pre-fetch empty list omitted',()=>{
+  const p=projectFromCampaign(row);
+  const stored={saved:[p.id],done:{[p.id+':0']:true},records:{[p.id]:{notes:'Personal research notes'}}};
+  const beforeFetch=normalize(stored,[]);
+  assert.equal(beforeFetch.saved.length,0);
+  const restored=mergeBackup(beforeFetch,normalize(stored,[p]),[p]);
+  assert.deepEqual(restored.saved,[p.id]);
+  assert.equal(restored.done[p.id+':0'],true);
+  assert.equal(restored.records[p.id].notes,'Personal research notes');
 });
