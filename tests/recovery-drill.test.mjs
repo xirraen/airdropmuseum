@@ -14,9 +14,12 @@ const run=(args,env={})=>spawnSync(process.execPath,[script,...args],{
 test('recovery orchestration is opt-in and will not start without full explicit approval',()=>{
  const noMode=run([]),noApproval=run(['--execute']);
  assert.notEqual(noMode.status,0);
- assert.match(noMode.stderr,/Specify --preflight or --execute/);
+ assert.match(noMode.stderr,/Specify --preflight, --execute or --resume/);
  assert.notEqual(noApproval.status,0);
  assert.match(noApproval.stderr,/Explicit operator recovery approval required/);
+ const noResumeApproval=run(['--resume']);
+ assert.notEqual(noResumeApproval.status,0);
+ assert.match(noResumeApproval.stderr,/Explicit operator recovery approval required/);
  const noToken=run(['--execute'],{AIRDROP_RECOVERY_DRILL:'APPROVED'});
  assert.notEqual(noToken.status,0);
  assert.match(noToken.stderr,/CLOUDFLARE_API_TOKEN missing/);
@@ -59,6 +62,18 @@ test('isolated D1 recovery preflight makes only GET API calls and cannot write S
   assert.equal(result.worker_scripts_checked,1);
   assert.equal(result.active_worker_versions_checked,1);
  }finally{rmSync(dir,{force:true,recursive:true});}
+});
+
+test('resume mode cannot silently re-export production and requires a reviewed private archive path',()=>{
+ const source=readFileSync(script,'utf8');
+ const resumeAt=source.indexOf("if(args[0]==='--resume')");
+ const exportAt=source.indexOf("execute('scripts/private-db-backup.mjs')");
+ const elseAt=source.indexOf('}else{',resumeAt);
+ assert.ok(resumeAt>=0&&elseAt>resumeAt&&exportAt>elseAt);
+ assert.match(source.slice(resumeAt,elseAt),/PRIVATE_BACKUP_DIRECTORY/);
+ assert.match(source.slice(resumeAt,elseAt),/resolveNewPrivateBackupFolder/);
+ const pkg=JSON.parse(readFileSync('package.json','utf8'));
+ assert.equal(pkg.scripts['recovery:resume'],'node scripts/run-isolated-recovery-drill.mjs --resume');
 });
 
 test('recovery orchestration only writes into private operator directories and never uploads a Worker',()=>{
