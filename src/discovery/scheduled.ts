@@ -28,7 +28,7 @@ export async function scheduledDiscovery(env){
   await recordDiscoveryRun(env,{...summary,started});
   return summary;
  }
- const result=await env.DB.prepare("SELECT * FROM discovery_sources WHERE enabled=1 AND (last_fetched_at IS NULL OR last_fetched_at<=datetime('now','-25 minutes')) ORDER BY COALESCE(last_fetched_at,'') ASC LIMIT 20").all();
+ const result=await env.DB.prepare("SELECT * FROM discovery_sources WHERE enabled=1 AND (last_fetched_at IS NULL OR (source_type='cryptorank_v2' AND last_fetched_at<=datetime('now','-6 hours')) OR (source_type<>'cryptorank_v2' AND last_fetched_at<=datetime('now','-25 minutes'))) ORDER BY COALESCE(last_fetched_at,'') ASC LIMIT 20").all();
  const rows=result.results||[];
  summary.scanned=rows.length;
  for(let i=0;i<rows.length;i+=3){
