@@ -69,6 +69,23 @@ This runner **does not** attempt automatic schema rollback, erase journals, modi
 
 Continue using `scripts/release-production.mjs` with its original 13 gates and private encrypted backup/restore workflow. This policy does not remove or weaken any of those gates. See `docs/CONTROLLED_PRODUCTION_RELEASE.md` and the live acceptance tracking issue.
 
+## Read-only reproducible build forensics (18 November 2026)
+
+An unannotated Worker cannot be treated as a cryptographically attested Git commit. The operator used an isolated build of candidate `d6dc8df99a68250fb373fb92431a93f7e025a5e4` with Node **v24.22.2** and observed exact SHA-1 matches to read-only Cloudflare Worker content: generated `src/worker.mjs` at `de355f2bd957da80537e141e26f0805fd9982641` and `dist/aggregator-ui-bundle.js` at `9ca1608a2e02b2dddd6df84170d9d672123e7042`. A separate source-map comparison matched 92/93 tracked source files and 44/45 embedded static assets *before rebuilding*; the two outstanding generated assets matched *after rebuilding*. This strongly corroborates the candidate source tree but does not prove an immutable deployed version's commit identity.
+
+For repeatable, non-mutating evidence, use `npm run release:forensics`. It performs GET-only Cloudflare requests for deployment ID/version and the current Worker content, compares embedded source-map Git blob hashes and gzip-decoded static assets against the candidate Git tree, and checks that 100% traffic and the deployment ID are unchanged across the comparison. It writes no Worker, D1, KV, R2, queue or Git data.
+
+```bash
+# In the primary Git checkout with a read-only Cloudflare token in a private environment:
+npm run release:forensics -- d6dc8df99a68250fb373fb92431a93f7e025a5e4
+
+# After a reviewed isolated, clean worktree has completed npm ci && npm run build:
+npm run release:forensics -- d6dc8df99a68250fb373fb92431a93f7e025a5e4 \
+  --built-root /absolute/path/to/candidate-worktree
+```
+
+The first command is expected to report two generated-artifact mismatches against the **checked-in, previously stale** artifacts; the second can verify the rebuilt outputs. A successful result is deliberately labelled `CONTENT_MATCH_ONLY_NOT_ATTESTED`, with `release_authorized: false`. **Never** interpret this report as a release gate, sign it as a replacement for missing source provenance, automatically mark the 13 gates PASS, or bypass the unresolved `picomatch` audit. The `content/v2` endpoint does not provide an immutable version-specific signed artifact; a stable deployment ID is evidence of observation continuity, not a signature. Record reviewed evidence privately.
+
 ## Operational acceptance remaining for current main
 
 - Fresh AES-256-GCM export of *current* production D1, authenticated decryption and a restore to an **unbound** D1 with erasure-ledger replay.
