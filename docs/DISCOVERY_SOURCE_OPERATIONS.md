@@ -16,10 +16,19 @@ These operations use the existing `am_session` HttpOnly session, Admin Console o
 | `POST /api/admin/discovery/sources` | admin/super_admin | Register a validated HTTPS RSS/Atom/JSON Feed; **always disabled**. Sending `enabled: true` on creation is rejected with HTTP 400; activation is a separate audited `PUT`. |
 | `PUT /api/admin/discovery/sources/:id` | admin/super_admin | Change metadata or enable/disable scanning. |
 | `POST /api/admin/discovery/sources/:id/fetch` | admin/super_admin | Explicitly fetch an enabled source into the private discovery queue; no publish. |
+| `POST /api/admin/discovery/sources/:id/preview` | admin/super_admin | Fetch bounded public metadata from a registered source (including when disabled); never queue, persist items or update source cursors. |
 
 No hard-delete endpoint is exposed. Source URLs are immutable after discovery history exists, preserving evidence provenance; disable the old source and register a new one instead. Duplicate feed URLs return 409. Unrecognized fields, invalid HTTPS URLs, ambiguous `enabled` values, and disabled manual fetches are rejected. An absent discovery queue returns 503.
 
 Audit trails record the actor, action and sanitized source metadata, but not full feed URLs, tokens, fetched content, or queue message bodies. The feed URL is visible only to authenticated admin/moderator readers of the source list; do not register URLs containing embedded credentials.
+
+## Safe discovery source preview
+
+After registering a source in the disabled state, use **Pratinjau** in the Admin Console to inspect up to ten samples. Preview requests are POST operations protected by the existing admin session, Origin validation, CSRF token and rate limits; they are limited to the already-registered feed URL and cannot accept arbitrary endpoints. The scanner shares ingestion's HTTPS host validation, two same-host redirects, 9-second fetch timeout, and 512 KiB maximum response size. It does not send conditional cache headers, so a stale ETag cannot produce a false success.
+
+Preview does not change `discovery_sources`, write `discovery_items`, enqueue messages, publish campaigns, or call wallet providers. **The authenticated action is recorded in the admin audit log** with the source ID, success/failure and sanitized error code only; audit evidence is intentionally the sole D1 write. Upstream feed content and raw URLs are never included in that audit entry. Classification is a heuristic on short public metadata, **not** validation of an airdrop's eligibility or authenticity.
+
+Confirm the publisher's ownership, rights to ingest its feed, and the displayed source metadata before a **separate operator activation**. Empty preview results do not certify that the source is safe or useful. The optional preview is not a substitute for real Telegram device authentication or controlled production release.
 
 ## Operator workflow
 
@@ -28,7 +37,7 @@ Audit trails record the actor, action and sanitized source metadata, but not ful
 3. Open **Discovery** and inspect the source list, last fetch, error and new item counters.
 4. Confirm each publisher's official RSS/Atom/JSON Feed URL, HTTPS host, robots/ToS permission, editorial ownership, and trust level. No broad crawling and no automatically generated list of feeds.
 5. Register the feed. Newly registered sources are deliberately disabled, including for direct API callers. Do not combine registration and activation in one request.
-6. Enable only the reviewed feed, then optionally run **Ambil feed**. This places short metadata in `DISCOVERY_QUEUE`; downstream review still starts as `pending_review`.
+6. Preview the registered disabled source and verify the publisher, format and sample item metadata. Then **separately** enable only the reviewed feed and optionally run **Ambil feed**. This places short metadata in `DISCOVERY_QUEUE`; downstream review still starts as `pending_review`.
 7. Review candidate items via the existing moderated queue. Conversion is a private draft, not an automatic campaign publication.
 
 An empty source list is an **operational configuration gap**, not a scheduler failure. One UTC-minute Cloudflare trigger continues to run scheduled jobs at their previous cadences; existing database and queue bindings remain unchanged.
