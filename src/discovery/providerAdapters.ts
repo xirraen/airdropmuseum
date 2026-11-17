@@ -37,8 +37,9 @@ export function parseCryptoRankActivities(text){
   const title=cleanText(name+' — '+providerReward,240);
   const url=normalizeUrl('https://cryptorank.io/drophunting/'+key+'-activity'+row.id);
   const seconds=Number(row.lastStatusUpdate);
-  const published_at=Number.isFinite(seconds)&&seconds>0?
-   safeDate(new Date(seconds<1e12?seconds*1000:seconds).toISOString()):null;
+  const epoch=seconds<1e12?seconds*1000:seconds;
+  const published_at=Number.isFinite(epoch)&&epoch>0&&epoch<8640000000000000?
+   safeDate(new Date(epoch).toISOString()):null;
   return [{external_id:'cryptorank-v2:'+row.id,url,title,
    summary:cleanText('CryptoRank provider status: '+providerStatus+'. Reward: '+providerReward+'. Not independently confirmed; verify official project sources before publication.',500),
    published_at}];
