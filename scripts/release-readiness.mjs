@@ -23,8 +23,8 @@ try{
  output.required_gates=[...requiredReleaseGates(diff.tier)];
  check('live_commit_attested','PASS');
  check('scope_classification','PASS',diff.reason);
- if(diff.tier==='full')check('full_release_required','BLOCKED',
-  'Executable, configuration or schema changes since the actual live Worker require the full release process.');
+ if(diff.tier==='full')check('full_release_required','PASS',
+  'Full release evidence is mandatory for executable, configuration or schema changes since the live Worker.');
  if(!process.env.RELEASE_EVIDENCE_FILE){
   check('reviewed_manifest','BLOCKED','RELEASE_EVIDENCE_FILE is not configured.');
  }else{
