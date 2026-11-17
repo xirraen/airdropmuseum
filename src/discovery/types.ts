@@ -1,4 +1,5 @@
-export const SOURCE_TYPES = ['rss','atom','json_feed'];
+export const CRYPTORANK_SOURCE_URL='https://api.cryptorank.io/v2/drophunting/activities?limit=100';
+export const SOURCE_TYPES = ['rss','atom','json_feed','cryptorank_v2'];
 export const TRUST_LEVELS = ['high','medium','low'];
 export const CLASSIFICATIONS = ['airdrop','points','testnet','quest','claim','snapshot','unknown'];
 export const ITEM_STATUSES = ['pending_review','approved','rejected','converted','duplicate','error'];
@@ -40,6 +41,8 @@ export function validateSource(body){
  const name=cleanText(body.name,120),source_type=body.source_type,feed_url=normalizeUrl(body.feed_url),
  project_hint=cleanText(body.project_hint||'',120),trust_level=body.trust_level||'low';
  if(!name||!SOURCE_TYPES.includes(source_type)||!TRUST_LEVELS.includes(trust_level))throw new DiscoveryError('INVALID_SOURCE');
+ if(source_type==='cryptorank_v2'&&feed_url!==CRYPTORANK_SOURCE_URL)throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
+ if(source_type!=='cryptorank_v2'&&new URL(feed_url).hostname==='api.cryptorank.io')throw new DiscoveryError('PROVIDER_API_REQUIRED');
  return {name,source_type,feed_url,project_hint,trust_level,enabled:body.enabled===false||body.enabled===0?0:1};
 }
 export function safeDate(value){
