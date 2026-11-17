@@ -50,3 +50,68 @@ The ingestion runtime fails closed with `PROVIDER_LICENSE_REQUIRED` or `PROVIDER
 - CryptoRank uses API v2's documented `/drophunting/activities` endpoint with a single 100-item page capped to 40 queue entries. Pagination and v3 expansion require separate rate/credit/license review.
 - An empty provider feed is **not** replaced with fictional campaigns; public project API remains backed by real D1 campaigns.
 - This is not a claim of partner affiliation, automatic eligibility verification, project authorization or completed production deployment.
+
+
+## Multi-source opportunity research (18 November 2026)
+
+Research providers complement, but never replace, a project's official announcement.
+No source below auto-publishes a campaign or asks for wallet signatures.
+
+| Provider | Source role | Interface | Operational prerequisite | Poll cadence |
+| --- | --- | --- | --- | --- |
+| Airdrops.io | Aggregator reference | https://airdrops.io/feed/ (RSS) | Written reuse permission and AIRDROPS_IO_LICENSED=YES | 6 hours |
+| CoinGecko | Editorial airdrop research | https://www.coingecko.com/learn/category/airdrop-guides | Reference links only; no official airdrop-list API verified | Manual |
+| DeFiLlama | TVL research signal, not token verification | https://api.llama.fi/protocols (JSON adapter) | Commercial reuse terms reviewed and DEFILLAMA_DATA_LICENSED=YES | 24 hours |
+| CryptoRank | Drophunting metadata | https://api.cryptorank.io/v2/drophunting/activities?limit=100 (JSON adapter) | Licensed key and CRYPTORANK_API_LICENSED=YES | 6 hours |
+| RootData | Funding rounds (Plus/Pro) | https://api.rootdata.com/open/get_fac (JSON adapter) | Licensed key and ROOTDATA_API_LICENSED=YES | 24 hours |
+| RootData | Incentive events (Pro) | https://api.rootdata.com/open/get_event (JSON adapter) | Pro API key and ROOTDATA_API_LICENSED=YES | 24 hours |
+
+### Implementation details
+
+RootData requests use POST with server-side apikey and Content-Type: application/json.
+A funding request has body {"page":1,"page_size":10} and the incentive
+event request has body {"page":1,"page_size":10,"type":21}. There is no
+pagination loop. At most 10 items are requested per endpoint daily.
+Depending on actual billed responses, both endpoints at full capacity
+could use about 30 credits per day (funding 2 per row, events 1 per row).
+Do not activate without verifying quotas and explicit data reuse rights.
+
+DeFiLlama returns a bulk protocol list. The adapter allows up to
+10 MiB per response, selects up to 40 projects with TVL >= USD 5M and
+no token symbol reported IN THIS DATASET, labels token/airdrop status
+UNVERIFIED, and sends short metadata to private review. Missing symbol
+does not prove a token is unissued. High TVL or large funding does not
+establish probability of an airdrop. An open API is not automatically a
+commercial redistribution grant; keep this adapter off until reviewed.
+
+The five external sources are visible on the Home and Discovery pages
+as research reference links, separate from production D1 campaigns.
+CoinGecko is not scraped or treated as an official airdrop-list API.
+Only official project statements can support CONFIRMED. Source ingestion
+remains bounded, fingerprinted, deduplicated, and moderated.
+
+### Operator workflow
+
+First obtain permission and confirm plans, then configure Cloudflare
+Worker production secrets (never put keys in GitHub, feed URLs or D1):
+
+- ROOTDATA_API_KEY (secret), ROOTDATA_API_LICENSED set to YES only with a licence.
+- DEFILLAMA_DATA_LICENSED set to YES only after checking commercial rights.
+- Existing CRYPTORANK_API_KEY, CRYPTORANK_API_LICENSED and AIRDROPS_IO_LICENSED apply unchanged.
+
+Open the authenticated /admin Discovery tab, register a provider source
+as disabled using the exact URL/type above. Preview and verify the
+response, attribution and source reliability. Enable in a separate
+audited operation. Cron will enqueue candidate metadata, not publish
+campaigns. A review conversion creates a private draft.
+
+Test locally with npm test, npm run lint, npm run typecheck,
+npm run build, npm run test:runtime and npm run test:e2e. Before the
+next direct-production release, take a new encrypted D1 backup and
+perform a Wrangler dry-run. No staging is required by this feature.
+
+Official documentation:
+- RootData https://www.rootdata.com/api/doc
+- DeFiLlama https://github.com/DefiLlama/api-docs/blob/main/llms-free.txt
+- DefiLlama terms https://defillama.com/terms
+- CoinGecko https://www.coingecko.com/learn/category/airdrop-guides
