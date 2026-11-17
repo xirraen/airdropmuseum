@@ -11,6 +11,19 @@ export const VERSION='1.2.0';
 const LIMIT=1000000;
 const PUBLIC_CAMPAIGN_FIELDS=['name','title','symbol','chain','chains','category','desc','description','project_name','status','official_urls','slug','visibility','claim_deadline_at','snapshot_at','activity_start_at','activity_end_at','claim_opens_at','tasks'];
 const publicCampaignData=payload=>Object.fromEntries(PUBLIC_CAMPAIGN_FIELDS.filter(k=>Object.hasOwn(payload,k)).map(k=>[k,k==='tasks'?(Array.isArray(payload.tasks)?payload.tasks.filter(t=>typeof t==='string'&&t.length<=200).slice(0,30):[]):payload[k]]));
+// Shared public-project inventory for the API and privacy-preserving user state validation.
+const approvedProjects=async db=>{
+ const result=await db.prepare("SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN ('draft','pending_review','private_draft','unreviewed') AND json_extract(payload,'$.visibility')='public' AND source_url LIKE 'https://%' ORDER BY updated_at DESC LIMIT 100").all();
+ return (result.results||[]).map(row=>{
+  const p=publicCampaignData(JSON.parse(row.payload));
+  return {id:row.id,...p,name:p.name||p.project_name,source:row.source_url,reviewStatus:row.review_status,updatedAt:row.updated_at};
+ });
+};
+const userStateProjects=projects=>projects.map(p=>({
+ id:p.id,name:p.name,chain:Array.isArray(p.chains)?p.chains[0]||'Other':p.chain||'Other',
+ category:p.category||'Infra',symbol:'◇',website:p.source,sourceId:p.id,custom:false,
+ tasks:Array.isArray(p.tasks)&&p.tasks.length?p.tasks:['Tinjau sumber resmi dan catat hasil riset']
+}));
 export async function limitedText(request){if(Number(request.headers.get('Content-Length'))>LIMIT)throw Error('BODY_TOO_LARGE');if(!request.body)return '';const reader=request.body.getReader();const chunks=[];let size=0;for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>LIMIT){await reader.cancel();throw Error('BODY_TOO_LARGE')}chunks.push(value)}const out=new Uint8Array(size);let offset=0;for(const v of chunks){out.set(v,offset);offset+=v.byteLength}return new TextDecoder().decode(out)}
 export async function api(request,env={},headers={}){
  const url=new URL(request.url),path=url.pathname,head=request.method==='HEAD';
@@ -32,8 +45,7 @@ export async function api(request,env={},headers={}){
   const bad=method(['GET','HEAD']);if(bad)return bad;
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
   // No built-in campaigns: only reviewed, explicitly public D1 exhibits.
-  const rows=await env.DB.prepare("SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN ('draft','pending_review','private_draft','unreviewed') AND json_extract(payload,'$.visibility')='public' AND source_url LIKE 'https://%' ORDER BY updated_at DESC LIMIT 100").all();
-  return json({mode:'live',projects:rows.results.map(r=>({id:r.id,...publicCampaignData(JSON.parse(r.payload)),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at}))},200,{'Cache-Control':'public, max-age=60'});
+  return json({mode:'live',projects:await approvedProjects(env.DB)},200,{'Cache-Control':'public, max-age=60'});
  }
  if(path==='/api/exhibits'){const bad=method(['GET','HEAD']);if(bad)return bad;if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);const result=await env.DB.prepare('SELECT id,payload,source_url,review_status,updated_at FROM am_core_exhibits WHERE review_status NOT IN (\'draft\',\'pending_review\',\'private_draft\',\'unreviewed\') AND json_extract(payload,\'$.visibility\')=\'public\' ORDER BY updated_at DESC LIMIT 100').all();return json({mode:'shared_catalog',exhibits:result.results.map(r=>({id:r.id,data:publicCampaignData(JSON.parse(r.payload)),source:r.source_url,reviewStatus:r.review_status,updatedAt:r.updated_at})),verification:'Per-exhibit evidence required; listing is not an endorsement.'})}
  if(!['/api/me/state','/api/me/rewards','/api/me/referral','/api/me/qualify'].includes(path))return json({error:'NOT_FOUND'},404);
@@ -57,7 +69,7 @@ export async function api(request,env={},headers={}){
  if(!(request.headers.get('Content-Type')||'').startsWith('application/json'))return json({error:'JSON_REQUIRED'},415);
  const match=request.headers.get('If-Match');if(!/^"?\d+"?$/.test(match||''))return json({error:'REVISION_REQUIRED'},428);
  const revision=Number(match.replaceAll('"',''));if(!Number.isSafeInteger(revision)||revision<0)return json({error:'INVALID_REVISION'},400);
- let state;try{state=backup(await limitedText(request),[])}catch(err){if(err.message==='BODY_TOO_LARGE')throw err;return json({error:'INVALID_STATE'},400)}
+ let state;try{state=backup(await limitedText(request),userStateProjects(await approvedProjects(env.DB)))}catch(err){if(err.message==='BODY_TOO_LARGE')throw err;return json({error:'INVALID_STATE'},400)}
  const payload=JSON.stringify(state);let result;
  if(revision===0)result=await env.DB.prepare('INSERT INTO am_core_user_state(user_id,payload,revision) VALUES(?,?,1) ON CONFLICT(user_id) DO NOTHING').bind(user.id,payload).run();
  else result=await env.DB.prepare('UPDATE am_core_user_state SET payload=?, revision=revision+1, updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND revision=?').bind(payload,user.id,revision).run();
