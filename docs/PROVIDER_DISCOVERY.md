@@ -1,6 +1,6 @@
 # Permission-gated provider discovery (production-first)
 
-This integration never copies arbitrary Airdrops.io pages or scrapes CryptoRank HTML. It uses the existing private Discovery review queue, audit-protected Admin Console and existing D1 schema. No staging and no schema migration are required.
+This integration never copies arbitrary Airdrops.io pages or scrapes CryptoRank HTML. It uses the existing private Discovery review queue, audit-protected Admin Console and existing D1 schema. No database schema migration is required, but this is a full application release: isolated staging, recovery, security, and operator approval gates still apply (docs/RISK_SCOPED_RELEASE.md).
 
 ## Legal and operational prerequisites
 
@@ -106,9 +106,13 @@ audited operation. Cron will enqueue candidate metadata, not publish
 campaigns. A review conversion creates a private draft.
 
 Test locally with npm test, npm run lint, npm run typecheck,
-npm run build, npm run test:runtime and npm run test:e2e. Before the
-next direct-production release, take a new encrypted D1 backup and
-perform a Wrangler dry-run. No staging is required by this feature.
+npm run build, npm run test:runtime and npm run test:e2e. Before any
+production release, finish the full 13-gate release policy: an encrypted
+backup of current D1, verified isolated restore and erasure replay,
+physical-device WalletConnect tests, staging and rollback verification,
+commit-bound release evidence, dependency audit, binding checks and
+explicit operator approval. Do not deploy while release issues #24 or
+#39 remain unresolved. A Wrangler dry-run alone is insufficient.
 
 Official documentation:
 - RootData https://www.rootdata.com/api/doc
