@@ -15,7 +15,7 @@ Both sources start **disabled** through authenticated `POST /api/admin/discovery
 | Name | source_type | feed_url | Poll cadence |
 | --- | --- | --- | --- |
 | CryptoRank — Licensed Drophunting API | `json_feed` | `https://api.cryptorank.io/v2/drophunting/activities?limit=100` | at most 1 request / 6 hours |
-| Airdrops.io — Permissioned RSS | `rss` | `https://airdrops.io/feed/` | normal feed cadence (25 min), conditional HTTP requests where supported |
+| Airdrops.io — Permissioned RSS | `rss` | `https://airdrops.io/feed/` | at most 1 request / 6 hours, conditional HTTP requests where supported |
 
 CryptoRank is parsed as its official JSON API even though `source_type=json_feed` is used for D1 compatibility. An arbitrary JSON feed never receives the API key. Alternate CryptoRank API URL/hostname or an HTML search/scraper endpoint is rejected. Airdrops.io requests are restricted to the exact feed URL and do not traverse the rest of the site.
 
