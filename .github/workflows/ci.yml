@@ -33,6 +33,8 @@ jobs:
       - name: Build production worker
         run: npm run build
       - name: Verify committed release artifacts match fresh build
+        id: generated_artifacts
+        continue-on-error: true
         run: |
           set -eu
           if ! git diff --quiet -- \
@@ -72,6 +74,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Mobile and desktop browser E2E
         run: npm run test:e2e
+      - name: Enforce generated release artifacts (fail closed)
+        if: ${{ always() && steps.generated_artifacts.outcome != 'success' }}
+        run: |
+          echo "::error::Generated production artifacts must match the reviewed Git commit. Commit validated build outputs."
+          exit 1
       - name: Enforce production dependency audit (fail closed)
         if: ${{ always() && steps.dependency_audit.outcome != 'success' }}
         run: |
