@@ -11,6 +11,8 @@ const row = {
   category:'nft',
   status:'speculative',
   official_urls:'["https://docs.layer3.xyz/"]',
+  risk_flags:'[]',
+  source_evidence:'[]',
   description:'Dokumentasi aktivitas, bukan konfirmasi airdrop token baru.',
   eligibility_rules:JSON.stringify([{id:'review',rule_type:'custom_manual_task',parameters:{instruction:'Periksa syarat Activation di situs resmi'}}]),
   updated_at:'2026-11-17T00:00:00.000Z'
