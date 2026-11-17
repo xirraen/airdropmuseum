@@ -6,7 +6,6 @@ const HTTPS_CRYPTORANK_HOSTS=new Set(['cryptorank.io','www.cryptorank.io','api.c
 export function requireProviderRights(source,env={}){
  const url=new URL(normalizeUrl(source.feed_url));
  if(url.href===CRYPTORANK_SOURCE_URL&&source.source_type==='json_feed'){
-  if(url.href!==CRYPTORANK_SOURCE_URL)throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
   if(env.CRYPTORANK_API_LICENSED!=='YES')throw new DiscoveryError('PROVIDER_LICENSE_REQUIRED',403);
   if(typeof env.CRYPTORANK_API_KEY!=='string'||!env.CRYPTORANK_API_KEY.trim())throw new DiscoveryError('PROVIDER_KEY_REQUIRED',503);
   return 'cryptorank';
