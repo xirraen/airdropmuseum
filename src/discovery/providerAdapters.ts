@@ -1,4 +1,4 @@
-import {cleanText,normalizeUrl,safeDate,DiscoveryError,CRYPTORANK_SOURCE_URL,ROOTDATA_EVENTS_URL,DEFILLAMA_PROTOCOLS_URL} from './types.ts';
+import {cleanText,normalizeUrl,safeDate,DiscoveryError,CRYPTORANK_SOURCE_URL,ROOTDATA_EVENTS_URL,ROOTDATA_FUNDING_URL,DEFILLAMA_PROTOCOLS_URL} from './types.ts';
 
 const HTTPS_AIRDROPS_HOSTS=new Set(['airdrops.io','www.airdrops.io']);
 const HTTPS_CRYPTORANK_HOSTS=new Set(['cryptorank.io','www.cryptorank.io','api.cryptorank.io']);
@@ -11,10 +11,10 @@ export function requireProviderRights(source,env={}){
   return 'cryptorank';
  }
  if(HTTPS_CRYPTORANK_HOSTS.has(url.hostname))throw new DiscoveryError('PROVIDER_API_REQUIRED',403);
- if(url.href===ROOTDATA_EVENTS_URL&&source.source_type==='json_feed'){
+ if([ROOTDATA_EVENTS_URL,ROOTDATA_FUNDING_URL].includes(url.href)&&source.source_type==='json_feed'){
   if(env.ROOTDATA_API_LICENSED!=='YES')throw new DiscoveryError('PROVIDER_LICENSE_REQUIRED',403);
   if(typeof env.ROOTDATA_API_KEY!=='string'||!env.ROOTDATA_API_KEY.trim())throw new DiscoveryError('PROVIDER_KEY_REQUIRED',503);
-  return 'rootdata';
+  return url.href===ROOTDATA_FUNDING_URL?'rootdata_funding':'rootdata';
  }
  if(url.hostname==='api.rootdata.com')throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT',403);
  if(url.href===DEFILLAMA_PROTOCOLS_URL&&source.source_type==='json_feed'){
@@ -118,12 +118,32 @@ export function parseRootDataIncentiveEvents(text){
  });
 }
 
+export function parseRootDataFundingRounds(text){
+ let body;try{body=JSON.parse(text);}catch{throw new DiscoveryError('INVALID_PROVIDER_RESPONSE',502);}
+ if(body?.result!==200||!Array.isArray(body?.data?.items))throw new DiscoveryError('INVALID_PROVIDER_RESPONSE',502);
+ return body.data.items.slice(0,10).flatMap(row=>{
+  if(!row||!Number.isSafeInteger(Number(row.id))||Number(row.id)<=0)return [];
+  const url=safeResource(row.source_url);
+  const name=cleanText(firstString(row.name),120);
+  if(!url||!name)return [];
+  const amount=number(row.amount);
+  const round=cleanText(firstString(row.rounds,'unspecified round'),60);
+  return [{external_id:'rootdata-funding:'+row.id,url,
+   title:cleanText(name+' — '+round+' funding',240),
+   summary:cleanText('RootData funding disclosure: '+name+'; '+round+
+    '; amount USD '+(amount?Math.round(amount).toLocaleString('en-US'):'undisclosed')+
+    '. Funding does NOT imply any future airdrop, token issuance or eligibility. Verify cited announcement.',500),
+   published_at:safeDate(row.published_time&&/^\d{4}-\d{2}$/.test(row.published_time)?row.published_time+'-01':row.published_time)
+  }];
+ });
+}
+
 export async function downloadRootData(url,env,fetcher){
- if(url!==ROOTDATA_EVENTS_URL)throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
+ if(![ROOTDATA_EVENTS_URL,ROOTDATA_FUNDING_URL].includes(url))throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
  const response=await fetcher(url,{
   method:'POST',redirect:'error',cache:'no-store',
   headers:{Accept:'application/json','Content-Type':'application/json',apikey:env.ROOTDATA_API_KEY,language:'en'},
-  body:JSON.stringify({page:1,page_size:10,type:21}),
+  body:JSON.stringify(url===ROOTDATA_FUNDING_URL?{page:1,page_size:10}:{page:1,page_size:10,type:21}),
   signal:AbortSignal.timeout(12000)
  });
  if(response.status===401||response.status===403)throw new DiscoveryError('PROVIDER_AUTH_FAILED',502);
