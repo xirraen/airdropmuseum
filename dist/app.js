@@ -9,6 +9,13 @@ import {projects as catalog} from './catalog.js?v=1.2.1';
 import {createInvitePayload} from './referral.js?v=1.2.0';
 import {normalize,cleanProject,backup,mergeBackup,icsEvent} from './model.js?v=1.2.0';
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const RESEARCH_PROVIDERS=[
+ ['Airdrops.io','https://airdrops.io/','Katalog airdrop · referensi berizin'],
+ ['CoinGecko','https://www.coingecko.com/learn/category/airdrop-guides','Panduan editorial · pemeriksaan manual'],
+ ['DeFiLlama','https://defillama.com/protocols','TVL protokol · sinyal, bukan bukti airdrop'],
+ ['CryptoRank','https://cryptorank.io/drophunting/','Drophunting · API berlisensi'],
+ ['RootData','https://www.rootdata.com/fundraising','Funding dan incentive events · API berlisensi']
+];
 let raw;try{raw=JSON.parse(localStorage.getItem('airdrop-museum-v1'))||{}}catch{raw={}}
 const formerSamples=['prism','orbit','nova','echo','aether','canvas'];
 try{
@@ -216,13 +223,7 @@ document.addEventListener('submit',e=>{if(e.target.id!=='campaign-form')return;e
 
 configurePlatform({toast,getState:()=>state,onAuth:()=>{cloudRevision=null},openHub:()=>navigate('hub')});
 
-const RESEARCH_PROVIDERS=[
- ['Airdrops.io','https://airdrops.io/','Katalog airdrop · referensi berizin'],
- ['CoinGecko','https://www.coingecko.com/learn/category/airdrop-guides','Panduan editorial · pemeriksaan manual'],
- ['DeFiLlama','https://defillama.com/protocols','TVL protokol · sinyal, bukan bukti airdrop'],
- ['CryptoRank','https://cryptorank.io/drophunting/','Drophunting · API berlisensi'],
- ['RootData','https://www.rootdata.com/fundraising','Funding dan incentive events · API berlisensi']
-];
+
 function researchProviderLinks(){return `<section class="panel shared-catalog"><div class="section-title"><div><span class="eyeline">CROSS-SOURCE RESEARCH / READ ONLY</span><h2>Referensi riset eksternal</h2></div></div><p>Sumber untuk menemukan dan membandingkan kandidat. Tidak ada status, hak klaim, atau reward yang dianggap terverifikasi hanya karena terdaftar di situs lain.</p>${RESEARCH_PROVIDERS.map(([name,url,desc])=>`<article class="shared-source-row"><div><b>${esc(name)}</b><p>${esc(desc)}</p></div><a class="text-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Lihat sumber ↗</a></article>`).join('')}</section>`}
 
 function sharedCatalogPanel(){return `<section class="panel shared-catalog"><div class="section-title"><div><span class="eyeline">PUBLIC SOURCE DIRECTORY / API V1</span><h2>Catatan sumber bersama</h2></div><a class="text-btn" href="/api/v1/airdrops" target="_blank" rel="noopener">API publik ↗</a></div>${sharedCatalogStatus==='loading'?'<p role="status">Memuat katalog publik…</p>':sharedCatalogStatus==='error'?'<p role="alert">Katalog editorial belum tersedia. Muat ulang untuk mencoba kembali.</p>':sharedCatalog.length?sharedCatalog.map(p=>`<article class="shared-source-row"><div><b>${esc(p.name)}</b><p>${esc(p.chain||'Jaringan belum dicatat')} · ${esc(p.source||'Belum ada sumber')}</p><small>Catatan sumber · bukan endorsement</small></div><button class="secondary" data-import-shared="${esc(p.id)}">Salin ke riset saya</button></article>`).join(''):'<p>Belum ada catatan editorial yang diterbitkan moderator. Lihat direktori kampanye dari database produksi.</p>'}</section>`}
