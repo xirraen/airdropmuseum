@@ -60,6 +60,14 @@ test('refuse known production, missing token and invalid targets before any Clou
  assert.equal(calls,0);
 });
 
+test('restore target accepts up to five minutes of clock skew but fails closed beyond it',async()=>{
+ const allowed=mocked({db:{uuid:database,name:'airdrop-museum-restore-drill-clock',created_at:new Date(now+60000).toISOString()}});
+ const report=await verify(allowed);
+ assert.equal(report.status,'READ_ONLY_TARGET_ISOLATION_CHECK_PASSED');
+ const future=mocked({db:{uuid:database,name:'airdrop-museum-restore-drill-clock',created_at:new Date(now+6*60000).toISOString()}});
+ await assert.rejects(verify(future),/RESTORE_TARGET_NOT_RECENTLY_CREATED/);
+});
+
 test('database metadata must identify a newly created dedicated restore drill',async()=>{
  for(const db of [
   {uuid:original,name:'airdrop-museum-restore-drill',created_at:created},
