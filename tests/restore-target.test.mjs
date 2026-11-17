@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,readdirSync,rmSync,mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+import {encryptBackup} from '../scripts/backup-crypto.mjs';
 import {verifyRestoreTarget} from '../scripts/verify-restore-target.mjs';
 
 const account='9880cf2cc57c2096f8c3ae253d9852e6';
@@ -94,6 +99,46 @@ test('403 or Cloudflare error is a release blocker, not an empty Worker inventor
    accountId:account,databaseId:database,token:'TEST_TOKEN',fetcher
   }),/RESTORE_TARGET_CLOUDFLARE_READ_FAILED/);
  }
+});
+
+test('plaintext is removed when restore aborts after authenticated decryption but before remote SQL',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'am-restore-plaintext-cleanup-'));
+ const folder=join(dir,'backup'),keys=join(dir,'keys');
+ mkdirSync(folder,{mode:0o700});mkdirSync(keys,{mode:0o700});
+ try{
+  const keyId=randomUUID(),keyFile=join(keys,keyId+'.key');
+  const input=join(folder,'source.sql'),sealed=join(folder,'production.sql.aesgcm');
+  writeFileSync(input,'CREATE TABLE sample (id INTEGER);',{mode:0o600});
+  const crypt=encryptBackup(input,sealed,keyFile);
+  rmSync(input);
+  writeFileSync(join(folder,'manifest.json'),JSON.stringify({
+   format:'private-d1-backup-v1',local_restore_verified:true,
+   source_database_id:original,sha256:'0'.repeat(64),
+   encrypted:{...crypt,file:'production.sql.aesgcm',key_id:keyId}
+  }));
+  const preload=join(dir,'mock-cloudflare.mjs');
+  writeFileSync(preload,[
+   "const target='"+database+"';",
+   "globalThis.fetch=async (url,options)=>{",
+   "if(options.method!=='GET')throw Error('FORBIDDEN_REMOTE_WRITE');",
+   "const result=url.endsWith('/d1/database/'+target)?",
+   " {uuid:target,name:'airdrop-museum-restore-drill-ci',created_at:new Date().toISOString()}:",
+   " url.endsWith('/workers/scripts')?[]:null;",
+   "if(result===null)throw Error('UNEXPECTED_REMOTE_ENDPOINT');",
+   "return {ok:true,json:async()=>({success:true,result})};",
+   "};"
+  ].join('\n'));
+  const child=spawnSync(process.execPath,['--import',preload,'scripts/restore-private-backup.mjs'],{
+   encoding:'utf8',timeout:30000,
+   env:{...process.env,PRIVATE_BACKUP_DIRECTORY:folder,PRIVATE_BACKUP_KEY_ROOT:keys,
+    RESTORE_STAGING_D1_ID:database,RESTORE_STAGING_ACCOUNT_ID:account,CLOUDFLARE_API_TOKEN:'TEST_TOKEN'}
+  });
+  assert.equal(child.status,1,child.stderr);
+  assert.match(child.stderr,/BACKUP_HASH_INVALID/);
+  assert.ok(readdirSync(folder).includes('restore-target-preflight.json'));
+  assert.equal(readdirSync(folder).filter(f=>/^restore-.*\.sql$/.test(f)).length,0);
+  assert.equal(readdirSync(folder).filter(f=>f==='production.sql').length,0);
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
 test('operator restore must verify live target before and immediately before import',()=>{
