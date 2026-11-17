@@ -15,6 +15,10 @@ test('navigation renders every personal screen without overflow or browser error
  expect(errors).toEqual([]);
 });
 test('campaign modal opens and closes and catalog navigation stays available',async({page})=>{
+ // A real public D1 campaign record represented as a test-only API fixture.
+ await page.route('**/api/projects',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+  mode:'live',projects:[{id:'campaign-layer3-cube-research',sourceId:'layer3-cube-research',name:'Layer3 — CUBE & Activations (riset)',symbol:'◈',category:'NFT',chain:'Base',desc:'Riset dari dokumentasi resmi, bukan janji airdrop.',status:'speculative',website:'https://docs.layer3.xyz/',tasks:['Periksa ketentuan resmi'],custom:false}]
+ })}));
  await page.goto('/#explore',{waitUntil:'domcontentloaded'});
  await page.locator('[data-open]').first().click();
  await expect(page.locator('#detail')).toBeVisible();
@@ -32,11 +36,14 @@ test('Decision Lab and admin deny unauthorized personal access',async({page,requ
  expect((await request.get('/api/aggregator/portfolio')).status()).toBeGreaterThanOrEqual(400);
 });
 
-test('catalog backend failure is visible and never replaced with a successful empty response',async({page})=>{
+test('catalog backend failure is visible and never replaced with fictional campaigns',async({page})=>{
+ await page.route('**/api/projects',r=>r.fulfill({status:503,contentType:'application/json',body:'{"error":"SERVICE_UNAVAILABLE"}'}));
  await page.route('**/api/v1/airdrops',r=>r.fulfill({status:503,contentType:'application/json',body:'{"error":"SERVICE_UNAVAILABLE"}'}));
  await page.goto('/',{waitUntil:'domcontentloaded'});
- await expect(page.getByRole('alert')).toContainText('Katalog publik tidak tersedia');
- await expect(page.getByRole('heading',{name:'Koleksi riset lokal'})).toBeVisible();
+ await expect(page.getByRole('alert')).toContainText('Katalog editorial belum tersedia');
+ await expect(page.locator('.amu-campaign-grid')).toContainText('Katalog publik tidak tersedia');
+ await expect(page.getByRole('heading',{name:'Direktori kampanye & riset'})).toBeVisible();
+ await expect(page.locator('[data-open]')).toHaveCount(0);
 });
 
 test('profile form persists a real local update across reload',async({page})=>{
