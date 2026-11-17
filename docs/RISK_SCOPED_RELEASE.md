@@ -1,12 +1,20 @@
 # Risk-scoped production release policy — Airdrop Museum
 
-Updated 17 November 2026. Production target: Cloudflare Worker `airdrop-museum` in account C0; data: D1 `airdrop-museum` (schema 17).
+Updated 18 November 2026. Production target: Cloudflare Worker `airdrop-museum` in account C0; data: D1 `airdrop-museum` (schema 17).
+
+## Live reconciliation — 18 November 2026 (read-only Cloudflare API)
+
+The **current**, 100%-traffic production deployment is `0fd82ac4-7201-4eb7-a3c9-4fa26d66076f`, uploaded via Wrangler on **17 November 2026 at 16:43:32 UTC**. Its version ID is `4765aba5-550e-40de-a945-2c287d4ec328`. That version has only a `workers/triggered_by=version_upload` annotation: **no verified Git SHA or artifact SHA-256**. Therefore **do not attribute the current Worker to any branch or GitHub commit**, and do not treat the earlier Nov-4 deployment as the current release base.
+
+Read-only checks on 18 November confirmed D1 `am_core_schema` version **17**, `PRAGMA quick_check=ok` and **zero** `PRAGMA foreign_key_check` rows. Worker settings exposed the expected D1, R2, KV and queue bindings and named runtime secrets, but these observations are **not** backup, recovery, rollout, or complete secret validation. No Worker or database mutations occurred during this reconciliation.
+
+Because the current version lacks origin annotations, `npm run release:readiness` must continue to fail with `PRODUCTION_BASELINE_UNATTESTED`. An operator must establish real source lineage independently and review the full release evidence; fabricating an annotation or assuming an old commit is prohibited. The full release runner now requires the **currently observed deployment UUID** in private reviewed evidence, rechecks for concurrent deployments before any migration and immediately before publication, and attaches an exact source commit plus SHA-256 of the committed `src/worker.mjs` using Wrangler `--message`/`--tag` on any later approved deployment. That digest describes the **source artifact**, not a claim to hash Cloudflare's internal compiled bundle. The post-deploy check must verify new deployment ID, SHA and source digest. The existing **13 release gates remain mandatory**.
 
 ## Why deployment kept stalling
 
 The historical `scripts/release-production.mjs` treated any change as a 13-gate full release, even if the only changes were presentation CSS. This is unnecessarily restrictive for a *genuinely style-only* update. But the current repository has a **mixed backlog**, and those full-release controls are justified whenever a release also changes Worker logic, Admin API, discovery, auth, wallet, D1 schema, bindings or runtime dependencies.
 
-On 17 November the **actual live** Worker deployment `26576456-e095-4329-acee-37f4a2e70b27` reported:
+Earlier on 17 November, the **then-current** Worker deployment `26576456-e095-4329-acee-37f4a2e70b27` reported:
 
 - production commit: `eb29226ae06b9320085410a971f4e01a4c35d950`;
 - deployed source artifact annotation SHA-256: `059dfc775c87bc9bf5b7fd5bae494b5d8b2aa34c0134fdc5ef52a35658ee3852`;
@@ -67,4 +75,4 @@ Continue using `scripts/release-production.mjs` with its original 13 gates and p
 - Complete current-candidate staging and real WalletConnect device lifecycle. No signing, approval, transaction, claim, seed phrase or private key.
 - Reconciliation of current production bindings, secret inventory, migration history, current-commit rollback/load and explicit owner review.
 
-**Status on 17 November 2026: FULL RELEASE BLOCKED.** Source integration CI PASS and live D1 `PRAGMA quick_check` PASS are not substitutes for private recovery or authorized production deployment.
+**Status on 18 November 2026: FULL RELEASE BLOCKED; the latest production commit is not attested.** Source integration CI PASS and live D1 `PRAGMA quick_check` PASS are not substitutes for private recovery or authorized production deployment.
