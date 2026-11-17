@@ -14,6 +14,24 @@ test('navigation renders every personal screen without overflow or browser error
  }
  expect(errors).toEqual([]);
 });
+test('external research links are visible and isolated on home and discovery',async({page})=>{
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/#home',{waitUntil:'domcontentloaded'});
+ for(const route of ['home','explore']){
+  if(route==='explore')await page.locator('[data-nav="explore"]:visible').first().click();
+  const panel=page.locator('section.shared-catalog').filter({has:page.getByRole('heading',{name:'Referensi riset eksternal'})});
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('article.shared-source-row')).toHaveCount(5);
+  for(const link of await panel.locator('article.shared-source-row a').all()){
+   expect(new URL(await link.getAttribute('href')).protocol).toBe('https:');
+   await expect(link).toHaveAttribute('target','_blank');
+   await expect(link).toHaveAttribute('rel',/noopener noreferrer/);
+  }
+  await expect(panel).toContainText('Tidak ada status, hak klaim, atau reward yang dianggap terverifikasi');
+ }
+ expect(errors).toEqual([]);
+});
+
 test('campaign modal opens and closes and catalog navigation stays available',async({page})=>{
  // A real public D1 campaign record represented as a test-only API fixture.
  await page.route('**/api/projects',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
