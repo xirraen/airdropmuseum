@@ -1,8 +1,56 @@
-export const projects=[
-{id:'prism',name:'Prism Network',symbol:'◈',category:'Testnet',chain:'Ethereum',color:'#bc9aff',glow:'#693dc370',desc:'Perspektif baru untuk blockchain yang skalabel dan saling terhubung.',featured:true,tasks:['Baca pengantar proyek','Jelajahi panduan testnet','Coba aplikasi demo','Catat pengalaman Anda']},
-{id:'orbit',name:'Orbit Protocol',symbol:'◎',category:'DeFi',chain:'Arbitrum',color:'#73d8f3',glow:'#237a9960',desc:'Jelajahi ekosistem keuangan terdesentralisasi yang lebih terbuka.',featured:true,tasks:['Baca ringkasan protokol','Tinjau dokumentasi risiko','Jelajahi antarmuka','Tambahkan catatan riset']},
-{id:'nova',name:'Nova Worlds',symbol:'✧',category:'Gaming',chain:'Polygon',color:'#e8b880',glow:'#a66b3160',desc:'Bermain, menjelajah, dan mengoleksi di dunia yang dibangun komunitasnya.',featured:true,tasks:['Jelajahi konsep gim','Baca panduan komunitas','Lihat pratinjau dunia','Simpan temuan Anda']},
-{id:'echo',name:'Echo Intelligence',symbol:'✳',category:'AI',chain:'Base',color:'#7de3bf',glow:'#286b6260',desc:'Ekosistem terbuka di persimpangan AI dan Web3.',tasks:['Baca ringkasan riset','Jelajahi ringkasan produk','Tinjau peta jalan','Catat riset Anda']},
-{id:'aether',name:'Aether Layer',symbol:'△',category:'Infra',chain:'Ethereum',color:'#9bafff',glow:'#3e4e9960',desc:'Fondasi bagi generasi aplikasi berikutnya.',tasks:['Baca panduan arsitektur','Jelajahi sumber daya pengembang','Tinjau ekosistem','Simpan riset Anda']},
-{id:'canvas',name:'Canvas Collective',symbol:'❖',category:'NFT',chain:'Solana',color:'#f0a5d2',glow:'#8b3e7460',desc:'Ruang digital untuk seni, kolektor, dan komunitas kreatif.',tasks:['Jelajahi konsep koleksi','Baca panduan kreator','Jelajahi galeri','Simpan temuan pilihan Anda']}
-];
+// The public catalogue is hydrated from the production D1 campaign API.
+// Never ship fictional campaigns or replace a failed request with mock data.
+export const projects = [];
+
+const CATEGORY = Object.freeze({
+  nft: 'NFT', points: 'Points', retroactive: 'Retroactive',
+  testnet: 'Testnet', defi: 'DeFi', gaming: 'Gaming', gamefi: 'GameFi',
+  infrastructure: 'Infra', rwa: 'RWA', community: 'Community'
+});
+const NETWORK = Object.freeze({
+  'eip155:1': 'Ethereum', 'eip155:8453': 'Base',
+  'eip155:42161': 'Arbitrum', 'eip155:10': 'Optimism',
+  'eip155:137': 'Polygon', solana: 'Solana', offchain: 'Off-chain'
+});
+const string = (value, limit = 200) =>
+  typeof value === 'string' ? value.trim().slice(0, limit) : '';
+const array = value => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return [];
+  try { const data = JSON.parse(value); return Array.isArray(data) ? data : []; }
+  catch { return []; }
+};
+const safeUrl = url => {
+  try { const value = new URL(url); return value.protocol === 'https:' ? value.href : ''; }
+  catch { return ''; }
+};
+
+// Produces a local *research view* of a real D1 campaign, never a verified claim.
+export function projectFromCampaign(c) {
+  if (!c || typeof c !== 'object' || !/^[a-z0-9-]{1,80}$/.test(c.id || '')) return null;
+  const name = string(c.name, 80);
+  if (!name) return null;
+  const chains = array(c.chain).map(x => NETWORK[x] || string(x, 40)).filter(Boolean);
+  const urls = array(c.official_urls).map(safeUrl).filter(Boolean);
+  const tasks = array(c.eligibility_rules)
+    .map(rule => string(rule?.parameters?.instruction, 200))
+    .filter(Boolean).slice(0, 30);
+  if (!tasks.length) tasks.push('Tinjau ketentuan dan status terbaru dari sumber resmi');
+  return {
+    id: 'campaign-' + c.id,
+    sourceId: c.id,
+    name,
+    website: urls[0] || '',
+    official_urls: urls,
+    tasks,
+    symbol: '◈',
+    category: CATEGORY[String(c.category || '').toLowerCase()] || 'Research',
+    chain: chains.join(', ') || 'Jaringan belum dicatat',
+    desc: string(c.description, 500),
+    status: string(c.status, 32),
+    updatedAt: string(c.updated_at, 40),
+    color: '#4c92da',
+    featured: false,
+    custom: false
+  };
+}
