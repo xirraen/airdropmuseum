@@ -16,7 +16,7 @@ export async function download(url,headers,fetcher){
  for(let i=0;i<3;i++){
   const response=await fetcher(url,{method:'GET',headers,redirect:'manual',signal:AbortSignal.timeout(9000)});
   if([301,302,303,307,308].includes(response.status)){
-   if(i===2)throw new DiscoveryError('FETCH_FAILED',502);
+   if(i===2||new URL(url).hostname==='airdrops.io')throw new DiscoveryError('FETCH_FAILED',502);
    const next=response.headers.get('location');if(!next)throw new DiscoveryError('FETCH_FAILED',502);
    const nextUrl=normalizeUrl(new URL(next,url).href);
    if(new URL(nextUrl).hostname!==new URL(url).hostname)throw new DiscoveryError('FETCH_FAILED',502);
