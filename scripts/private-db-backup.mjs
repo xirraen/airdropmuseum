@@ -16,8 +16,13 @@ for(let dir=base;;dir=dirname(dir)){if(existsSync(join(dir,'.git')))throw Error(
 chmodSync(base,0o700);
 const keyRoot=process.env.PRIVATE_BACKUP_KEY_ROOT||join(homedir(),'.local','share','airdropmuseum-private-backup-keys');
 if(!isAbsolute(keyRoot))throw Error('ABSOLUTE_BACKUP_KEY_ROOT_REQUIRED');
-mkdirSync(keyRoot,{recursive:true,mode:0o700});const keys=realpathSync(keyRoot),keyRel=relative(base,keys);
-if(!keyRel||!(keyRel==='..'||keyRel.startsWith('..'+sep)||isAbsolute(keyRel)))throw Error('BACKUP_KEYS_MUST_BE_SEPARATE');
+mkdirSync(keyRoot,{recursive:true,mode:0o700});
+const keys=realpathSync(keyRoot),keyRel=relative(base,keys),backupRel=relative(keys,base);
+const outside=rel=>rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel);
+// Both directions matter: a key directory that contains the backup directory
+// also violates separation even when the keys themselves are stored above it.
+if(!keyRel||!backupRel||!outside(keyRel)||!outside(backupRel))
+ throw Error('BACKUP_KEYS_MUST_BE_SEPARATE');
 for(let dir=keys;;dir=dirname(dir)){if(existsSync(join(dir,'.git')))throw Error('BACKUP_KEY_ROOT_IS_GIT_REPOSITORY');if(dirname(dir)===dir)break;}
 chmodSync(keys,0o700);
 const folder=join(base,new Date().toISOString().replaceAll(':','-')+'-'+crypto.randomUUID());
