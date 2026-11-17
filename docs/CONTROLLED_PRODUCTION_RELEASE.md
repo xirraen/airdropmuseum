@@ -1,3 +1,5 @@
+> **Release policy update — 17 November 2026:** The live Worker is still from 4 November (annotated Git SHA `eb29226ae06b9320085410a971f4e01a4c35d950`) and D1 is **already schema 17**, with one verified enabled superadmin. The earlier schema-5 paragraph below is historical, not the current production status. The new [risk-scoped release policy](RISK_SCOPED_RELEASE.md) introduces a **separate, narrow CSS-only** operator release with a verified active production base, six reviewed evidence gates and no database migrations. The current `main` includes 72 newer commits covering APIs/config/source changes and is **not eligible** for that path; it still requires this **full 13-gate** procedure. Never relabel a mixed application release as a CSS release.
+>
 > Current deployed staging, measured results and unresolved gates: [STAGING_VERIFICATION.md](STAGING_VERIFICATION.md). Partial staging does not authorize live release.
 
 # Canonical controlled production release
