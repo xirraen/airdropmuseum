@@ -7,7 +7,6 @@ import {trustRoutes} from './trust/trustRoutes.ts';
 import {rewardsApi} from './rewards-api.mjs';
 import {verifyTelegram} from './auth.mjs';
 import {backup} from '../dist/model.js';
-import {projects} from '../dist/catalog.js';
 export const VERSION='1.2.0';
 const LIMIT=1000000;
 const PUBLIC_CAMPAIGN_FIELDS=['name','title','symbol','chain','chains','category','desc','description','project_name','status','official_urls','slug','visibility','claim_deadline_at','snapshot_at','activity_start_at','activity_end_at','claim_opens_at','tasks'];
@@ -52,7 +51,9 @@ export async function api(request,env={},headers={}){
  if(!(request.headers.get('Content-Type')||'').startsWith('application/json'))return json({error:'JSON_REQUIRED'},415);
  const match=request.headers.get('If-Match');if(!/^"?\d+"?$/.test(match||''))return json({error:'REVISION_REQUIRED'},428);
  const revision=Number(match.replaceAll('"',''));if(!Number.isSafeInteger(revision)||revision<0)return json({error:'INVALID_REVISION'},400);
- let state;try{state=backup(await limitedText(request),projects)}catch(err){if(err.message==='BODY_TOO_LARGE')throw err;return json({error:'INVALID_STATE'},400)}
+ const catalogueRows=await env.DB.prepare("SELECT id,payload FROM am_core_exhibits WHERE review_status NOT IN ('draft','pending_review','private_draft','unreviewed') AND json_extract(payload,'$.visibility')='public' ORDER BY updated_at DESC LIMIT 100").all();
+ const liveProjects=catalogueRows.results.map(r=>{const p=publicCampaignData(JSON.parse(r.payload));return {id:'source-'+r.id,tasks:p.tasks?.length?p.tasks:['Periksa sumber dan aturan resmi']};});
+ let state;try{state=backup(await limitedText(request),liveProjects)}catch(err){if(err.message==='BODY_TOO_LARGE')throw err;return json({error:'INVALID_STATE'},400)}
  const payload=JSON.stringify(state);let result;
  if(revision===0)result=await env.DB.prepare('INSERT INTO am_core_user_state(user_id,payload,revision) VALUES(?,?,1) ON CONFLICT(user_id) DO NOTHING').bind(user.id,payload).run();
  else result=await env.DB.prepare('UPDATE am_core_user_state SET payload=?, revision=revision+1, updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND revision=?').bind(payload,user.id,revision).run();
