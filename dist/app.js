@@ -233,7 +233,9 @@ async function refreshLiveCatalog(){
   if(data.mode!=='live'||!Array.isArray(data.projects))throw Error('INVALID_LIVE_CATALOG');
   const valid=data.projects.filter(p=>p&&typeof p.id==='string'&&p.id.startsWith('campaign-')&&typeof p.name==='string'&&Array.isArray(p.tasks)&&p.tasks.length);
   catalog.splice(0,catalog.length,...valid);
-  state=normalize(state,catalog);
+  // Rehydrate saved real-campaign research from persisted storage after the async catalogue loads.
+  // Merge with in-memory edits made while loading; never resurrect removed fictional seed projects.
+  state=mergeBackup(state,normalize(raw,catalog),catalog);
   liveCatalogStatus='ready';
  }catch{
   catalog.splice(0,catalog.length);
