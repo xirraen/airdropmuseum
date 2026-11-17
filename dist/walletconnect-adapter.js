@@ -50,7 +50,10 @@ export async function createWalletConnect(options,{factory=UniversalProvider,sho
    if(closed||!universal.session)throw Error('WALLET_DISCONNECTED');
    if(universal.session.expiry!==undefined&&(!Number.isFinite(universal.session.expiry)||universal.session.expiry<=Date.now()/1000))throw Error('WALLET_SESSION_EXPIRED');
    if(['eth_accounts','eth_requestAccounts'].includes(args.method))return sessionAccounts(universal.session,chain);
-   if(args.method==='eth_chainId')return '0x'+chain.toString(16);
+   if(args.method==='eth_chainId'){
+    if(!sessionAccounts(universal.session,chain).length)throw Error('CHAIN_NOT_APPROVED');
+    return '0x'+chain.toString(16);
+   }
    if(args.method==='wallet_switchEthereumChain'){
     const parameter=args.params?.[0];
     const value=parameter&&typeof parameter==='object'&&'chainId' in parameter?parameter.chainId:undefined;
@@ -58,6 +61,7 @@ export async function createWalletConnect(options,{factory=UniversalProvider,sho
     if(!sessionAccounts(universal.session,Number(value)).length)throw Error('CHAIN_NOT_APPROVED');
     await universal.request(args,'eip155:'+chain);chain=Number(value);universal.setDefaultChain('eip155:'+chain);return null;
    }
+   if(!sessionAccounts(universal.session,chain).length)throw Error('CHAIN_NOT_APPROVED');
    return universal.request(args,'eip155:'+chain);
   },
   on:(/** @type {string} */ event,/** @type {import('./wallet-provider.js').WalletListener} */ listener)=>universal.on(event,listener),removeListener:(/** @type {string} */ event,/** @type {import('./wallet-provider.js').WalletListener} */ listener)=>universal.removeListener(event,listener),
