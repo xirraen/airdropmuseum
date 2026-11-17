@@ -16,7 +16,8 @@ export function verifyReleaseEvidence(file,commit,now=Date.now(),tier='full'){
  if(manifest.commit!==commit||!/^[a-f0-9]{40}$/.test(commit))throw Error('RELEASE_COMMIT_MISMATCH');
  if(tier==='presentation'){
   if(manifest.tier!=='presentation'||!/^[a-f0-9]{40}$/.test(manifest.production_base_commit||'')||
-     !/^[a-f0-9-]{36}$/.test(manifest.production_deployment_id||''))
+     !/^[a-f0-9-]{36}$/.test(manifest.production_deployment_id||'')||
+     !/^[a-f0-9]{64}$/.test(manifest.production_base_artifact_sha256||''))
    throw Error('PRESENTATION_BASELINE_REQUIRED');
  }else if(tier!=='full'||(manifest.tier&&manifest.tier!=='full'))throw Error('RELEASE_TIER_MISMATCH');
  const timestamp=Date.parse(manifest.verified_at);
