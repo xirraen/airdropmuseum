@@ -54,17 +54,53 @@ export async function verifyRestoreTarget({
   throw Error('RESTORE_WORKER_INVENTORY_INVALID');
  // A partial list or failed settings request must NEVER be treated as isolation.
  const seen=new Set();
+ let activeVersionsChecked=0;
  for(const script of scripts){
   if(seen.has(script.id))throw Error('RESTORE_WORKER_INVENTORY_INVALID');
   seen.add(script.id);
   const settings=await cloudflareGet(fetcher,token,base+'/workers/scripts/'+encodeURIComponent(script.id)+'/settings');
   if(!Array.isArray(settings?.bindings))throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
-  for(const binding of settings.bindings){
-   if(binding?.type!=='d1')continue;
-   if(typeof binding.id!=='string'||!UUID.test(binding.id))throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
-   if(binding.id.toLowerCase()===databaseId.toLowerCase())
-    throw Error('RESTORE_DATABASE_ALREADY_BOUND_TO_WORKER');
+  const checkBindings=bindings=>{
+   if(!Array.isArray(bindings))throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
+   for(const binding of bindings){
+    if(binding?.type!=='d1'&&binding?.type!=='d1_database')continue;
+    const bound=binding.id||binding.database_id;
+    if(typeof bound!=='string'||!UUID.test(bound))
+     throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
+    if(bound.toLowerCase()===databaseId.toLowerCase())
+     throw Error('RESTORE_DATABASE_ALREADY_BOUND_TO_WORKER');
+   }
+  };
+  checkBindings(settings.bindings);
+  // The script's latest settings do not necessarily describe the version
+  // currently receiving requests. Inspect every positive-traffic version.
+  const prefix=base+'/workers/scripts/'+encodeURIComponent(script.id);
+  const live=await cloudflareGet(fetcher,token,prefix+'/deployments');
+  const current=live?.deployments?.[0];
+  if(!current?.id||!Array.isArray(current.versions)||current.versions.length>20||
+     !current.versions.length)
+   throw Error('RESTORE_ACTIVE_DEPLOYMENT_UNVERIFIED');
+  const percentages=current.versions.map(v=>Number(v?.percentage));
+  if(percentages.some(n=>!Number.isFinite(n)||n<0||n>100)||
+     Math.abs(percentages.reduce((a,b)=>a+b,0)-100)>0.001)
+   throw Error('RESTORE_ACTIVE_DEPLOYMENT_UNVERIFIED');
+  const versionIds=new Set();
+  for(let index=0;index<current.versions.length;index++){
+   if(percentages[index]===0)continue;
+   const versionId=current.versions[index].version_id;
+   if(!UUID.test(versionId||'')||versionIds.has(versionId))
+    throw Error('RESTORE_ACTIVE_DEPLOYMENT_UNVERIFIED');
+   versionIds.add(versionId);
+   const version=await cloudflareGet(fetcher,token,prefix+'/versions/'+encodeURIComponent(versionId));
+   if(version?.id!==versionId)throw Error('RESTORE_ACTIVE_DEPLOYMENT_UNVERIFIED');
+   checkBindings(version.resources?.bindings);
+   activeVersionsChecked++;
   }
+  if(!activeVersionsChecked)throw Error('RESTORE_ACTIVE_DEPLOYMENT_UNVERIFIED');
+  // A routing change during the inspection invalidates the isolation finding.
+  const reread=await cloudflareGet(fetcher,token,prefix+'/deployments');
+  if(reread?.deployments?.[0]?.id!==current.id)
+   throw Error('RESTORE_ACTIVE_DEPLOYMENT_CHANGED');
  }
  return {
   status:'READ_ONLY_TARGET_ISOLATION_CHECK_PASSED',
@@ -73,6 +109,7 @@ export async function verifyRestoreTarget({
   database_name:database.name,
   created_at:database.created_at,
   worker_scripts_checked:scripts.length,
+  active_worker_versions_checked:activeVersionsChecked,
   all_current_worker_bindings_checked:true,
   no_worker_deployed_or_database_written:true,
   note:'Does not replace independent empty-database, private-network, staging isolation, erasure replay and human approval checks.'
