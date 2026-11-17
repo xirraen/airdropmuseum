@@ -28,6 +28,18 @@ async function cloudflareGet(fetcher,token,path){
  return value.result;
 }
 
+function checkRestoreBindings(bindings,databaseId){
+   if(!Array.isArray(bindings))throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
+   for(const binding of bindings){
+    if(binding?.type!=='d1'&&binding?.type!=='d1_database')continue;
+    const bound=binding.id||binding.database_id;
+    if(typeof bound!=='string'||!UUID.test(bound))
+     throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
+    if(bound.toLowerCase()===databaseId.toLowerCase())
+     throw Error('RESTORE_DATABASE_ALREADY_BOUND_TO_WORKER');
+   }
+}
+
 /**
  * Read-only target audit to run immediately before the first remote D1 write.
  * Returns non-sensitive evidence metadata; never returns secret values.
@@ -53,25 +65,14 @@ export async function verifyRestoreTarget({
     scripts.some(s=>typeof s?.id!=='string'||!/^[a-z0-9_][a-z0-9_-]*$/.test(s.id)))
   throw Error('RESTORE_WORKER_INVENTORY_INVALID');
  // A partial list or failed settings request must NEVER be treated as isolation.
- const seen=new Set();
+ const seen=new Set(),snapshots=new Map();
  let activeVersionsChecked=0;
  for(const script of scripts){
   if(seen.has(script.id))throw Error('RESTORE_WORKER_INVENTORY_INVALID');
   seen.add(script.id);
   const settings=await cloudflareGet(fetcher,token,base+'/workers/scripts/'+encodeURIComponent(script.id)+'/settings');
   if(!Array.isArray(settings?.bindings))throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
-  const checkBindings=bindings=>{
-   if(!Array.isArray(bindings))throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
-   for(const binding of bindings){
-    if(binding?.type!=='d1'&&binding?.type!=='d1_database')continue;
-    const bound=binding.id||binding.database_id;
-    if(typeof bound!=='string'||!UUID.test(bound))
-     throw Error('RESTORE_WORKER_BINDINGS_UNVERIFIED');
-    if(bound.toLowerCase()===databaseId.toLowerCase())
-     throw Error('RESTORE_DATABASE_ALREADY_BOUND_TO_WORKER');
-   }
-  };
-  checkBindings(settings.bindings);
+  checkRestoreBindings(settings.bindings,databaseId);
   // The script's latest settings do not necessarily describe the version
   // currently receiving requests. Inspect every positive-traffic version.
   const prefix=base+'/workers/scripts/'+encodeURIComponent(script.id);
@@ -93,13 +94,30 @@ export async function verifyRestoreTarget({
    versionIds.add(versionId);
    const version=await cloudflareGet(fetcher,token,prefix+'/versions/'+encodeURIComponent(versionId));
    if(version?.id!==versionId)throw Error('RESTORE_ACTIVE_DEPLOYMENT_UNVERIFIED');
-   checkBindings(version.resources?.bindings);
+   checkRestoreBindings(version.resources?.bindings,databaseId);
    activeVersionsChecked++;
   }
-  if(!activeVersionsChecked)throw Error('RESTORE_ACTIVE_DEPLOYMENT_UNVERIFIED');
+  snapshots.set(script.id,JSON.stringify(current));
   // A routing change during the inspection invalidates the isolation finding.
   const reread=await cloudflareGet(fetcher,token,prefix+'/deployments');
   if(reread?.deployments?.[0]?.id!==current.id)
+   throw Error('RESTORE_ACTIVE_DEPLOYMENT_CHANGED');
+ }
+ // A Worker inspected early may change while later Workers are being read.
+ // Recheck account membership, latest bindings and all deployment snapshots
+ // after the complete first pass. No read-only check can prevent a deployment
+ // after it returns: the operator still must exclude concurrent deploys/imports.
+ const finalScripts=await cloudflareGet(fetcher,token,base+'/workers/scripts');
+ if(!Array.isArray(finalScripts)||finalScripts.length!==seen.size||
+    new Set(finalScripts.map(s=>s?.id)).size!==seen.size||
+    finalScripts.some(s=>!seen.has(s?.id)))
+  throw Error('RESTORE_WORKER_INVENTORY_CHANGED');
+ for(const script of finalScripts){
+  const prefix=base+'/workers/scripts/'+encodeURIComponent(script.id);
+  const settings=await cloudflareGet(fetcher,token,prefix+'/settings');
+  checkRestoreBindings(settings?.bindings,databaseId);
+  const live=await cloudflareGet(fetcher,token,prefix+'/deployments');
+  if(JSON.stringify(live?.deployments?.[0])!==snapshots.get(script.id))
    throw Error('RESTORE_ACTIVE_DEPLOYMENT_CHANGED');
  }
  return {

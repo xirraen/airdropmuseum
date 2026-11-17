@@ -66,7 +66,7 @@ test('fresh private restore D1 is checked against every current Worker binding u
  assert.equal(report.worker_scripts_checked,2);
  assert.equal(report.active_worker_versions_checked,2);
  assert.equal(report.no_worker_deployed_or_database_written,true);
- assert.equal(mock.calls.length,10);
+ assert.equal(mock.calls.length,15);
  assert.ok(mock.calls.every(c=>c.options.method==='GET'));
  assert.equal(report.database_id,database);
 });
@@ -204,4 +204,28 @@ test('operator restore must verify live target before and immediately before imp
  const importAt=script.indexOf("run(['d1','execute','DB','--remote','--file',dump],'import')");
  assert.ok(first>=0&&second>first&&importAt>second);
  assert.match(script,/STAGING_NOT_EMPTY/);
+});
+
+test('restore isolation rechecks earlier Workers after the rest of the account is inspected',async()=>{
+ const mock=mocked(),fetcher=mock.fetcher;let laterWorkerInspected=false;
+ mock.fetcher=async(url,options)=>{
+  const response=await fetcher(url,options);
+  if(url.endsWith('/other-active-app/settings'))laterWorkerInspected=true;
+  if(laterWorkerInspected&&url.endsWith('/airdrop-museum/deployments'))return {ok:true,json:async()=>({success:true,result:{deployments:[{id:'changed-after-first-worker',versions:[]}]}})};
+  return response;
+ };
+ await assert.rejects(verify(mock),/RESTORE_ACTIVE_DEPLOYMENT_CHANGED/);
+});
+
+test('restore isolation refuses newly created Workers and late changes to latest bindings',async()=>{
+ for(const change of ['inventory','bindings']){
+  const mock=mocked(),fetcher=mock.fetcher;let inventories=0,settings=0;
+  mock.fetcher=async(url,options)=>{
+   const response=await fetcher(url,options);
+   if(change==='inventory'&&url.endsWith('/workers/scripts')&&++inventories>1)return {ok:true,json:async()=>({success:true,result:[{id:'airdrop-museum'},{id:'other-active-app'},{id:'new-worker'}]})};
+   if(change==='bindings'&&url.endsWith('/airdrop-museum/settings')&&++settings>1)return {ok:true,json:async()=>({success:true,result:{bindings:[{type:'d1',id:database}]}})};
+   return response;
+  };
+  await assert.rejects(verify(mock),/RESTORE_WORKER_INVENTORY_CHANGED|RESTORE_DATABASE_ALREADY_BOUND_TO_WORKER/);
+ }
 });
