@@ -48,7 +48,7 @@ test('RootData incentive event and financing produce evidence-only pending candi
  assert.equal(event.length,1);
  assert.equal(event[0].external_id,'rootdata-event:10001');
  assert.equal(event[0].url,'https://example.org/blog/incentive');
- assert.match(event[0].summary,/not proof/i);
+ assert.match(event[0].summary,/not evidence/i);
  const funding=parseRootDataFundingRounds(rootFunding);
  assert.equal(funding.length,1);
  assert.equal(funding[0].external_id,'rootdata-funding:500');
