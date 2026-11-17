@@ -89,7 +89,7 @@ export function parseDefiLlamaProtocols(text){
   url:normalizeUrl('https://defillama.com/protocol/'+row.slug),
   title:cleanText(row.name,240),
   summary:cleanText('DeFiLlama TVL (USD): '+Math.round(number(row.tvl)).toLocaleString('en-US')+
-   '. Token symbol absent from this dataset; token issuance and airdrop status UNVERIFIED. Category: '+
+   '. Token symbol absent from this dataset; token issuance and distribution status UNVERIFIED. Category: '+
    cleanText(firstString(row.category,'Unknown'),50)+'. Verify with project official sources.',500),
   published_at:null
  }));
@@ -112,7 +112,7 @@ export function parseRootDataIncentiveEvents(text){
    url,
    title:cleanText(name+' — '+(eventTitle||'Incentive event'),240),
    summary:cleanText('RootData event type 21 (incentive). Project: '+name+
-    '. Incentive metadata only; not proof of airdrop eligibility, token distribution or claim.',500),
+    '. Incentive metadata only; not evidence of token allocation or eligibility.',500),
    published_at:safeDate(row.hap_date)
   }];
  });
@@ -132,7 +132,7 @@ export function parseRootDataFundingRounds(text){
    title:cleanText(name+' — '+round+' funding',240),
    summary:cleanText('RootData funding disclosure: '+name+'; '+round+
     '; amount USD '+(amount?Math.round(amount).toLocaleString('en-US'):'undisclosed')+
-    '. Funding does NOT imply any future airdrop, token issuance or eligibility. Verify cited announcement.',500),
+    '. Funding does NOT imply future token issuance or eligibility. Verify cited announcement.',500),
    published_at:safeDate(row.published_time&&/^\d{4}-\d{2}$/.test(row.published_time)?row.published_time+'-01':row.published_time)
   }];
  });
