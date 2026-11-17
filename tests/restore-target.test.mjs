@@ -18,9 +18,12 @@ function mocked({
  db={uuid:database,name:'airdrop-museum-restore-drill-20261118',created_at:created},
  workers=[{id:'airdrop-museum'},{id:'other-active-app'}],
  bindings={'airdrop-museum':[{type:'d1',name:'DB',id:original}],
-  'other-active-app':[{type:'plain_text',name:'NOT_D1'}]}
+  'other-active-app':[{type:'plain_text',name:'NOT_D1'}]},
+ activeBindings={},
+ changeDeployments=false,
+ activePercentages=[100]
 }={}){
- const calls=[];
+ const calls=[],perWorkerReads=new Map();
  const fetcher=async(url,options)=>{
   calls.push({url,options});
   assert.equal(options.method,'GET');
@@ -28,9 +31,26 @@ function mocked({
   assert.ok(url.startsWith('https://api.cloudflare.com/client/v4/accounts/'+account));
   if(url.endsWith('/d1/database/'+database))return {ok:true,json:async()=>({success:true,result:db})};
   if(url.endsWith('/workers/scripts'))return {ok:true,json:async()=>({success:true,result:workers})};
-  const name=url.slice(url.lastIndexOf('/scripts/')+9).split('/settings')[0];
-  if(url.endsWith('/settings')&&Object.hasOwn(bindings,name))
+  const match=/\/workers\/scripts\/([^/]+)\/(settings|deployments|versions\/[^/]+)$/.exec(url);
+  const name=match?.[1],endpoint=match?.[2];
+  if(endpoint==='settings'&&Object.hasOwn(bindings,name))
    return {ok:true,json:async()=>({success:true,result:{bindings:bindings[name]}})};
+  if(endpoint==='deployments'&&Object.hasOwn(bindings,name)){
+   const seen=(perWorkerReads.get(name)||0)+1;
+   perWorkerReads.set(name,seen);
+   const deploymentId=changeDeployments&&seen>1?'ffffffff-ffff-ffff-ffff-ffffffffffff':'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+   const result={deployments:[{id:deploymentId,versions:activePercentages.map((percentage,i)=>({
+    version_id:i===0?'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb':'cccccccc-cccc-cccc-cccc-cccccccccccc',percentage
+   }))}]};
+   return {ok:true,json:async()=>({success:true,result})};
+  }
+  if(endpoint?.startsWith('versions/')&&Object.hasOwn(bindings,name)){
+   const versionId=endpoint.slice('versions/'.length);
+   const index=versionId.startsWith('bbbb')?0:1;
+   const defined=Object.hasOwn(activeBindings,name)?activeBindings[name]:bindings[name];
+   const versionBindings=Array.isArray(defined?.[0])?defined[index]:defined;
+   return {ok:true,json:async()=>({success:true,result:{id:versionId,resources:{bindings:versionBindings}}})};
+  }
   return {ok:false};
  };
  return {fetcher,calls};
@@ -44,8 +64,9 @@ test('fresh private restore D1 is checked against every current Worker binding u
  const report=await verify(mock);
  assert.equal(report.status,'READ_ONLY_TARGET_ISOLATION_CHECK_PASSED');
  assert.equal(report.worker_scripts_checked,2);
+ assert.equal(report.active_worker_versions_checked,2);
  assert.equal(report.no_worker_deployed_or_database_written,true);
- assert.equal(mock.calls.length,4);
+ assert.equal(mock.calls.length,10);
  assert.ok(mock.calls.every(c=>c.options.method==='GET'));
  assert.equal(report.database_id,database);
 });
@@ -84,7 +105,31 @@ test('refuse restore into database referenced by any active Worker in same accou
  const mock=mocked({bindings:{'airdrop-museum':[{type:'d1',name:'DB',id:original}],
   'other-active-app':[{type:'d1',name:'DB',id:database}]}});
  await assert.rejects(verify(mock),/RESTORE_DATABASE_ALREADY_BOUND_TO_WORKER/);
- assert.equal(mock.calls.length,4);
+ assert.equal(mock.calls.length,7);
+});
+
+test('deny private D1 restore when a traffic-serving Worker version is bound despite safe latest settings',async()=>{
+ const mock=mocked({activeBindings:{'airdrop-museum':[{type:'d1',id:database}],
+  'other-active-app':[{type:'plain_text'}]}});
+ await assert.rejects(verify(mock),/RESTORE_DATABASE_ALREADY_BOUND_TO_WORKER/);
+ assert.ok(mock.calls.some(c=>c.url.includes('/versions/')));
+});
+
+test('deny private D1 restore when a minority of split-traffic versions is bound',async()=>{
+ const mock=mocked({activePercentages:[90,10],
+  activeBindings:{'airdrop-museum':[[{type:'d1',id:original}],[{type:'d1',id:database}]],
+   'other-active-app':[[{type:'plain_text'}],[{type:'plain_text'}]]}});
+ await assert.rejects(verify(mock),/RESTORE_DATABASE_ALREADY_BOUND_TO_WORKER/);
+});
+
+test('deny missing live Worker version metadata and concurrent routing changes',async()=>{
+ for(const mock of [
+  mocked({activeBindings:{'airdrop-museum':null,'other-active-app':[]}}),
+  mocked({changeDeployments:true}),
+  mocked({activePercentages:[70]})
+ ]){
+  await assert.rejects(verify(mock),/RESTORE_WORKER_BINDINGS_UNVERIFIED|RESTORE_ACTIVE_DEPLOYMENT_CHANGED|RESTORE_ACTIVE_DEPLOYMENT_UNVERIFIED/);
+ }
 });
 
 test('fail closed on unverified, duplicate or malformed Worker inventory and bindings',async()=>{
