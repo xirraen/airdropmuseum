@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {normalize,backup,mergeBackup} from '../dist/model.js';import {projects} from '../dist/catalog.js';
+import {normalize,backup,mergeBackup} from '../dist/model.js';import {projects} from './fixtures/sample-projects.mjs';
 import {dateOnly,sourceURL,cleanCampaign,updateCampaign,filterDirectory,radarEvents,campaignCalendar} from '../dist/campaigns.js';import {researchPack} from '../dist/hunter.js';
 const p=projects[0],p2=projects[1],now=new Date(2026,9,28,12),data={status:'live',source:'https://example.org/rules',snapshot:'2026-10-30',deadline:'2026-11-02',gasUSD:0,difficulty:'beginner',requirements:'Read official rules and allowed networks.'};
 test('campaign dates reject impossible dates and source URLs reject credentials or active schemes',()=>{assert.equal(dateOnly('2026-02-30'),'');assert.equal(dateOnly('2028-02-29'),'2028-02-29');for(const url of ['javascript:alert(1)','http://example.org','https://user:password@example.org'])assert.throws(()=>sourceURL(url));assert.equal(cleanCampaign({gasUSD:''}).gasUSD,null);assert.equal(cleanCampaign({gasUSD:-5}).gasUSD,null);assert.equal(cleanCampaign({gasUSD:0}).gasUSD,0)});

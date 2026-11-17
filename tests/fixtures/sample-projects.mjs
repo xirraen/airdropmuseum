@@ -1,0 +1,9 @@
+/** Test-only legacy catalogue fixtures; never bundle in production. */
+export const projects=[
+{id:'prism',name:'Prism Network',symbol:'◈',category:'Testnet',chain:'Ethereum',color:'#bc9aff',glow:'#693dc370',desc:'Perspektif baru untuk blockchain yang skalabel dan saling terhubung.',featured:true,tasks:['Baca pengantar proyek','Jelajahi panduan testnet','Coba aplikasi demo','Catat pengalaman Anda']},
+{id:'orbit',name:'Orbit Protocol',symbol:'◎',category:'DeFi',chain:'Arbitrum',color:'#73d8f3',glow:'#237a9960',desc:'Jelajahi ekosistem keuangan terdesentralisasi yang lebih terbuka.',featured:true,tasks:['Baca ringkasan protokol','Tinjau dokumentasi risiko','Jelajahi antarmuka','Tambahkan catatan riset']},
+{id:'nova',name:'Nova Worlds',symbol:'✧',category:'Gaming',chain:'Polygon',color:'#e8b880',glow:'#a66b3160',desc:'Bermain, menjelajah, dan mengoleksi di dunia yang dibangun komunitasnya.',featured:true,tasks:['Jelajahi konsep gim','Baca panduan komunitas','Lihat pratinjau dunia','Simpan temuan Anda']},
+{id:'echo',name:'Echo Intelligence',symbol:'✳',category:'AI',chain:'Base',color:'#7de3bf',glow:'#286b6260',desc:'Ekosistem terbuka di persimpangan AI dan Web3.',tasks:['Baca ringkasan riset','Jelajahi ringkasan produk','Tinjau peta jalan','Catat riset Anda']},
+{id:'aether',name:'Aether Layer',symbol:'△',category:'Infra',chain:'Ethereum',color:'#9bafff',glow:'#3e4e9960',desc:'Fondasi bagi generasi aplikasi berikutnya.',tasks:['Baca panduan arsitektur','Jelajahi sumber daya pengembang','Tinjau ekosistem','Simpan riset Anda']},
+{id:'canvas',name:'Canvas Collective',symbol:'❖',category:'NFT',chain:'Solana',color:'#f0a5d2',glow:'#8b3e7460',desc:'Ruang digital untuk seni, kolektor, dan komunitas kreatif.',tasks:['Jelajahi konsep koleksi','Baca panduan kreator','Jelajahi galeri','Simpan temuan pilihan Anda']}
+];

@@ -34,7 +34,7 @@ test('all seven reference screens are connected to the existing app',()=>{
 });
 test('UX uses actual local research data and does not fabricate wallet eligibility',()=>{
  assert.match(app,/state\.saved\.includes\(p\.id\)/);
- assert.match(app,/Contoh fiktif/);
+ assert.match(app,/Kampanye publik/);assert.doesNotMatch(app,/Contoh fiktif/);
  assert.match(app,/Manual check/);
  assert.match(app,/Scan otomatis belum tersedia/);
  assert.match(app,/seed phrase/);

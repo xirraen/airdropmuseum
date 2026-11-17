@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {normalize,backup,mergeBackup} from '../dist/model.js';import {projects} from '../dist/catalog.js';
+import {normalize,backup,mergeBackup} from '../dist/model.js';import {projects} from './fixtures/sample-projects.mjs';
 import {addProof,compass,cleanBrief,cleanHunts,safeProofURL,researchPack,compareProofs,briefReadiness} from '../dist/hunter.js';import {claimQuest,xpTotal} from '../dist/rewards.js';
 const p=projects[0],now=new Date('2026-10-27T12:00:00Z');
 const proof={kind:'source',label:'Rules reviewed',url:'https://example.org/rules',note:'Reviewed scope and deadline; eligibility remains unconfirmed.'};
