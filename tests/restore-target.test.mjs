@@ -167,7 +167,7 @@ test('plaintext is removed when restore aborts after authenticated decryption bu
   writeFileSync(join(folder,'manifest.json'),JSON.stringify({
    format:'private-d1-backup-v1',local_restore_verified:true,
    source_database_id:original,sha256:'0'.repeat(64),
-   encrypted:{...crypt,file:'production.sql.aesgcm',key_id:keyId}
+   encrypted:{...crypt,plaintext_sha256:'0'.repeat(64),file:'production.sql.aesgcm',key_id:keyId}
   }));
   const preload=join(dir,'mock-cloudflare.mjs');
   writeFileSync(preload,[
