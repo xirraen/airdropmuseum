@@ -34,6 +34,30 @@ test('protocol adapter negotiates only read methods and disconnects cleanly',asy
  await assert.rejects(()=>p.request({method:'wallet_switchEthereumChain',params:[{chainId:'0xa'}]}),/UNSUPPORTED/);
  assert.equal(listeners.has('display_uri'),false);await p.disconnect();assert.equal(disconnected,true);
 });
+test('chainChanged never selects unsupported, unapproved or expired session chains',async()=>{
+ const listeners=new Map(),session={expiry:Math.floor(Date.now()/1000)+3600,
+  namespaces:{eip155:{accounts:['eip155:1:'+address,'eip155:8453:'+address]}}};
+ let transportCalls=0;
+ const universal={session,on:(name,handler)=>listeners.set(name,handler),removeListener:name=>listeners.delete(name),
+  request:async()=>{transportCalls++;throw Error('TRANSPORT_MUST_NOT_BE_CALLED');},async disconnect(){}};
+ const p=await createWalletConnect({projectId},{factory:{init:async()=>universal}});
+ const changed=listeners.get('chainChanged');assert.equal(typeof changed,'function');
+ assert.equal(await p.request({method:'eth_chainId'}),'0x1');
+ for(const event of ['eip155:42161','eip155:137','eip155:11155111','NaN',true,{chainId:'0x2105'}]){
+  changed(event);assert.equal(await p.request({method:'eth_chainId'}),'0x1');
+ }
+ changed('eip155:8453');assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
+ session.expiry=1;changed('eip155:1');
+ session.expiry=Math.floor(Date.now()/1000)+3600;
+ assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
+ session.namespaces.eip155.accounts=['eip155:8453:'+address];
+ changed('eip155:1');assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
+ session.namespaces.eip155.accounts=['malformed-session-account'];
+ changed('eip155:1');assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
+ assert.equal(transportCalls,0);
+ await p.disconnect();changed('eip155:1');
+ await assert.rejects(()=>p.request({method:'eth_chainId'}),/DISCONNECTED/);
+});
 test('initialization fails closed for missing project ID without network access',async()=>{
  let touched=false;await assert.rejects(()=>createWalletConnect({projectId:''},{factory:{init:()=>{touched=true}}}),/PROJECT_ID/);assert.equal(touched,false);
 });
