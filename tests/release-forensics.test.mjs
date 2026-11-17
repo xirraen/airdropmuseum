@@ -31,6 +31,18 @@ test('source map parser accepts multipart content without accepting malformed or
  assert.throws(()=>sourceAssets('not a generated Worker'),/GENERATED_ASSETS_UNAVAILABLE/);
 });
 
+test('binary static assets with null compression are compared byte-for-byte',()=>{
+ const binary=Buffer.from([0,1,2,127,128,255]);
+ const worker=makeWorker({'/brand.jpg':{body:binary.toString('base64'),encoding:null,type:'image/jpeg'}});
+ const map=mkMap(worker);
+ const tracked={'src/api.mjs':gitBlobSha('export const api = 1;'),
+  'src/worker.mjs':gitBlobSha(worker),'dist/brand.jpg':gitBlobSha(binary)};
+ const result=compareSourceMap(map,tracked);
+ assert.equal(result.embedded_assets_matched,1);
+ assert.equal(result.tracked_sources_matched,2);
+ assert.deepEqual(result.embedded_asset_mismatches,[]);
+});
+
 test('read-only comparator reports stale generated files and never infers an attested Git source',()=>{
  const worker=makeWorker({'/app.js':encoded('console.log(1)'),' /bad':encoded('bad')});
  const map=mkMap(worker);
