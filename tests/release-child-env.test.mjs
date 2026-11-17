@@ -54,3 +54,28 @@ test('operator release uses an offline environment for npm install/tests/build/a
  assert.match(source,/migrations','apply'.*\{cloudAccess:true\}/);
  assert.match(source,/Deploy versioned Worker with source provenance',\{cloudAccess:true\}/);
 });
+
+test('Wrangler custom builds run with sanitized credentials even from a cloud-enabled parent',async()=>{
+ const {mkdtempSync,mkdirSync,copyFileSync,writeFileSync,rmSync}=await import('node:fs');
+ const {tmpdir}=await import('node:os');const {join,resolve}=await import('node:path');
+ const {spawnSync}=await import('node:child_process');const root=mkdtempSync(join(tmpdir(),'am-custom-build-env-'));
+ try{
+  mkdirSync(join(root,'scripts'));
+  for(const name of ['build-worker-offline.mjs','release-child-env.mjs'])copyFileSync(resolve('scripts',name),join(root,'scripts',name));
+  writeFileSync(join(root,'scripts','build-worker.mjs'),"console.log(JSON.stringify({token:process.env.CLOUDFLARE_API_TOKEN,backup:process.env.PRIVATE_BACKUP_KEY_ROOT,approval:process.env.AIRDROP_PRESENTATION_RELEASE,ci:process.env.CI}));");
+  const result=spawnSync(process.execPath,['scripts/build-worker-offline.mjs'],{cwd:root,encoding:'utf8',env:{...process.env,CLOUDFLARE_API_TOKEN:'SYNTHETIC_TOKEN',PRIVATE_BACKUP_KEY_ROOT:'/synthetic/keys',AIRDROP_PRESENTATION_RELEASE:'APPROVED'}});
+  assert.equal(result.status,0,result.stderr);assert.deepEqual(JSON.parse(result.stdout),{ci:'true'});
+  const config=JSON.parse(readFileSync('wrangler.jsonc','utf8'));
+  assert.equal(config.build.command,'node scripts/build-worker-offline.mjs');
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
+
+test('presentation release isolates offline subprocesses and grants auth only to remote checks',()=>{
+ const source=readFileSync('scripts/release-presentation.mjs','utf8');
+ assert.match(source,/import \{releaseChildEnv\} from '\.\/release-child-env\.mjs'/);
+ assert.match(source,/env:releaseChildEnv\(process\.env,\{cloudAccess\}\)/);
+ assert.match(source,/const run=\(tool,args,label,\{cloudAccess=false\}=\{\}\)/);
+ assert.match(source,/scripts\/verify-production-bindings\.mjs.*\{cloudAccess:true\}/);
+ assert.match(source,/Style-only Worker deployment',\{cloudAccess:true\}/);
+ assert.match(source,/--command',sql\],\{cloudAccess:true\}/);
+});
