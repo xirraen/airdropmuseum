@@ -13,7 +13,7 @@ export function parseNameStatus(raw){
  if(fields.length%2)throw Error('RELEASE_DIFF_INVALID');
  for(let i=0;i<fields.length;i+=2){
   const status=fields[i],path=fields[i+1];
-  if(!/^[ACDMRTUXB?][0-9]*$/.test(status)||!path||path.startsWith('/')||path.includes('..'))
+  if(!/^[AMD]$/.test(status)||!path||path.startsWith('/')||path.includes('..'))
    throw Error('RELEASE_DIFF_INVALID');
   changes.push({status,path});
  }
