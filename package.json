@@ -16,7 +16,9 @@
     "release:forensics": "node scripts/release-forensics.mjs",
     "recovery:preflight": "node scripts/run-isolated-recovery-drill.mjs --preflight",
     "recovery:drill": "node scripts/run-isolated-recovery-drill.mjs --execute",
-    "recovery:resume": "node scripts/run-isolated-recovery-drill.mjs --resume"
+    "recovery:resume": "node scripts/run-isolated-recovery-drill.mjs --resume",
+    "recovery:finalize:preflight": "node scripts/finalize-isolated-recovery.mjs --preflight",
+    "recovery:finalize": "node scripts/finalize-isolated-recovery.mjs --execute"
   },
   "dependencies": {
     "@scure/bip39": "^2.4.0",
