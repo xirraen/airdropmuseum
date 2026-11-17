@@ -1,3 +1,5 @@
+> **Current live state — verified 18 November 2026:** Cloudflare production is **not** still on the 4 November deployment. The 100%-traffic Worker deployment `0fd82ac4-7201-4eb7-a3c9-4fa26d66076f` (17 Nov 16:43 UTC) points to version `4765aba5-550e-40de-a945-2c287d4ec328` **without trusted Git SHA or source digest annotations**. D1 schema 17, integrity check OK and no FK violations were verified read-only. The following 17-Nov note is historical. See [RISK_SCOPED_RELEASE.md](RISK_SCOPED_RELEASE.md) for current baseline and the updated exact-deployment guard. **Do not infer deployed code from the GitHub branch or bypass the 13-gate release.**
+>
 > **Release policy update — 17 November 2026:** The live Worker is still from 4 November (annotated Git SHA `eb29226ae06b9320085410a971f4e01a4c35d950`) and D1 is **already schema 17**, with one verified enabled superadmin. The earlier schema-5 paragraph below is historical, not the current production status. The new [risk-scoped release policy](RISK_SCOPED_RELEASE.md) introduces a **separate, narrow CSS-only** operator release with a verified active production base, six reviewed evidence gates and no database migrations. The current `main` includes 72 newer commits covering APIs/config/source changes and is **not eligible** for that path; it still requires this **full 13-gate** procedure. Never relabel a mixed application release as a CSS release.
 >
 > Current deployed staging, measured results and unresolved gates: [STAGING_VERIFICATION.md](STAGING_VERIFICATION.md). Partial staging does not authorize live release.
@@ -16,6 +18,14 @@ Production target: C0 / `airdrop-museum` / D1 `4e75c8b9-6c58-4bac-a180-01e5bec0d
 4. On a private operator workstation, configure separate absolute backup and key directories outside every Git repository. Run `scripts/private-db-backup.mjs` with a least-privilege deployment token supplied through the approved secret mechanism. Never print it or bind it to the Worker. A local encryption roundtrip is insufficient.
 5. Run `scripts/restore-private-backup.mjs` with `PRIVATE_BACKUP_DIRECTORY`, `PRIVATE_BACKUP_KEY_ROOT` and a newly provisioned empty `RESTORE_STAGING_D1_ID`. Set `RESTORE_STAGING_ACCOUNT_ID` when the private restore lives in C1; source erasure-ledger reads stay in C0. Never use the active public staging database as the private restore target. No public Worker may be bound to the private restore. Verify counts, all pending migrations, erasure ledger replay, foreign keys and immutable triggers. `0020` refuses overlapping identities; resolve any conflicts retaining both histories and repeat the isolated drill.
 6. Review all bindings/secrets/cron schedules against `wrangler.jsonc`, admin bootstrap, egress/DNS policy, load results and code rollback. Remove/rotate the runtime deployment credential only in an explicitly approved production configuration window. Record checkpoints and Worker rollback version. No down migrations.
+
+## Production-base concurrency and provenance (18 November 2026)
+
+In addition to the 13 full-release gate artifacts, the privately reviewed full-release evidence manifest must contain the currently observed Cloudflare `production_deployment_id` UUID. The operator runner compares this ID to the live exclusive 100%-traffic deployment at startup, before pending migrations and immediately before Worker upload; any drift fails closed. Copy the real ID from the reviewed live deployment evidence **only**; do not reuse the historical Nov-4 ID.
+
+The approved Wrangler upload now uses `--strict`, `--message "Verified main <commit>; artifact <sha256>"` and `--tag "main-<short-sha>"`. The SHA-256 is for the generated committed `src/worker.mjs` source artifact. After deploy, the runner verifies that the new 100%-traffic Worker version exposes these annotations, matches the exact Git SHA and digest, and has a new deployment UUID. The current version is unannotated; this guard exists to prevent future untraceable releases.
+
+This does **not** supply missing device, restore, erasure-ledger, staging, recovery, or owner-approval evidence.
 
 ## Commit-bound release evidence
 
