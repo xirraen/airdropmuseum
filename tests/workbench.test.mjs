@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {normalize,backup} from '../dist/model.js';
-import {projects} from '../dist/catalog.js';
+import {projects} from './fixtures/sample-projects.mjs';
 import {actionQueue,filterActions,setActionTask,actionPlan} from '../dist/workbench.js';
 const now=new Date('2026-10-28T12:00:00Z'),p=projects[0];
 const setup=()=>normalize({saved:[p.id]},projects);
 test('queue derives from tracked active work and never mutates records',()=>{
  const s=setup(),before=JSON.stringify(s),items=actionQueue(projects,s,now);
  assert.deepEqual(items.map(a=>a.kind),['source','next']);
- assert.ok(items.every(a=>a.demo));assert.equal(JSON.stringify(s),before);
+ assert.ok(items.every(a=>a.publicSource));assert.equal(JSON.stringify(s),before);
  s.records[p.id].status='completed';assert.deepEqual(actionQueue(projects,s,now),[]);
  s.records[p.id].status='archived';assert.deepEqual(actionQueue(projects,s,now),[]);
  s.saved=[];assert.deepEqual(actionQueue(projects,s,now),[]);
@@ -55,7 +55,7 @@ test('filters combine project, kind and case-insensitive search; plans include a
  const s=setup(),items=actionQueue(projects,s,now);
  const filtered=filterActions(items,{kind:'next',project:p.id,query:'PRISM'});assert.equal(filtered.length,1);
  assert.equal(filterActions(items,{project:'unknown'}).length,0);
- const plan=actionPlan(filtered,now);assert.match(plan,/1 actions/);assert.match(plan,/Fictional demonstration/);assert.match(plan,/not eligibility/);
+ const plan=actionPlan(filtered,now);assert.match(plan,/1 actions/);assert.match(plan,/Public campaign research/);assert.match(plan,/not eligibility/);
  assert.ok(!plan.includes('Lengkapi sumber aturan'));
  const malicious={...filtered[0],title:'# forged\n<script>',project:{...p,name:'[hello](https://bad.test)'}};
  assert.ok(!actionPlan([malicious],now).includes('<script>'));
