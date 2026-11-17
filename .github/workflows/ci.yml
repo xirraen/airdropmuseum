@@ -38,12 +38,24 @@ jobs:
         run: npm test
       - name: Worker runtime, local D1 and immutability gate
         run: npm run test:runtime
-      - name: Production dependency audit (fail closed)
+      # Collect browser evidence even if an upstream advisory blocks release.
+      # The final step still fails closed on any failed/skipped audit.
+      - name: Production dependency audit (collect result)
+        id: dependency_audit
+        continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
+      - name: Trace vulnerable production dependency chain
+        if: steps.dependency_audit.outcome != 'success'
+        run: npm ls picomatch anymatch unstorage @walletconnect/universal-provider
       - name: Install browser for behavioral verification
         run: npx playwright install --with-deps chromium
       - name: Mobile and desktop browser E2E
         run: npm run test:e2e
+      - name: Enforce production dependency audit (fail closed)
+        if: ${{ always() && steps.dependency_audit.outcome != 'success' }}
+        run: |
+          echo "::error::Production dependency audit did not pass. Release remains blocked."
+          exit 1
       - name: Preserve browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
