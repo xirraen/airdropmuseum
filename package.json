@@ -13,7 +13,9 @@
     "test:e2e": "playwright test",
     "release:readiness": "node scripts/release-readiness.mjs",
     "release:presentation": "node scripts/release-presentation.mjs",
-    "release:forensics": "node scripts/release-forensics.mjs"
+    "release:forensics": "node scripts/release-forensics.mjs",
+    "recovery:preflight": "node scripts/run-isolated-recovery-drill.mjs --preflight",
+    "recovery:drill": "node scripts/run-isolated-recovery-drill.mjs --execute"
   },
   "dependencies": {
     "@scure/bip39": "^2.4.0",
