@@ -17,9 +17,9 @@ const PROD_ACCOUNT='9880cf2cc57c2096f8c3ae253d9852e6';
 const PROD_DATABASE='4e75c8b9-6c58-4bac-a180-01e5bec0d0a3';
 const fail=reason=>{throw Error('ISOLATED_RECOVERY_BLOCKED: '+reason);};
 const args=process.argv.slice(2);
-if(args.length!==1||!['--preflight','--execute'].includes(args[0]))
- fail('Specify --preflight or --execute');
-if(args[0]==='--execute'&&process.env.AIRDROP_RECOVERY_DRILL!=='APPROVED')
+if(args.length!==1||!['--preflight','--execute','--resume'].includes(args[0]))
+ fail('Specify --preflight, --execute or --resume');
+if(args[0]!=='--preflight'&&process.env.AIRDROP_RECOVERY_DRILL!=='APPROVED')
  fail('Explicit operator recovery approval required');
 const token=process.env.CLOUDFLARE_API_TOKEN;
 if(!token)fail('CLOUDFLARE_API_TOKEN missing');
@@ -58,7 +58,6 @@ try{handle=openSync(lock,'wx',0o600);}catch{fail('Another recovery drill is runn
 try{
  writeFileSync(handle,JSON.stringify({pid:process.pid,started_at:new Date().toISOString(),target:databaseId})+'\n');
  closeSync(handle);handle=undefined;
- const before=new Set(readdirSync(root));
  // Avoid forwarding unrelated env secrets to Wrangler or other child processes.
  const env={
   PATH:process.env.PATH,
@@ -79,10 +78,21 @@ try{
   if(result.stderr)process.stderr.write(result.stderr);
   if(result.error||result.status!==0)fail('Operator step failed: '+script+'; see private evidence directory');
  };
- execute('scripts/private-db-backup.mjs');
- const candidates=readdirSync(root).filter(x=>!before.has(x)&&x!=='.recovery-drill.lock');
- if(candidates.length!==1)fail('Cannot uniquely identify newly created encrypted backup');
- const folder=resolveNewPrivateBackupFolder(root,candidates[0]);
+ let folder;
+ if(args[0]==='--resume'){
+  const existing=process.env.PRIVATE_BACKUP_DIRECTORY;
+  if(!existing||!isAbsolute(existing))
+   fail('PRIVATE_BACKUP_DIRECTORY must be the absolute path of a completed encrypted backup');
+  // Never select a directory outside the operator's private backup root.
+  // The same direct-child/symlink checks apply to resuming existing backups.
+  folder=resolveNewPrivateBackupFolder(root,relative(root,resolve(existing)));
+ }else{
+  const before=new Set(readdirSync(root));
+  execute('scripts/private-db-backup.mjs');
+  const candidates=readdirSync(root).filter(x=>!before.has(x)&&x!=='.recovery-drill.lock');
+  if(candidates.length!==1)fail('Cannot uniquely identify newly created encrypted backup');
+  folder=resolveNewPrivateBackupFolder(root,candidates[0]);
+ }
  const manifest=JSON.parse(readFileSync(join(folder,'manifest.json'),'utf8'));
  if(manifest.format!=='private-d1-backup-v1'||!manifest.local_restore_verified||
     manifest.remote_restore_verified!==false||!manifest.encrypted||
