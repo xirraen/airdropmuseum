@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {projects,projectFromCampaign} from '../dist/catalog.js';
 import {api} from '../src/api.mjs';
+import {normalize,backup} from '../dist/model.js';
 
 const row = {
   id:'layer3-cube-research',
@@ -70,4 +71,14 @@ test('GET /api/health reports live catalogue only with a ready D1',async()=>{
   const body=await response.json();
   assert.equal(body.catalogMode,'live');
   assert.equal(body.ok,true);
+});
+
+test('private user state retains real D1 campaign bookmark and manual checklist',()=>{
+  const p=projectFromCampaign(row);
+  const state=normalize({saved:[p.id],done:{[p.id+':0']:true}},[p]);
+  assert.deepEqual(state.saved,[p.id]);
+  assert.equal(state.done[p.id+':0'],true);
+  const roundtrip=backup(JSON.stringify(state),[p]);
+  assert.equal(roundtrip.saved[0],p.id);
+  assert.equal(roundtrip.done[p.id+':0'],true);
 });
