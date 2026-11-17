@@ -70,6 +70,9 @@ const hash=createHash('sha256').update(readFileSync('src/worker.mjs')).digest('h
 run('node',[wrangler,'deploy','--strict','--config','wrangler.jsonc',
  '--message','Verified main '+commit+'; artifact '+hash,
  '--tag','main-'+commit.slice(0,7)],'Style-only Worker deployment');
+const deployed=await getLiveReleaseBaseline(process.env.CLOUDFLARE_API_TOKEN);
+if(deployed.commit!==commit||deployed.artifact_sha256!==hash||
+   deployed.deployment_id===live.deployment_id)fail('DEPLOYMENT_PROVENANCE_MISMATCH');
 const response=await fetch('https://airdrop-museum.xirraen.workers.dev/',{signal:AbortSignal.timeout(15000)});
 if(response.status!==200||!response.headers.get('content-security-policy'))fail('POST_DEPLOY_HOME_SMOKE_FAILED');
 const admin=await fetch('https://airdrop-museum.xirraen.workers.dev/admin',{redirect:'manual',signal:AbortSignal.timeout(15000)});
