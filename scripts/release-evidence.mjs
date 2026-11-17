@@ -14,7 +14,7 @@ export function requiredReleaseGates(tier='full'){
 // private manifest directory. No symlink, absolute path, or traversal escapes.
 const MAX_EVIDENCE_BYTES=64*1024*1024;
 export function gateArtifact(file,artifact){
- if(typeof artifact!=='string'||!artifact.trim()||artifact.includes('\\0')||isAbsolute(artifact))
+ if(typeof artifact!=='string'||!artifact.trim()||artifact.includes(String.fromCharCode(0))||isAbsolute(artifact))
   throw Error('RELEASE_ARTIFACT_UNSAFE');
  const root=realpathSync(dirname(resolve(file))),path=resolve(root,artifact);
  const rel=relative(root,path);
