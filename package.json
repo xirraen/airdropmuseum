@@ -12,7 +12,8 @@
     "test:runtime": "node scripts/run-runtime-tests.mjs",
     "test:e2e": "playwright test",
     "release:readiness": "node scripts/release-readiness.mjs",
-    "release:presentation": "node scripts/release-presentation.mjs"
+    "release:presentation": "node scripts/release-presentation.mjs",
+    "release:forensics": "node scripts/release-forensics.mjs"
   },
   "dependencies": {
     "@scure/bip39": "^2.4.0",
