@@ -23,11 +23,14 @@ const initialTarget=await verifyRestoreTarget({accountId:restoreAccount,database
 writeFileSync(join(folder,'restore-target-preflight.json'),JSON.stringify(initialTarget,null,2)+'\n',{mode:0o600});
 
 let dump=join(folder,'production.sql'),temporaryDump=false;
+// Guarantee removal of plaintext on every decrypt/import failure path.
+try{
 if(manifest.encrypted){
  if(manifest.encrypted.file!=='production.sql.aesgcm'||!/^[a-f0-9-]{36}$/.test(manifest.encrypted.key_id))throw Error('ENCRYPTED_BACKUP_MANIFEST_INVALID');
  const keyRoot=process.env.PRIVATE_BACKUP_KEY_ROOT||join(homedir(),'.local','share','airdropmuseum-private-backup-keys');
  const sealed=join(folder,manifest.encrypted.file);if(createHash('sha256').update(readFileSync(sealed)).digest('hex')!==manifest.encrypted.ciphertext_sha256)throw Error('ENCRYPTED_BACKUP_HASH_INVALID');
- dump=join(folder,'restore-'+crypto.randomUUID()+'.sql');decryptBackup(sealed,dump,join(keyRoot,manifest.encrypted.key_id+'.key'));temporaryDump=true;
+ dump=join(folder,'restore-'+crypto.randomUUID()+'.sql');temporaryDump=true;
+ decryptBackup(sealed,dump,join(keyRoot,manifest.encrypted.key_id+'.key'));
 }
 if(createHash('sha256').update(readFileSync(dump)).digest('hex')!==manifest.sha256){if(temporaryDump)rmSync(dump);throw Error('BACKUP_HASH_INVALID');}
 const config=join(folder,'restore-staging.json');
@@ -44,8 +47,7 @@ function query(sql,label){
  if(!Array.isArray(data)||data.some(x=>!x.success))throw Error('STAGING_QUERY_FAILED');
  return data.flatMap(x=>x.results||[]);
 }
-try{
- if(query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*'",'empty-check').length)throw Error('STAGING_NOT_EMPTY');
+if(query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*'",'empty-check').length)throw Error('STAGING_NOT_EMPTY');
  // Recheck current Worker bindings immediately before the destructive SQL import.
  const importTarget=await verifyRestoreTarget({accountId:restoreAccount,databaseId:id});
  if(importTarget.database_id!==initialTarget.database_id||
