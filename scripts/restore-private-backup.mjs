@@ -2,6 +2,7 @@ import {readFileSync,writeFileSync,realpathSync,chmodSync,readdirSync,existsSync
 import {homedir} from 'node:os';
 import {decryptBackup} from './backup-crypto.mjs';
 import {verifyRestoreTarget} from './verify-restore-target.mjs';
+import {isolatedRestoreConfig} from './restore-config.mjs';
 import {resolve,join,dirname} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
@@ -42,7 +43,7 @@ try{
 }
 if(createHash('sha256').update(readFileSync(dump)).digest('hex')!==manifest.sha256)throw Error('BACKUP_HASH_INVALID');
 const config=join(folder,'restore-staging.json');
-writeFileSync(config,JSON.stringify({name:'airdrop-museum-restore-drill',account_id:restoreAccount,compatibility_date:'2026-10-27',d1_databases:[{binding:'DB',database_name:'airdrop-museum-restore-drill',database_id:id,migrations_dir:resolve('migrations')}]}),{mode:0o600});
+writeFileSync(config,JSON.stringify(isolatedRestoreConfig({accountId:restoreAccount,databaseId:id,metadata:initialTarget,migrationsDir:resolve('migrations')})),{mode:0o600});
 const wrangler=resolve('node_modules/wrangler/bin/wrangler.js');
 function run(args,label){
  const r=spawnSync(process.execPath,[wrangler,...args,'--config',config],{encoding:'utf8',timeout:240000,maxBuffer:32*1024*1024,env:{...process.env,CLOUDFLARE_ACCOUNT_ID:restoreAccount,WRANGLER_SEND_METRICS:'false',CI:'true'}});
