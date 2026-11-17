@@ -1,5 +1,6 @@
 export const CRYPTORANK_SOURCE_URL='https://api.cryptorank.io/v2/drophunting/activities?limit=100';
 export const ROOTDATA_EVENTS_URL='https://api.rootdata.com/open/get_event';
+export const ROOTDATA_FUNDING_URL='https://api.rootdata.com/open/get_fac';
 export const DEFILLAMA_PROTOCOLS_URL='https://api.llama.fi/protocols';
 export const SOURCE_TYPES = ['rss','atom','json_feed'];
 export const TRUST_LEVELS = ['high','medium','low'];
@@ -44,7 +45,7 @@ export function validateSource(body){
  project_hint=cleanText(body.project_hint||'',120),trust_level=body.trust_level||'low';
  if(!name||!SOURCE_TYPES.includes(source_type)||!TRUST_LEVELS.includes(trust_level))throw new DiscoveryError('INVALID_SOURCE');
  if(new URL(feed_url).hostname==='api.cryptorank.io'&&(feed_url!==CRYPTORANK_SOURCE_URL||source_type!=='json_feed'))throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
- if(new URL(feed_url).hostname==='api.rootdata.com'&&(feed_url!==ROOTDATA_EVENTS_URL||source_type!=='json_feed'))throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
+ if(new URL(feed_url).hostname==='api.rootdata.com'&&(![ROOTDATA_EVENTS_URL,ROOTDATA_FUNDING_URL].includes(feed_url)||source_type!=='json_feed'))throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
  if(new URL(feed_url).hostname==='api.llama.fi'&&(feed_url!==DEFILLAMA_PROTOCOLS_URL||source_type!=='json_feed'))throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
  if(['airdrops.io','www.airdrops.io'].includes(new URL(feed_url).hostname)&&(feed_url!=='https://airdrops.io/feed/'||source_type!=='rss'))throw new DiscoveryError('PROVIDER_FEED_URL_UNAPPROVED');
  return {name,source_type,feed_url,project_hint,trust_level,enabled:body.enabled===false||body.enabled===0?0:1};
