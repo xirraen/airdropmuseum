@@ -67,7 +67,7 @@ async function show(tab){
     const name=el('input','');name.placeholder='Nama feed resmi';name.setAttribute('aria-label','Nama sumber');
     const feed=el('input','');feed.type='url';feed.placeholder='https://example.org/rss';feed.setAttribute('aria-label','URL feed HTTPS');
     const kind=document.createElement('select');kind.setAttribute('aria-label','Format feed');
-    for(const type of ['rss','atom','json_feed'])kind.append(el('option',type));
+    for(const type of ['rss','atom','json_feed','cryptorank_v2'])kind.append(el('option',type));
     const trust=document.createElement('select');trust.setAttribute('aria-label','Kepercayaan sumber');
     for(const level of ['low','medium','high'])trust.append(el('option',level));
     form.append(name,feed,kind,trust,btn('Tambahkan sumber (nonaktif)',async()=>{
@@ -109,7 +109,7 @@ async function show(tab){
       const editName=el('input','');editName.value=source.name;editName.maxLength=120;
       const editUrl=el('input','');editUrl.type='url';editUrl.value=source.feed_url;editUrl.maxLength=2048;
       const editKind=document.createElement('select');
-      for(const type of ['rss','atom','json_feed']){const option=el('option',type);option.value=type;editKind.append(option);}editKind.value=source.source_type;
+      for(const type of ['rss','atom','json_feed','cryptorank_v2']){const option=el('option',type);option.value=type;editKind.append(option);}editKind.value=source.source_type;
       const editTrust=document.createElement('select');
       for(const level of ['low','medium','high']){const option=el('option',level);option.value=level;editTrust.append(option);}editTrust.value=source.trust_level;
       const editHint=el('input','');editHint.value=source.project_hint||'';editHint.maxLength=120;
