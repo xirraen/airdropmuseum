@@ -7,6 +7,7 @@
  * Use --preflight to inspect target bindings without producing any data.
  */
 import {verifyRestoreTarget} from './verify-restore-target.mjs';
+import {resolveNewPrivateBackupFolder} from './recovery-path.mjs';
 import {spawnSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {existsSync,mkdirSync,readdirSync,realpathSync,readFileSync,writeFileSync,openSync,closeSync,unlinkSync} from 'node:fs';
@@ -81,8 +82,7 @@ try{
  execute('scripts/private-db-backup.mjs');
  const candidates=readdirSync(root).filter(x=>!before.has(x)&&x!=='.recovery-drill.lock');
  if(candidates.length!==1)fail('Cannot uniquely identify newly created encrypted backup');
- const folder=realpathSync(join(root,candidates[0]));
- if(!outside(relative(root,folder)))fail('Backup escaped private directory');
+ const folder=resolveNewPrivateBackupFolder(root,candidates[0]);
  const manifest=JSON.parse(readFileSync(join(folder,'manifest.json'),'utf8'));
  if(manifest.format!=='private-d1-backup-v1'||!manifest.local_restore_verified||
     manifest.remote_restore_verified!==false||!manifest.encrypted||
