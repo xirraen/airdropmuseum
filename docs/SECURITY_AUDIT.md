@@ -35,6 +35,6 @@ Immutable historical plaintext event payload privacy erasure still needs a revie
 
 ## Release controls
 
-The current production Worker is older than `main`, so the [full 13-gate production policy](RISK_SCOPED_RELEASE.md) applies. New encrypted D1 backup, independently verified isolated restore plus erasure ledger, physical-device WalletConnect checks, isolated staging, binding and secret inventory, rollback drill, reviewed exact-commit evidence and explicit operator authorization remain outstanding in [issue #24](https://github.com/xirraen/airdropmuseum/issues/24).
+The current production Worker was updated on 17 November 2026, but its active version has no verified commit or source-artifact annotation. It must **not** be assumed to match `main` or any branch. The changes in PR #38 include wallet/runtime code, so the [full 13-gate production policy](RISK_SCOPED_RELEASE.md) still applies. New encrypted D1 backup, independently verified isolated restore plus erasure ledger, physical-device WalletConnect checks, isolated staging, binding and secret inventory, rollback drill, reviewed exact-commit evidence and explicit operator authorization remain outstanding in [issue #24](https://github.com/xirraen/airdropmuseum/issues/24).
 
 **No merge to `main`, Cloudflare Worker deployment or production D1 mutation is authorized by this audit.**
