@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {normalize,cleanProject,backup,mergeBackup,icsEvent} from '../dist/model.js';import {projects} from '../dist/catalog.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {normalize,cleanProject,backup,mergeBackup,icsEvent} from '../dist/model.js';import {projects} from './fixtures/sample-projects.mjs';
 const custom={id:'custom-123',name:'My project',website:'https://example.com',tasks:['Read docs'],chain:'Ethereum'};
 test('migrates v1 bookmarks and tasks without loss',()=>{const s=backup(JSON.stringify({version:1,saved:['prism'],done:{'prism:0':true}}),projects);assert.equal(s.version,2);assert.equal(s.records.prism.status,'watching');assert.equal(s.done['prism:0'],true)});
 test('custom projects validate HTTPS and tasks',()=>{assert.equal(cleanProject(custom).website,'https://example.com/');assert.throws(()=>cleanProject({...custom,website:'javascript:alert(1)'}));assert.throws(()=>cleanProject({...custom,website:'http://example.com'}));assert.throws(()=>cleanProject({...custom,tasks:[]}))});
