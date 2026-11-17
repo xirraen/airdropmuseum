@@ -46,6 +46,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Trace vulnerable production dependency chain
         if: steps.dependency_audit.outcome != 'success'
+        continue-on-error: true
         run: npm ls picomatch anymatch unstorage @walletconnect/universal-provider
       - name: Install browser for behavioral verification
         run: npx playwright install --with-deps chromium
