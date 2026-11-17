@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CRYPTORANK_SOURCE_URL,validateSource} from '../src/discovery/types.ts';
 import {requireProviderRights,parseCryptoRankActivities} from '../src/discovery/providerAdapters.ts';
-import {fetchDiscoverySource} from '../src/discovery/ingestService.ts';
+import {fetchDiscoverySource,download} from '../src/discovery/ingestService.ts';
 import {previewDiscoverySource} from '../src/discovery/previewService.ts';
 
 const cryptoSource={id:'crypto-source',source_type:'json_feed',feed_url:CRYPTORANK_SOURCE_URL,enabled:1};
@@ -83,4 +83,12 @@ test('provider auth, quotas and invalid response fail closed without queued reco
   assert.equal(result.error,error);
   assert.equal(result.queued,0);
  }
+});
+
+test('permissioned RSS cannot silently redirect to other pages on the same site',async()=>{
+ let n=0;
+ await assert.rejects(download('https://airdrops.io/feed/',{},async()=>{
+  n++;return new Response(null,{status:302,headers:{location:'https://airdrops.io/category/airdrop/'}});
+ }),/FETCH_FAILED/);
+ assert.equal(n,1);
 });
