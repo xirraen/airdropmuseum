@@ -62,7 +62,7 @@ function assetBytes(value){
   throw Error('EMBEDDED_ASSET_INVALID');
  const compressed=Buffer.from(value.body,'base64');
  if(value.encoding==='gzip')return gunzipSync(compressed,{maxOutputLength:MAX_ASSET});
- if(value.encoding==='identity')return compressed;
+ if(value.encoding===null||value.encoding===undefined||value.encoding==='identity')return compressed;
  throw Error('EMBEDDED_ASSET_ENCODING_UNSUPPORTED');
 }
 
