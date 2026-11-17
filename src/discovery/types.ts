@@ -42,6 +42,7 @@ export function validateSource(body){
  project_hint=cleanText(body.project_hint||'',120),trust_level=body.trust_level||'low';
  if(!name||!SOURCE_TYPES.includes(source_type)||!TRUST_LEVELS.includes(trust_level))throw new DiscoveryError('INVALID_SOURCE');
  if(new URL(feed_url).hostname==='api.cryptorank.io'&&(feed_url!==CRYPTORANK_SOURCE_URL||source_type!=='json_feed'))throw new DiscoveryError('INVALID_PROVIDER_ENDPOINT');
+ if(['airdrops.io','www.airdrops.io'].includes(new URL(feed_url).hostname)&&(feed_url!=='https://airdrops.io/feed/'||source_type!=='rss'))throw new DiscoveryError('PROVIDER_FEED_URL_UNAPPROVED');
  return {name,source_type,feed_url,project_hint,trust_level,enabled:body.enabled===false||body.enabled===0?0:1};
 }
 export function safeDate(value){
