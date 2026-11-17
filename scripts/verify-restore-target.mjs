@@ -46,7 +46,7 @@ export async function verifyRestoreTarget({
     !/^airdrop-museum-restore-drill(?:-[a-z0-9-]{1,32})?$/.test(database.name||''))
   throw Error('RESTORE_TARGET_DATABASE_IDENTITY_MISMATCH');
  const created=Date.parse(database.created_at||'');
- if(!Number.isFinite(created)||created>now||now-created>MAX_AGE)
+ if(!Number.isFinite(created)||created>now+5*60*1000||now-created>MAX_AGE)
   throw Error('RESTORE_TARGET_NOT_RECENTLY_CREATED');
  const scripts=await cloudflareGet(fetcher,token,base+'/workers/scripts');
  if(!Array.isArray(scripts)||scripts.length>MAX_WORKERS||
