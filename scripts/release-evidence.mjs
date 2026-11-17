@@ -1,6 +1,6 @@
-import {readFileSync} from 'node:fs';
+import {readFileSync,realpathSync,lstatSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {resolve,dirname} from 'node:path';
+import {resolve,dirname,relative,isAbsolute,sep} from 'node:path';
 export const REQUIRED_GATES=Object.freeze(['staging_e2e','telegram_device','walletconnect_device','encrypted_backup','isolated_restore','erasure_ledger','migration_review','binding_inventory','secret_inventory','superadmin_bootstrap','rollback_drill','load_test','production_approval']);
 export const PRESENTATION_GATES=Object.freeze([
  'production_baseline','style_only_diff','staging_e2e','binding_inventory','rollback_drill','production_approval'
@@ -10,6 +10,25 @@ export function requiredReleaseGates(tier='full'){
  if(tier==='full')return REQUIRED_GATES;
  throw Error('INVALID_RELEASE_TIER');
 }
+// Gate artifacts are hashes of bounded, regular files kept under the reviewed
+// private manifest directory. No symlink, absolute path, or traversal escapes.
+const MAX_EVIDENCE_BYTES=64*1024*1024;
+export function gateArtifact(file,artifact){
+ if(typeof artifact!=='string'||!artifact.trim()||artifact.includes('\\0')||isAbsolute(artifact))
+  throw Error('RELEASE_ARTIFACT_UNSAFE');
+ const root=realpathSync(dirname(resolve(file))),path=resolve(root,artifact);
+ const rel=relative(root,path);
+ if(!rel||rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel))
+  throw Error('RELEASE_ARTIFACT_UNSAFE');
+ const real=realpathSync(path),realRel=relative(root,real);
+ if(!realRel||realRel==='..'||realRel.startsWith('..'+sep)||isAbsolute(realRel))
+  throw Error('RELEASE_ARTIFACT_UNSAFE');
+ const stat=lstatSync(path);
+ if(!stat.isFile()||stat.isSymbolicLink())throw Error('RELEASE_ARTIFACT_UNSAFE');
+ if(stat.size>MAX_EVIDENCE_BYTES)throw Error('RELEASE_ARTIFACT_TOO_LARGE');
+ return readFileSync(path);
+}
+
 export function verifyReleaseEvidence(file,commit,now=Date.now(),tier='full'){
  if(!file)throw Error('RELEASE_EVIDENCE_REQUIRED');
  const manifest=JSON.parse(readFileSync(file,'utf8'));
@@ -25,7 +44,7 @@ export function verifyReleaseEvidence(file,commit,now=Date.now(),tier='full'){
  for(const gate of requiredReleaseGates(tier)){
   const entry=manifest.gates?.[gate];
   if(entry?.status!=='PASS'||typeof entry.reviewer!=='string'||!entry.reviewer.trim()||typeof entry.artifact!=='string'||!/^[a-f0-9]{64}$/.test(entry.sha256||''))throw Error('RELEASE_GATE_REQUIRED: '+gate);
-  const data=readFileSync(resolve(dirname(file),entry.artifact));
+  const data=gateArtifact(file,entry.artifact);
   if(createHash('sha256').update(data).digest('hex')!==entry.sha256)throw Error('RELEASE_ARTIFACT_MISMATCH: '+gate);
  }
  return manifest;
