@@ -63,12 +63,12 @@ export async function discoveryRoute(request,env,actor){
    // Inspect the stored source, including disabled feeds, without queueing
    // items, persisting a fetch cursor, or publishing campaigns.
    try{
-    const result=await previewDiscoverySource(source);
+    const result=await previewDiscoverySource(source,{env});
     await audit(env,request,actor,'discovery.source.preview','discovery_source',id,{},{
      id,status:'previewed',sampled:result.total_sampled});
     return result;
    }catch(error){
-    const safe=['FETCH_FAILED','FEED_TOO_LARGE','FEED_TIMEOUT','INVALID_XML_FEED','INVALID_JSON_FEED','UNSAFE_XML','INVALID_FEED','UNSUPPORTED_FEED','UNSAFE_FEED_HOST','INVALID_HTTPS_URL'];
+    const safe=['FETCH_FAILED','FEED_TOO_LARGE','FEED_TIMEOUT','INVALID_XML_FEED','INVALID_JSON_FEED','UNSAFE_XML','INVALID_FEED','UNSUPPORTED_FEED','UNSAFE_FEED_HOST','INVALID_HTTPS_URL','PROVIDER_LICENSE_REQUIRED','PROVIDER_KEY_REQUIRED','PROVIDER_API_REQUIRED','PROVIDER_AUTH_FAILED','PROVIDER_RATE_LIMITED','INVALID_PROVIDER_ENDPOINT','PROVIDER_FEED_URL_UNAPPROVED','INVALID_PROVIDER_RESPONSE','PROVIDER_SCHEMA_UNSUPPORTED'];
     const code=error?.name==='TimeoutError'?'FEED_TIMEOUT':
      safe.includes(error?.message)?error.message:'DISCOVERY_PREVIEW_FAILED';
     await audit(env,request,actor,'discovery.source.preview','discovery_source',id,{},{
