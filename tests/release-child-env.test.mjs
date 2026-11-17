@@ -39,7 +39,8 @@ test('offline release children inherit no Cloudflare, backup, GitHub, npm or Wal
  }
  const cloud=releaseChildEnv(input,{cloudAccess:true});
  for(const [key,value] of Object.entries(input))
-  assert.equal(cloud[key],value,'Cloudflare operator command should retain intentional credentials: '+key);
+  assert.equal(cloud[key],key==='CI'?'true':value,'Cloudflare operator command should retain intentional credentials: '+key);
+ assert.equal(cloud.WRANGLER_SEND_METRICS,'false');
 });
 
 test('operator release uses an offline environment for npm install/tests/build/audit',()=>{
