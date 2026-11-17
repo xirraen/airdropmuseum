@@ -31,8 +31,8 @@ test('detail view exposes manual eligibility, progress, and functional existing 
  assert.match(css,/\.exhibit-detail-head/);
  assert.match(css,/\.amu-detail-eligibility/);
 });
-test('read-only wallet and fictional exhibit disclosures remain explicit',()=>{
- assert.match(js,/Contoh fiktif/);
+test('read-only wallet and public campaign research disclosures remain explicit',()=>{
+ assert.match(js,/Kampanye publik/);assert.doesNotMatch(js,/Contoh fiktif/);
  assert.match(js,/seed phrase/);
  assert.match(agg,/Tanpa auto-claim/);
  assert.match(html,/mini-ui\.css\?v=1\.4\.0/);
