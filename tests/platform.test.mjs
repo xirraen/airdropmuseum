@@ -83,3 +83,51 @@ test('public leaderboard never exposes verified account identifiers or private a
  assert.doesNotMatch(JSON.stringify(response.body),/tg:123456789|private@example\.org|0x111111/);
  DB.sql.close();
 });
+
+test('parallel invalid email attempts cannot exceed the five-attempt challenge budget',async()=>{
+ const DB=database(),challenge='parallel-code',now=Math.floor(Date.now()/1000);
+ DB.sql.prepare('INSERT INTO am_email_codes(id,email,code_hash,expires) VALUES(?,?,?,?)').run(challenge,'parallel@example.org',await digest(challenge+'123456'),now+600);
+ // Force eight requests to observe the same challenge snapshot before updates.
+ const prepare=DB.prepare.bind(DB);let reads=0,release;const gate=new Promise(r=>{release=r;});
+ DB.prepare=q=>{const st=prepare(q);if(q==='SELECT * FROM am_email_codes WHERE id=?'){const first=st.first.bind(st);st.first=async()=>{const row=await first();if(reads<8){reads++;if(reads===8)release();await gate;}return row;};}return st;};
+ const results=await Promise.all(Array.from({length:8},()=>call(DB,'/auth/email/verify',{id:challenge,code:'000000'})));
+ assert.ok(results.every(r=>r.status===401));
+ assert.equal(DB.sql.prepare('SELECT attempts FROM am_email_codes WHERE id=?').get(challenge).attempts,5);
+ assert.equal((await call(DB,'/auth/email/verify',{id:challenge,code:'123456'})).status,401);
+ assert.equal(DB.sql.prepare('SELECT COUNT(*) n FROM am_sessions').get().n,0);DB.sql.close();
+});
+
+test('fifth email attempt succeeds once and expired challenges do not consume attempts',async()=>{
+ const DB=database(),now=Math.floor(Date.now()/1000);
+ for(const [challenge,expires] of [['last-attempt',now+600],['expired-attempt',now-1]])DB.sql.prepare('INSERT INTO am_email_codes(id,email,code_hash,expires,attempts) VALUES(?,?,?,?,4)').run(challenge,'last@example.org',await digest(challenge+'123456'),expires);
+ assert.equal((await call(DB,'/auth/email/verify',{id:'last-attempt',code:'123456'})).status,200);
+ assert.equal((await call(DB,'/auth/email/verify',{id:'last-attempt',code:'123456'})).status,401);
+ assert.equal((await call(DB,'/auth/email/verify',{id:'expired-attempt',code:'123456'})).status,401);
+ assert.equal(DB.sql.prepare("SELECT attempts FROM am_email_codes WHERE id='expired-attempt'").get().attempts,4);DB.sql.close();
+});
+
+test('malformed reminder state cannot starve another user or prevent the cursor advancing',async()=>{
+ const {scheduled}=await import('../src/delivery.mjs'),DB=database(),today=new Date().toISOString().slice(0,10);
+ for(const [uid,state] of [['a-poison',{custom:{},saved:['p']}],['b-null',null],['z-healthy',{saved:['p'],records:{p:{status:'active',due:today}}}]]){
+  DB.sql.prepare('INSERT INTO am_users(id,username) VALUES(?,?)').run(uid,uid);
+  DB.sql.prepare('INSERT INTO am_core_user_state(user_id,payload,revision) VALUES(?,?,1)').run(uid,JSON.stringify(state));
+ }
+ for(let i=0;i<17;i++){
+  const uid='m-filler-'+String(i).padStart(2,'0');DB.sql.prepare('INSERT INTO am_users(id,username) VALUES(?,?)').run(uid,uid);
+  DB.sql.prepare('INSERT INTO am_core_user_state(user_id,payload,revision) VALUES(?,?,1)').run(uid,JSON.stringify({saved:'invalid',custom:[null]}));
+ }
+ DB.sql.prepare('INSERT INTO am_core_exhibits(id,payload,source_url,review_status) VALUES(?,?,?,?)').run('changed','{}','https://example.org','source_recorded');
+ await scheduled({DB,SIDE_EFFECTS_ENABLED:'0'});
+ assert.equal(DB.sql.prepare("SELECT COUNT(*) n FROM am_notifications WHERE user_id='z-healthy'").get().n,1);
+ assert.equal(DB.sql.prepare('SELECT last_user FROM am_delivery_cursor WHERE id=1').get().last_user,'z-healthy');
+ DB.sql.close();
+});
+
+test('expired delivery leases exhaust at five attempts while recoverable leases are requeued',async()=>{
+ const {scheduled}=await import('../src/delivery.mjs'),DB=database();
+ DB.sql.prepare('INSERT INTO am_users(id,username) VALUES(?,?)').run('owner','Owner');
+ for(const attempts of [4,5])DB.sql.prepare("INSERT INTO am_delivery_queue(id,user_id,channel,payload,status,attempts,next_at) VALUES(?,?,'email','{}','sending',?,0)").run('lease-'+attempts,'owner',attempts);
+ await scheduled({DB});
+ assert.equal(DB.sql.prepare("SELECT status FROM am_delivery_queue WHERE id='lease-4'").get().status,'pending');
+ assert.equal(DB.sql.prepare("SELECT status FROM am_delivery_queue WHERE id='lease-5'").get().status,'failed');DB.sql.close();
+});
