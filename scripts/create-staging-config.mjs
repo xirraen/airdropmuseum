@@ -7,6 +7,8 @@ const namespace=value('STAGING_RATE_LIMIT_NAMESPACE_ID');if(!/^\d+$/.test(namesp
 const origin=new URL(value('STAGING_ORIGIN'));if(origin.protocol!=='https:'||origin.username||origin.password||origin.port||!origin.hostname.startsWith('airdrop-museum-staging.')||!origin.hostname.endsWith('.workers.dev'))throw Error('DEDICATED_STAGING_ORIGIN_REQUIRED');
 const config=structuredClone(production);
 config.name='airdrop-museum-staging';
+// Production uses a dedicated domain, while staging must retain its isolated workers.dev preview.
+config.workers_dev=true;
 const account=process.env.STAGING_ACCOUNT_ID||production.account_id;
 if(!/^[a-f0-9]{32}$/.test(account))throw Error('STAGING_ACCOUNT_ID_INVALID');
 config.account_id=account;
