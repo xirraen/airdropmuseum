@@ -16,6 +16,7 @@ function parsedFlags(value){
 export function addCampaignEvidence(project,campaign){
  if(!project||!campaign)return null;
  return {...project,
+  updatedAt:cleanDate(campaign.updated_at),
   lastVerifiedAt:cleanDate(campaign.last_verified_at),
   claimDeadlineAt:cleanDate(campaign.claim_deadline_at),
   snapshotAt:cleanDate(campaign.snapshot_at),
