@@ -53,6 +53,14 @@ function eventsFromTonapi(data){
   return{id:text(event.event_id,100),type,amount,time:Number.isFinite(ts)&&ts>0?new Date(ts*1000).toISOString():''};
  }).filter(e=>e.time);
 }
+function nftsFromTonapi(data){
+ if(!Array.isArray(data?.nft_items))throw Error('NFT_SHAPE');
+ return data.nft_items.slice(0,15).map(item=>({
+  name:text(item?.metadata?.name,65)||'NFT',
+  collection:text(item?.collection?.name,55)||'Tanpa koleksi',
+  address:text(item?.address,100)
+ })).filter(x=>x.address);
+}
 async function toncenterBalance(address,fetcher){
  const uri='https://toncenter.com/api/v2/getAddressInformation?address='+encodeURIComponent(address);
  const data=await getJSON(uri,fetcher);
@@ -78,7 +86,7 @@ export async function getTonWalletSnapshot(address,fetcher=fetch,pause=wait){
  const raw=typeof address==='string'?address.trim():'';
  if(!ADDRESS.test(raw))return{error:'INVALID_TON_ADDRESS',status:400};
  const base='https://tonapi.io/v2/accounts/'+encodeURIComponent(raw);
- let account=null,jettons=[],events=[],jettonsAvailable=false,eventsAvailable=false;
+ let account=null,jettons=[],events=[],nfts=[],jettonsAvailable=false,eventsAvailable=false,nftsAvailable=false;
  try{account=accountFromTonapi(await getJSON(base,fetcher));}catch{}
  if(!account){
   try{account=await toncenterBalance(raw,fetcher);}catch{}
@@ -91,9 +99,11 @@ export async function getTonWalletSnapshot(address,fetcher=fetch,pause=wait){
  try{events=eventsFromTonapi(await getJSON(base+'/events?limit=8',fetcher));eventsAvailable=true;}catch{
   try{events=await toncenterHistory(raw,fetcher);eventsAvailable=true;}catch{}
  }
+ await pause(1120);
+ try{nfts=nftsFromTonapi(await getJSON(base+'/nfts?limit=15',fetcher));nftsAvailable=true;}catch{}
  return{status:200,data:{
   network:'TON mainnet',address:raw,ton:account.ton,accountStatus:account.status,
-  source:account.provider,jettons,jettonsAvailable,events,eventsAvailable,
+  source:account.provider,jettons,jettonsAvailable,events,eventsAvailable,nfts,nftsAvailable,
   checkedAt:new Date().toISOString()
  }};
 }
