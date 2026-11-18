@@ -522,3 +522,47 @@ body[data-view=home] .view-head{display:none}
  .bottom-nav button .source-unread-badge{position:absolute;top:2px;right:16%;margin:0;min-width:15px;height:15px;font-size:8px}
  .source-activity-meta{align-items:flex-start}
 }
+
+
+/* Useful read-only TON wallet portfolio, integrated into existing profile and portfolio. */
+.ton-assets-panel{padding:17px 18px;margin:13px 0 17px;border:1px solid #dfe9f5;border-radius:14px;background:#fff;box-shadow:0 4px 18px #15395f0a;color:#1c3856}
+.ton-assets-header{display:flex;justify-content:space-between;align-items:flex-start;gap:15px}
+.ton-assets-header h2{margin:6px 0 5px;font-size:18px;letter-spacing:-.03em}
+.ton-assets-header p{margin:0 0 12px;font-size:11px;line-height:1.6;color:#71849b}
+.ton-assets-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0 15px}
+.ton-explorer-link{font-size:11px;color:#0878ed;text-decoration:underline;text-underline-offset:3px;margin-right:auto}
+.ton-assets-balance{display:grid;gap:4px;border-radius:12px;border:1px solid #cbdff8;background:linear-gradient(135deg,#f5faff,#eaf4ff);padding:16px 17px;margin-bottom:14px}
+.ton-assets-balance>span{font-size:10px;font-weight:750;letter-spacing:.08em;color:#4b82bc}
+.ton-assets-balance>strong{color:#184c89;font-size:clamp(23px,5vw,32px);line-height:1.2;letter-spacing:-.035em;overflow-wrap:anywhere}
+.ton-assets-balance>small{font-size:10px;color:#7a8da5;line-height:1.5}
+.ton-assets-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.ton-assets-section{padding:12px 13px;border:1px solid #e2eaf5;border-radius:12px;background:#fcfdff;min-width:0}
+.ton-assets-section h3{margin:0 0 10px;color:#1d436c;font-size:13px}
+.ton-asset-row{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #edf2f7;padding:9px 0;min-width:0}
+.ton-asset-row:first-of-type{border-top:0}
+.ton-asset-row>div{display:flex;flex-direction:column;min-width:0}
+.ton-asset-row strong{font-size:11px;line-height:1.4;color:#334e6b;overflow-wrap:anywhere}
+.ton-asset-row small{font-size:10px;line-height:1.45;color:#8090a3}
+.ton-asset-row>span{font-size:11px;color:#1f659e;font-weight:700;overflow-wrap:anywhere;text-align:right}
+.ton-assets-muted,.ton-assets-error,.ton-assets-pending{font-size:11px;line-height:1.65;margin:9px 0;color:#788ba0}
+.ton-assets-error{color:#a04c35;background:#fff2e9;border:1px solid #f2dccc;padding:10px;border-radius:9px}
+.ton-activity-list{margin-top:12px}
+.ton-activity-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-top:1px solid #edf2f7}
+.ton-activity-row>div{display:flex;flex-direction:column;gap:3px}
+.ton-activity-row strong{color:#234c77;font-size:11px}
+.ton-activity-row small{color:#8191a4;font-size:9px}
+.ton-activity-row>span{font-size:10px;font-weight:720;color:#315d89}
+.ton-campaign-compat{background:#f7faff;border:1px solid #e2eafa;border-radius:11px;padding:12px 13px;margin-top:13px}
+.ton-campaign-compat>strong{color:#1c5284;font-size:12px}
+.ton-campaign-compat>p{font-size:10px;line-height:1.6;margin:5px 0;color:#7b8da3}
+.ton-wallet-mini-balance{display:block;margin:10px 0;color:#0a70ce;font-size:13px;line-height:1.5}
+.ton-wallet-mini-info{margin:8px 0;color:#778ba2;font-size:10px;line-height:1.5}
+@media(max-width:700px){
+ .ton-assets-panel{padding:13px 12px}
+ .ton-assets-header h2{font-size:16px}
+ .ton-assets-columns{grid-template-columns:1fr;gap:9px}
+ .ton-assets-balance{padding:14px}
+ .ton-assets-controls{gap:7px}
+ .ton-assets-section{padding:12px}
+ .ton-assets-panel>.btn{width:100%}
+}
