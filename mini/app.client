@@ -152,7 +152,7 @@ async function loadSourceEvents(){
   const list=[];
   for(const e of data.events){
    if(!e||typeof e.id!=='string'||typeof e.campaignId!=='string'||typeof e.name!=='string')continue;
-   if(!['changed','status','unavailable','record'].includes(e.type)||!safeUrl(e.sourceUrl))continue;
+   if(!['changed','status','unavailable','restored','record'].includes(e.type)||!safeUrl(e.sourceUrl))continue;
    list.push({id:e.id.slice(0,100),campaignId:e.campaignId.slice(0,110),name:e.name.slice(0,100),
     type:e.type,timestamp:typeof e.timestamp==='string'?e.timestamp.slice(0,35):'',
     sourceUrl:e.sourceUrl,description:typeof e.description==='string'?e.description.slice(0,240):''});
