@@ -25,6 +25,147 @@ const guide=[
 ];
 let catalog=[],status='loading',query='',chain='all',category='all',campaignStatus='all',exploreGroup='all',sortBy='catalog',displayMode='grid',shown=12,requestSeq=0,toastTimer,cacheAt=0;
 const catalogCacheKey='airdrop-museum-public-catalog-v1';
+
+const monitorPreferenceKey='airdrop-museum-source-monitor-v1';
+let sourceEvents=[],sourceStatus='loading',sourceFetchedAt=0,sourceRequestSeq=0,sourceFilter='all';
+function sourcePrefs(){
+ try{
+  const raw=JSON.parse(localStorage.getItem(monitorPreferenceKey)||'null');
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw))
+   return {enabled:raw.enabled===true,seenAt:Number.isFinite(raw.seenAt)&&raw.seenAt>0?raw.seenAt:Date.now()};
+ }catch{}
+ return {enabled:false,seenAt:Date.now()};
+}
+function updateSourcePrefs(change){
+ const prefs=sourcePrefs();change(prefs);
+ try{localStorage.setItem(monitorPreferenceKey,JSON.stringify(prefs));render();}
+ catch{notify('Pengaturan pemantauan tidak dapat disimpan di perangkat.');}
+}
+function newWatchedEvents(state){
+ const prefs=sourcePrefs();
+ if(!prefs.enabled)return [];
+ const watched=new Set(state.saved);
+ return sourceEvents.filter(e=>
+  watched.has(e.campaignId)&&['changed','status'].includes(e.type)
+  &&Number.isFinite(Date.parse(e.timestamp))&&Date.parse(e.timestamp)>prefs.seenAt
+ );
+}
+function updateSourceBadges(state){
+ const count=Math.min(99,newWatchedEvents(state).length);
+ for(const navButton of [...nav.querySelectorAll('button[data-route="workspace"]'),...document.querySelectorAll('#legacy-desktop-tabs button[data-side-route="workspace"]')]){
+  let badge=navButton.querySelector('.source-unread-badge');
+  if(!count){badge?.remove();continue;}
+  if(!badge){badge=node('span','source-unread-badge','',navButton);badge.setAttribute('aria-hidden','true');}
+  badge.textContent=String(count);
+ }
+}
+function activityDate(value){
+ const date=new Date(value);
+ if(!Number.isFinite(date.getTime()))return 'Waktu belum dicatat';
+ return new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Jakarta'}).format(date)+' WIB';
+}
+function activityType(event){
+ return event.type==='changed'?'Sumber berubah':event.type==='unavailable'?'Sumber tidak tersedia':
+  event.type==='status'?'Status berubah':'Catatan pemeriksaan';
+}
+function showSourceActivity(state,parent){
+ const section=node('section','source-activity','',parent);
+ section.id='campaign-activity';
+ const head=node('div','source-activity-head','',section);
+ const title=node('div','','',head);
+ node('span','overline','OFFICIAL SOURCE MONITOR',title);
+ node('h2','','Aktivitas sumber resmi',title);
+ node('p','','Bukti pemeriksaan yang tercatat di database. Perubahan sumber bukan konfirmasi eligibility atau reward.',title);
+ const controls=node('div','source-monitor-actions','',head);
+ const prefs=sourcePrefs();
+ const toggle=button(prefs.enabled?'Matikan notifikasi':'Aktifkan notifikasi',controls,()=>{
+  updateSourcePrefs(p=>{
+   p.enabled=!p.enabled;
+   p.seenAt=Date.now(); // No alert for historical events on activation.
+  });
+  notify(!prefs.enabled?'Notifikasi dalam aplikasi aktif untuk perubahan baru di watchlist.':'Notifikasi watchlist dimatikan.');
+ },'btn '+(prefs.enabled?'btn-outline':'btn-primary')+' btn-small');
+ toggle.setAttribute('aria-pressed',String(prefs.enabled));
+ node('p','source-monitor-disclaimer','Notifikasi dalam aplikasi saat Mini App dibuka. Tidak mengirim pesan Telegram atau push di latar belakang.',section);
+ const filterBar=node('div','source-activity-filters','',section);
+ for(const [id,label] of [['all','Semua aktivitas'],['watched','Watchlist'],['changed','Perubahan'],['unavailable','Sumber gagal']]){
+  const b=button(label,filterBar,()=>{sourceFilter=id;render();},'filter-chip');
+  b.setAttribute('aria-pressed',String(sourceFilter===id));
+ }
+ const meta=node('div','source-activity-meta','',section);
+ node('span','','Riwayat terakhir: '+(sourceFetchedAt?activityDate(sourceFetchedAt):'belum dimuat'),meta);
+ button('Perbarui aktivitas',meta,loadSourceEvents,'btn btn-outline btn-small');
+ if(prefs.enabled&&newWatchedEvents(state).length){
+  const unread=node('div','source-unread-summary','',section);
+  node('strong','',newWatchedEvents(state).length+' pembaruan watchlist belum dibaca',unread);
+  button('Tandai dibaca',unread,()=>updateSourcePrefs(p=>{p.seenAt=Date.now();}),'btn btn-outline btn-small');
+ }
+ if(sourceStatus==='loading'&&!sourceEvents.length){
+  node('p','source-activity-empty','Memuat aktivitas sumber…',section);return;
+ }
+ if(sourceStatus==='error'){
+  const note=node('p','source-activity-error','Aktivitas sumber belum dapat diperbarui. Data yang tampil mungkin tidak terbaru.',section);
+  note.setAttribute('role','status');
+ }
+ const watched=new Set(state.saved);
+ const filtered=sourceEvents.filter(event=>
+  (sourceFilter!=='watched'||watched.has(event.campaignId))&&
+  (sourceFilter!=='changed'||['changed','status'].includes(event.type))&&
+  (sourceFilter!=='unavailable'||event.type==='unavailable')
+ ).slice(0,45);
+ if(!filtered.length){
+  node('p','source-activity-empty',sourceStatus==='error'?'Riwayat belum tersedia. Coba perbarui lagi.':
+   sourceFilter==='watched'?'Belum ada riwayat sumber untuk kampanye di watchlist.':
+   'Belum ada aktivitas sumber yang sesuai dengan filter.',section);
+  return;
+ }
+ const list=node('div','source-activity-list','',section);
+ for(const event of filtered){
+  const entry=node('article','source-event source-event-'+event.type,'',list);
+  const top=node('div','source-event-top','',entry);
+  node('span','source-event-status',activityType(event),top);
+  node('time','',activityDate(event.timestamp),top).dateTime=event.timestamp;
+  const row=node('div','source-event-title','',entry);
+  node('strong','',event.name,row);
+  if(watched.has(event.campaignId))node('span','source-event-watched','Watchlist',row);
+  node('p','',event.description,entry);
+  const actions=node('div','source-event-actions','',entry);
+  if(safeUrl(event.sourceUrl)){
+   const a=node('a','btn btn-outline btn-small','Buka sumber tercatat',actions);
+   a.href=event.sourceUrl;a.target='_blank';a.rel='noopener noreferrer';
+  }
+  if(catalog.some(p=>p.id===event.campaignId))
+   button('Detail kampanye',actions,()=>openCampaignDetail(event.campaignId),'btn btn-subtle btn-small');
+ }
+}
+async function loadSourceEvents(){
+ const seq=++sourceRequestSeq;
+ if(!sourceEvents.length)sourceStatus='loading';
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+ try{
+  const response=await fetch('/api/source-activity',{cache:'no-store',signal:controller.signal});
+  if(!response.ok)throw Error('SOURCE_ACTIVITY_HTTP_'+response.status);
+  const data=await response.json();
+  if(!data||!Array.isArray(data.events)||data.events.length>100)throw Error('INVALID_SOURCE_ACTIVITY');
+  if(seq!==sourceRequestSeq)return;
+  const list=[];
+  for(const e of data.events){
+   if(!e||typeof e.id!=='string'||typeof e.campaignId!=='string'||typeof e.name!=='string')continue;
+   if(!['changed','status','unavailable','record'].includes(e.type)||!safeUrl(e.sourceUrl))continue;
+   list.push({id:e.id.slice(0,100),campaignId:e.campaignId.slice(0,110),name:e.name.slice(0,100),
+    type:e.type,timestamp:typeof e.timestamp==='string'?e.timestamp.slice(0,35):'',
+    sourceUrl:e.sourceUrl,description:typeof e.description==='string'?e.description.slice(0,240):''});
+  }
+  sourceEvents=list;sourceFetchedAt=Date.now();sourceStatus='ready';
+ }catch{
+  if(seq!==sourceRequestSeq)return;
+  sourceStatus='error';
+ }finally{
+  clearTimeout(timeout);
+  if(seq===sourceRequestSeq)render();
+ }
+}
+
 // TON Connect UI: wallet picker opens immediately; no EVM pairing, signing or transfer flows.
 const TON_UI_CDNS=[
  'https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js',
@@ -476,6 +617,16 @@ function renderHome(state,rows){
  node('strong','legacy-rail-value',state.saved.length+' kampanye',watchPanel);
  node('p','legacy-rail-desc','Riset tersimpan hanya pada perangkat ini. Periksa dan ekspor dari profil.',watchPanel);
  button('Lihat Portofolio',watchPanel,()=>go('workspace'),'btn btn-text btn-small');
+ const monitorPanel=node('section','legacy-rail-panel','',rail);
+ const monitorHeader=node('div','legacy-rail-title','',monitorPanel);monitorHeader.append(svg('shield'));
+ node('h3','','Pembaruan Sumber',monitorHeader);
+ const unseen=newWatchedEvents(state).length;
+ node('strong','legacy-rail-value',unseen?unseen+' baru':sourceEvents.length+' catatan',monitorPanel);
+ node('p','legacy-rail-desc',unseen?'Perubahan baru pada kampanye tersimpan.':'Pantau perubahan dan kegagalan akses sumber resmi.',monitorPanel);
+ button('Lihat aktivitas',monitorPanel,()=>{
+  go('workspace');
+  setTimeout(()=>document.getElementById('campaign-activity')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
+ },'btn btn-text btn-small');
  const infoPanel=node('section','legacy-rail-panel','',rail);
  const infoTitle=node('div','legacy-rail-title','',infoPanel);infoTitle.append(svg('shield'));node('h3','','Prinsip Museum',infoTitle);
  node('p','legacy-rail-desc','Bukti, bukan janji. Tidak ada seed phrase, private key, claim, atau tanda tangan transaksi.',infoPanel);
@@ -599,6 +750,7 @@ function renderPortfolio(state,rows){
  node('h2','','My Watchlist',left);
  node('p','',state.saved.length+' campaign dipantau · '+Object.values(state.notes||{}).filter(x=>typeof x==='string'&&x.trim()).length+' catatan pribadi',left);
  const summary=node('div','watchlist-total',String(state.saved.length).padStart(2,'0'),overview);
+ showSourceActivity(state,area);
  const toolbar=node('div','portfolio-toolbar','',area);
  node('p','',completed.done+' langkah riset telah ditinjau',toolbar);
  button('Explore campaign',toolbar,()=>go('explore'),'btn btn-outline btn-small');
@@ -701,6 +853,7 @@ function render(){
   empty('Penyimpanan bermasalah','Periksa pengaturan penyimpanan perangkat. Hindari menghapus data sebelum memiliki cadangan.',null,null,area,'shield');return;
  }
  const rows=projects(state);
+ updateSourceBadges(state);
  const profileTop=document.querySelector('#legacy-profile-top');
  if(profileTop)profileTop.textContent=initials(state.name||'Museum Explorer');
  ({home:renderHome,explore:renderExplore,missions:renderQuest,workspace:renderPortfolio,profile:renderProfile}[route])(state,rows);
@@ -756,6 +909,10 @@ for(const form of document.querySelectorAll('.legacy-global-search,.legacy-mobil
  });
 }
 window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
-window.addEventListener('storage',e=>{if(e.key===key)render();});
+window.addEventListener('storage',e=>{if(e.key===key||e.key===monitorPreferenceKey)render();});
 const tg=window.Telegram?.WebApp;try{tg?.BackButton?.hide?.();tg?.ready?.();tg?.expand?.();}catch{}
-render();load();
+render();load();loadSourceEvents();
+setInterval(()=>{if(document.visibilityState==='visible')void loadSourceEvents();},300000);
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='visible'&&Date.now()-sourceFetchedAt>60000)void loadSourceEvents();
+});
