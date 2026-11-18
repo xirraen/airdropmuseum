@@ -348,7 +348,9 @@ function openCampaignDetail(id){
   close.classList.add('campaign-detail-close');
   const body=node('div','campaign-detail-body','',shell);
   const badges=node('div','campaign-detail-badges','',body);
-  tag(p.status.toUpperCase()||'PERLU RISET',badges,p.status.toUpperCase()==='CONFIRMED'?'verified':'');
+  const statusCode=p.status.toUpperCase();
+  const statusLabel=({CONFIRMED:'Terkonfirmasi',RUMORED:'Rumor',SPECULATIVE:'Spekulatif',EXPIRED:'Berakhir'})[statusCode]||'Perlu riset';
+  tag(statusLabel,badges,statusCode==='CONFIRMED'?'verified':statusCode==='EXPIRED'?'expired':'');
   node('span','campaign-detail-updated','Diperbarui: '+dateLabel(p.updatedAt),badges);
   node('p','campaign-detail-description',p.desc||'Belum ada deskripsi yang dicatat dalam katalog. Periksa sumber proyek terlebih dahulu.',body);
   const sourceSection=node('section','campaign-detail-section','',body);
