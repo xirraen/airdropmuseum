@@ -23,7 +23,7 @@ const guide=[
  {id:'guide:risks',name:'Catat risiko kampanye',detail:'Evaluasi batasan, tenggat waktu, dan persyaratan sebelum mengikuti.'},
  {id:'guide:wallet',name:'Tinjau keamanan wallet',detail:'Jangan membagikan seed phrase atau menandatangani transaksi yang tidak dipahami.'}
 ];
-let catalog=[],status='loading',query='',chain='all',category='all',campaignStatus='all',exploreGroup='all',sortBy='catalog',displayMode='grid',shown=12,requestSeq=0,toastTimer,cacheAt=0;
+let comparedCampaignIds=[],catalog=[],status='loading',query='',chain='all',category='all',campaignStatus='all',exploreGroup='all',sortBy='catalog',displayMode='grid',shown=12,requestSeq=0,toastTimer,cacheAt=0;
 const catalogCacheKey='airdrop-museum-public-catalog-v1';
 
 const monitorPreferenceKey='airdrop-museum-source-monitor-v1';
@@ -527,6 +527,10 @@ function projectRow(p){
   website:site,official_urls:[...new Set([site,...official].filter(Boolean))].slice(0,12),
   status:typeof p.status==='string'?p.status.slice(0,32):'',
   updatedAt:Number.isFinite(Date.parse(updated))&&/^\d{4}-\d{2}-\d{2}/.test(updated)?updated:'',
+  lastVerifiedAt:typeof p.lastVerifiedAt==='string'&&Number.isFinite(Date.parse(p.lastVerifiedAt))?p.lastVerifiedAt:'',
+  claimDeadlineAt:typeof p.claimDeadlineAt==='string'&&Number.isFinite(Date.parse(p.claimDeadlineAt))?p.claimDeadlineAt:'',
+  snapshotAt:typeof p.snapshotAt==='string'&&Number.isFinite(Date.parse(p.snapshotAt))?p.snapshotAt:'',
+  riskFlags:Array.isArray(p.riskFlags)?p.riskFlags.filter(x=>typeof x==='string').map(x=>x.slice(0,100)).slice(0,16):[],
   tasks:Array.isArray(p.tasks)?p.tasks.filter(x=>typeof x==='string'&&x.trim()).map(x=>x.slice(0,400)).slice(0,40):[]};
 }
 function read(){
@@ -630,6 +634,8 @@ function card(p,state,parent){
  else if(s==='SPECULATIVE')tag('Spekulatif',badges,'unknown');
  else tag('Perlu riset',badges);
  if(p.tasks.length)tag(p.tasks.length+' tugas',badges);
+ const evidence=campaignEvidenceStatus(p);
+ if(evidence.reviewRequired)tag(evidence.flag?'Perubahan sumber':evidence.age===null?'Belum ada verifikasi':'Verifikasi lama',badges,'campaign-evidence-badge');
  node('p','desc',p.desc||'Periksa sumber resmi dan dokumentasi proyek sebelum berpartisipasi.',body);
  const done=p.tasks.filter((_,i)=>state.done[p.id+':'+i]).length;
  if(p.tasks.length&&state.saved.includes(p.id)){
@@ -640,6 +646,11 @@ function card(p,state,parent){
  }
  const actions=node('div','campaign-actions','',body),isSaved=state.saved.includes(p.id);
  button('Detail',actions,()=>openCampaignDetail(p.id),'btn btn-outline btn-small');
+ if(currentRoute()==='explore'){
+  const isCompared=comparedCampaignIds.includes(p.id);
+  const compare=button(isCompared?'Dipilih ✓':'Bandingkan',actions,()=>toggleCampaignComparison(p.id),'btn btn-outline btn-small campaign-compare-action');
+  compare.setAttribute('aria-pressed',String(isCompared));
+ }
  const save=button(isSaved?'Tersimpan ✓':'Simpan ke portofolio',actions,()=>{
   edit(s=>{s.saved=s.saved.includes(p.id)?s.saved.filter(x=>x!==p.id):[...s.saved,p.id];},isSaved?'Kampanye dilepas dari portofolio.':'Kampanye ditambahkan.');
  },'btn '+(isSaved?'btn-secondary':'btn-primary')+' btn-small');
@@ -653,6 +664,114 @@ function dateLabel(value){
  try{return new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeZone:'UTC'}).format(new Date(value));}
  catch{return 'Belum dicatat';}
 }
+
+function campaignEvidenceStatus(p,now=Date.now()){
+ const flag=p.riskFlags?.includes('source_changed_review_required');
+ const verified=Date.parse(p.lastVerifiedAt);
+ const age=Number.isFinite(verified)?Math.max(0,Math.floor((now-verified)/86400000)):null;
+ return {
+  flag:!!flag,
+  age,
+  label:flag?'Perubahan sumber perlu ditinjau':
+    age===null?'Waktu verifikasi belum dicatat':
+    age>30?'Verifikasi lebih dari 30 hari':
+    'Verifikasi tercatat '+age+' hari lalu',
+  reviewRequired:!!flag||age===null||age>30
+ };
+}
+function campaignStatusName(p){
+ return ({CONFIRMED:'Terkonfirmasi',RUMORED:'Rumor',SPECULATIVE:'Spekulatif',EXPIRED:'Berakhir'})[String(p.status||'').toUpperCase()]||'Belum jelas';
+}
+function currentCompareRows(){
+ let state;try{state=read();}catch{return [];}
+ const byId=new Map(projects(state).map(p=>[p.id,p]));
+ return comparedCampaignIds.map(id=>byId.get(id)).filter(Boolean).slice(0,3);
+}
+function toggleCampaignComparison(id){
+ if(comparedCampaignIds.includes(id)){
+  comparedCampaignIds=comparedCampaignIds.filter(value=>value!==id);
+ }else{
+  if(comparedCampaignIds.length>=3)return notify('Maksimal tiga kampanye untuk perbandingan.');
+  comparedCampaignIds=[...comparedCampaignIds,id];
+ }
+ render();
+}
+function downloadCampaignComparison(rows){
+ // Formula-looking fields must remain plain text when opened in spreadsheet software.
+ const safeCell=value=>{
+  const s=String(value??'');
+  const normalized=/^[\s]*[=+\-@]/.test(s)?"'"+s:s;
+  return '"'+normalized.replace(/"/g,'""')+'"';
+ };
+ const headers=['Kampanye','Jaringan','Kategori','Status','Terakhir diverifikasi','Diperbarui','Sumber tercatat','Checklist','Perubahan sumber perlu tinjau','Tenggat tercatat'];
+ const values=rows.map(p=>[
+  p.name,p.chain,p.category,campaignStatusName(p),p.lastVerifiedAt||'',p.updatedAt||'',
+  p.official_urls.length,p.tasks.length,p.riskFlags.includes('source_changed_review_required')?'Ya':'Tidak',p.claimDeadlineAt||''
+ ]);
+ const csv=[headers,...values].map(row=>row.map(safeCell).join(',')).join('\r\n');
+ const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='airdrop-museum-perbandingan-'+new Date().toISOString().slice(0,10)+'.csv';
+ document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),3000);
+ notify('Perbandingan kampanye disiapkan sebagai CSV.');
+}
+function openCampaignComparison(){
+ const rows=currentCompareRows();
+ if(rows.length<2)return notify('Pilih minimal dua kampanye.');
+ document.querySelector('.campaign-compare-dialog')?.close();
+ const dialog=node('dialog','campaign-compare-dialog','',document.body);
+ dialog.setAttribute('aria-label','Perbandingan kampanye');
+ const prior=document.activeElement;
+ dialog.addEventListener('close',()=>{
+  dialog.remove();if(prior?.isConnected)prior.focus();
+ });
+ dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
+ const header=node('div','campaign-compare-head','',dialog);
+ const group=node('div','','',header);
+ node('span','overline','RESEARCH COMPARISON',group);
+ node('h2','','Bandingkan kampanye',group);
+ node('p','','Ringkasan berdasarkan data katalog. Tidak menentukan kelayakan wallet, reward, atau keamanan investasi.',group);
+ iconButton('Tutup perbandingan','x',header,()=>dialog.close());
+ const overflow=node('div','campaign-compare-scroll','',dialog);
+ const table=node('table','campaign-compare-table','',overflow);
+ const thead=node('thead','','',table);
+ const headrow=node('tr','','',thead);
+ node('th','','Parameter',headrow).scope='col';
+ for(const p of rows)node('th','',p.name,headrow).scope='col';
+ const tbody=node('tbody','','',table);
+ const attributes=[
+  ['Jaringan',p=>p.chain||'Tidak dicatat'],
+  ['Kategori',p=>p.category||'Tidak dicatat'],
+  ['Status kampanye',p=>campaignStatusName(p)],
+  ['Pemeriksaan sumber',p=>campaignEvidenceStatus(p).label],
+  ['Terakhir diverifikasi',p=>dateLabel(p.lastVerifiedAt)],
+  ['Diperbarui',p=>dateLabel(p.updatedAt)],
+  ['Tautan sumber',p=>String(p.official_urls.length)],
+  ['Langkah riset',p=>String(p.tasks.length)],
+  ['Tenggat tercatat',p=>dateLabel(p.claimDeadlineAt)],
+  ['Snapshot tercatat',p=>dateLabel(p.snapshotAt)]
+ ];
+ for(const [label,fn] of attributes){
+  const tr=node('tr','','',tbody);node('th','',label,tr).scope='row';
+  for(const p of rows)node('td','',fn(p),tr);
+ }
+ const notes=node('p','campaign-compare-note','Perbandingan ini memakai metadata yang tercatat, bukan verifikasi on-chain. Status "Terkonfirmasi" tidak berarti wallet Anda memenuhi persyaratan.',dialog);
+ const actions=node('div','campaign-compare-actions','',dialog);
+ button('Ekspor CSV',actions,()=>downloadCampaignComparison(rows),'btn btn-primary btn-small');
+ button('Tutup',actions,()=>dialog.close(),'btn btn-outline btn-small');
+ if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
+}
+function showComparisonTray(parent){
+ if(!comparedCampaignIds.length)return;
+ const selected=currentCompareRows();
+ const tray=node('div','campaign-compare-tray','',parent);
+ node('strong','',selected.length+' dari 3 kampanye dipilih',tray);
+ const names=node('span','',selected.map(p=>p.name).join(' · '),tray);
+ const actions=node('div','','',tray);
+ button('Bandingkan',actions,openCampaignComparison,'btn btn-primary btn-small').disabled=selected.length<2;
+ button('Bersihkan',actions,()=>{comparedCampaignIds=[];render();},'btn btn-outline btn-small');
+}
+
 // Detail appears in-place, not a hidden route or new screen.
 function openCampaignDetail(id){
  let p;
@@ -686,6 +805,12 @@ function openCampaignDetail(id){
   const statusLabel=({CONFIRMED:'Terkonfirmasi',RUMORED:'Rumor',SPECULATIVE:'Spekulatif',EXPIRED:'Berakhir'})[statusCode]||'Perlu riset';
   tag(statusLabel,badges,statusCode==='CONFIRMED'?'verified':statusCode==='EXPIRED'?'expired':'');
   node('span','campaign-detail-updated','Diperbarui: '+dateLabel(p.updatedAt),badges);
+  const evidence=campaignEvidenceStatus(p);
+  const verification=node('div','campaign-evidence-note'+(evidence.reviewRequired?' requires-review':''),'',body);
+  node('strong','',evidence.label,verification);
+  node('p','','Terakhir diverifikasi: '+dateLabel(p.lastVerifiedAt)+'. Waktu pembaruan metadata bukan verifikasi ulang sumber.',verification);
+  if(p.claimDeadlineAt)node('p','','Tenggat tercatat: '+dateLabel(p.claimDeadlineAt)+'. Periksa perubahan di sumber resmi.',verification);
+  if(evidence.flag)node('p','','Ada tanda perubahan sumber yang belum ditinjau ulang. Jangan menganggap syarat tetap sama.',verification);
   node('p','campaign-detail-description',p.desc||'Belum ada deskripsi yang dicatat dalam katalog. Periksa sumber proyek terlebih dahulu.',body);
   const sourceSection=node('section','campaign-detail-section','',body);
   node('h3','','Sumber yang tercatat',sourceSection);
@@ -849,6 +974,7 @@ function renderExplore(state,rows){
    b.setAttribute('aria-pressed',String(category===name));
   }
  }
+ showComparisonTray(area);
  const toolbar=node('div','results-toolbar','',area);
  const hd=node('div','','',toolbar);node('h2','','Campaigns',hd);
  const counter=node('p','results-counter','',hd);

@@ -5,6 +5,7 @@ import js from './app.client';
 import iconBase64 from './tonconnect-icon.base64' with { type:'text' };
 import {listCampaigns} from '../src/aggregator-store.mjs';
 import {projectFromCampaign} from '../dist/catalog.js';
+import {addCampaignEvidence} from './research-evidence.mjs';
 import {withSecurity} from '../src/security/gateway.ts';
 import {maintenance} from '../src/admin/systemSettingsService.ts';
 import {flushErasureLedger} from '../src/autopsy/privacyService.ts';
@@ -79,7 +80,7 @@ export default {
     return Response.json({ok:ready,database:ready?'ready':'migration_required'},{status:ready?200:503});
    }
    if(await maintenance(env)==='maintenance')return Response.json({error:'MAINTENANCE'},{status:503});
-   const projects=(await listCampaigns(env.DB)).map(projectFromCampaign).filter(Boolean);
+   const projects=(await listCampaigns(env.DB)).map(c=>addCampaignEvidence(projectFromCampaign(c),c)).filter(Boolean);
    return Response.json({mode:'live',projects},{headers:{'Cache-Control':'no-store'}});
   });
   const asset=assets.get(path);
