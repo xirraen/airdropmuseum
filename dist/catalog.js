@@ -32,11 +32,6 @@ export function projectFromCampaign(c) {
   if (!name) return null;
   const chains = array(c.chain).map(x => NETWORK[x] || string(x, 40)).filter(Boolean);
   const urls = array(c.official_urls).map(safeUrl).filter(Boolean);
-  const riskFlags = array(c.risk_flags).filter(x => typeof x === 'string' && x.length <= 100).slice(0, 16);
-  const validDate = v => {
-    const raw = string(v, 40);
-    return /^\d{4}-\d\d-\d\d/.test(raw) && Number.isFinite(Date.parse(raw)) ? raw : '';
-  };
   const tasks = array(c.eligibility_rules)
     .map(rule => string(rule?.parameters?.instruction, 200))
     .filter(Boolean).slice(0, 30);
@@ -53,11 +48,7 @@ export function projectFromCampaign(c) {
     chain: chains.join(', ') || 'Jaringan belum dicatat',
     desc: string(c.description, 500),
     status: string(c.status, 32),
-    updatedAt: validDate(c.updated_at),
-    lastVerifiedAt: validDate(c.last_verified_at),
-    claimDeadlineAt: validDate(c.claim_deadline_at),
-    snapshotAt: validDate(c.snapshot_at),
-    riskFlags,
+    updatedAt: string(c.updated_at, 40),
     color: '#4c92da',
     featured: false,
     custom: false
