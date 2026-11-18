@@ -24,8 +24,8 @@ export default {
  },
  async fetch(request,env,ctx){
   const path=new URL(request.url).pathname;
+  if(path==='/api/walletconnect/config'&&!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD','Cache-Control':'no-store'}});
   if(path==='/api/walletconnect/config')return withSecurity(request,env,ctx,async()=>{
-   if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD'}});
    // Reown project IDs are public client identifiers, never credentials or wallet secrets.
    const id=typeof env.WALLETCONNECT_PROJECT_ID==='string'?env.WALLETCONNECT_PROJECT_ID.trim():'';
    const valid=/^[a-fA-F0-9]{32}$/.test(id);
