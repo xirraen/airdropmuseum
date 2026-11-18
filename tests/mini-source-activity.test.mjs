@@ -23,7 +23,7 @@ function fakeDb(){
    if(sql.includes('INSERT INTO campaign_sources')){
     records.push({id:args[0],campaign_id:args[1],source_url:args[2],source_type:args[3],
      captured_at:args[4],note:args[5],verified_by:args[6],event_type:args[7]});
-   }else if(sql.includes('INSERT INTO aggregator_cursor')){
+   }else if(sql.includes('INTO aggregator_cursor')){
     if(sql.includes("'source-monitor-offset'"))cursors.set('source-monitor-offset',args[0]);
     else cursors.set(args[0],args[1]);
    }else if(sql.startsWith('UPDATE campaigns SET')){
