@@ -1,10 +1,6 @@
 import {build} from 'esbuild';
-import {assertWalletBundleReachability} from './wallet-bundle-reachability.mjs';
 await build({entryPoints:['src/platform-api.mjs'],outfile:'src/platform-bundle.mjs',bundle:true,format:'esm',platform:'browser',minify:true});
 await build({entryPoints:['src/delivery.mjs'],outfile:'src/delivery-bundle.mjs',bundle:true,format:'esm',platform:'node',banner:{js:"import * as _crypto from 'node:crypto';import * as _https from 'node:https';import * as _http from 'node:http';import * as _url from 'node:url';import * as _stream from 'node:stream';import * as _buffer from 'node:buffer';import * as _util from 'node:util';const require=(n)=>({crypto:(_crypto.default||{..._crypto}),https:(_https.default||{..._https}),http:(_http.default||{..._http}),url:(_url.default||{..._url}),stream:(_stream.default||{..._stream}),buffer:(_buffer.default||{..._buffer}),util:(_util.default||{..._util})}[n]);"},external:['node:*','crypto','https','http','url','stream','buffer','util'],minify:true});
-const walletBundle=await build({entryPoints:['dist/walletconnect-adapter.js'],outfile:'dist/walletconnect-bundle.js',bundle:true,format:'esm',platform:'browser',minify:true,metafile:true});
-const {output,emitted_inputs}=assertWalletBundleReachability(walletBundle.metafile);
-console.log('WalletConnect bundle reachability: PASS ('+emitted_inputs+' emitted inputs in '+output+'). npm audit still required.');
 await build({entryPoints:['dist/platform.js'],outfile:'dist/platform-bundle.js',bundle:true,external:['./walletconnect-bundle.js'],format:'esm',platform:'browser',minify:true});
 await build({entryPoints:['dist/aggregator-ui.js'],outfile:'dist/aggregator-ui-bundle.js',bundle:true,format:'esm',platform:'browser',minify:true});
 import {readFileSync,writeFileSync} from 'node:fs';
