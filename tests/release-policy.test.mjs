@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
- parseNameStatus,classifyReleaseChanges,getLiveReleaseBaseline
+ parseNameStatus,classifyReleaseChanges,getLiveReleaseBaseline,validateSquashReconciliation
 } from '../scripts/release-policy.mjs';
 
 test('style-only changes require modified approved bundled CSS and reject executable files',()=>{
@@ -75,4 +75,10 @@ test('current Cloudflare commit annotation is sufficient to identify live versio
    {annotations:{'workers/commit_sha':sha,'workers/repository_url':'https://github.com/other/repo'}}
   })
  })}),/PRODUCTION_REPOSITORY_MISMATCH/);
+});
+
+test('squash-equivalent release rejects any changed runtime or configuration path',()=>{
+ assert.deepEqual(validateSquashReconciliation(['docs/CONTROLLED_PRODUCTION_RELEASE.md','scripts/release-production.mjs']).mode,'squash_equivalent');
+ for(const filename of ['src/worker.mjs','mini/worker.js','dist/aggregator-ui-bundle.js','wrangler.jsonc','migrations/0021.sql','src/api.mjs'])
+  assert.throws(()=>validateSquashReconciliation([filename]),/LIVE_RUNTIME_DIFF_NOT_RECONCILED/,filename);
 });
