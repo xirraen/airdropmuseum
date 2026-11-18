@@ -66,6 +66,7 @@ function activityDate(value){
 }
 function activityType(event){
  return event.type==='changed'?'Sumber berubah':event.type==='unavailable'?'Sumber tidak tersedia':
+  event.type==='restored'?'Sumber kembali tersedia':
   event.type==='status'?'Status berubah':'Catatan pemeriksaan';
 }
 function showSourceActivity(state,parent){
