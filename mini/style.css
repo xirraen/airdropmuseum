@@ -394,3 +394,58 @@ main{max-width:1120px}
  .view-switch{padding:6px}
 }
 @media(prefers-reduced-motion:reduce){.hero-orb{animation:none}}
+
+/* In-tab watchlist and personal space */
+.watchlist-overview{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:23px 25px;
+ border:1px solid #4c397a;border-radius:19px;margin-bottom:17px;
+ background:radial-gradient(circle at 93% 40%,#60409c66,transparent 48%),linear-gradient(135deg,#2b2150,#151b37);overflow:hidden}
+.watchlist-overview h2{font-size:26px;color:#f8f6ff;margin:5px 0 5px;line-height:1.2;letter-spacing:-.035em}
+.watchlist-overview p{margin:0;color:#b9b8d2;font-size:12px}
+.watchlist-total{font-size:70px;font-weight:900;line-height:1;color:#b0a2fc;letter-spacing:-.1em;opacity:.85}
+.watchlist-row{padding:12px;align-items:stretch;gap:14px;border-color:#35374d;background:#181a28}
+.watchlist-row:hover{border-color:#655a9c}
+.watchlist-art{width:133px;flex:none;align-self:stretch;min-height:122px;display:flex}
+.watchlist-art .campaign-cover{border-radius:11px;flex:1;min-height:122px;height:auto;padding:10px}
+.watchlist-art .cover-header,.watchlist-art .cover-footer{font-size:7px}
+.watchlist-art .cover-orbit{transform:translate(-50%,-50%) rotate(-26deg) scale(.72)}
+.watchlist-row .saved-main{padding:2px 0;min-width:0}
+.watchlist-row .saved-main h3{margin:6px 0 2px;font-size:15px}
+.watchlist-row .campaign-tags{margin-top:0}
+.watchlist-progress{margin:7px 0 0;color:#ab9bf2;font-size:11px}
+.watchlist-row>.action-icon{align-self:flex-start}
+.identity-card{min-height:140px;padding:24px 25px;background:radial-gradient(circle at 85% 25%,#6847ab77,transparent 55%),
+ linear-gradient(135deg,#31224e,#1b2040);border:1px solid #615392;position:relative;overflow:hidden}
+.identity-card::after{content:"";position:absolute;right:-41px;top:-79px;width:210px;height:210px;
+ border:1px solid #cabaff3d;box-shadow:0 0 0 35px #ffffff05,0 0 0 79px #ffffff05;border-radius:50%;pointer-events:none}
+.identity-kicker{display:block;font-size:9px;color:#d4c7ff;letter-spacing:.18em;font-weight:820;margin-bottom:4px}
+.identity-card .avatar{width:74px;height:74px;border-radius:22px;box-shadow:0 10px 24px #0b092f55}
+.identity-card>div{position:relative;z-index:1}
+.identity-card h2{font-size:23px;letter-spacing:-.04em}
+.identity-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:14px 0 22px}
+.identity-stats .stat-card{padding:15px}
+.identity-stats .stat-card strong{font-size:26px}
+.identity-stats .stat-card small{font-size:9px}
+.profile-card p{color:#d5cbee}
+@media(max-width:600px){
+ .watchlist-overview{padding:18px}
+ .watchlist-overview h2{font-size:22px}
+ .watchlist-total{font-size:54px}
+ .watchlist-row{gap:10px}
+ .watchlist-art{width:92px;min-height:118px}
+ .watchlist-art .cover-header,.watchlist-art .cover-footer{display:none}
+ .watchlist-art .cover-orbit{transform:translate(-50%,-50%) rotate(-26deg) scale(.56)}
+ .watchlist-row .saved-main h3{font-size:13px}
+ .watchlist-row .saved-actions .btn{min-height:35px;font-size:10px}
+ .identity-card{padding:20px}
+ .identity-card .avatar{height:58px;width:58px;border-radius:17px}
+ .identity-card h2{font-size:19px}
+ .identity-stats{gap:7px}
+ .identity-stats .stat-card{padding:12px 8px}
+ .identity-stats .stat-card strong{font-size:22px}
+ .identity-stats .stat-icon{display:none}
+}
+@media(max-width:360px){
+ .watchlist-art{width:70px}
+ .watchlist-row .saved-actions{flex-direction:column;align-items:flex-start}
+ .identity-stats .stat-card strong{font-size:19px}
+}
