@@ -5,7 +5,7 @@ const staging=process.env.STAGING_SYNTHETIC_E2E==='1'&&[
  'https://airdrop-museum-e2e-direct.xirraen.workers.dev',
  'https://airdrop-museum-staging.airdrop-658.workers.dev'
 ].includes(new URL(base).origin);
-if(!local&&!staging)throw Error('Runtime tests require local workerd or approved synthetic staging');
+if(!local&&!staging)throw Error('Runtime synthetic tests require localhost or the dedicated synthetic staging origin');
 async function request(path,options={}){
  const r=await fetch(base+path,{redirect:'manual',...options});
  const body=await r.text();let json;
