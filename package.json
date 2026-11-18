@@ -12,14 +12,16 @@
     "test:runtime": "node scripts/run-runtime-tests.mjs",
     "test:e2e": "playwright test",
     "release:readiness": "node scripts/release-readiness.mjs",
-    "release:presentation": "node scripts/release-presentation.mjs"
+    "release:production": "node scripts/release-production.mjs"
   },
   "dependencies": {
     "@scure/bip39": "^2.4.0",
     "@walletconnect/universal-provider": "2.26.0",
+    "destr": "2.0.5",
     "qrcode": "1.5.4",
     "viem": "^2.57.12",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "unstorage": "file:vendor/unstorage"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
@@ -27,5 +29,8 @@
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "wrangler": "^4.154.0"
+  },
+  "overrides": {
+    "unstorage": "$unstorage"
   }
 }

@@ -35,5 +35,5 @@ test('read-only wallet and public campaign research disclosures remain explicit'
  assert.match(js,/Kampanye publik/);assert.doesNotMatch(js,/Contoh fiktif/);
  assert.match(js,/seed phrase/);
  assert.match(agg,/Tanpa auto-claim/);
- assert.match(html,/mini-ui\.css\?v=1\.4\.0/);
+ assert.match(html,/mini-ui\.css\?v=20261118/);
 });

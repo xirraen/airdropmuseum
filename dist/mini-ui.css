@@ -476,3 +476,28 @@ html{scroll-padding-top:90px;scroll-padding-bottom:90px}
  .workspace main .intro>div{flex-basis:100%}
  .workspace main .intro>a.primary,.workspace main .intro>button.secondary{width:auto;height:auto;min-height:36px;flex:0 1 auto;white-space:normal;padding:10px 14px}
 }
+
+/* The landing page uses the same ink and paper palette as the directory. */
+.amu-dashboard-shell .amu-hero {
+ background:linear-gradient(115deg,#102f43,#174958);
+ border-radius:18px;
+ box-shadow:none;
+ min-height:180px;
+}
+.amu-dashboard-shell .amu-hero h1 {color:white;font-size:clamp(30px,5vw,48px);line-height:1.08}
+.amu-dashboard-shell .amu-hero h1 em {color:#a7e6ce}
+.amu-dashboard-shell .amu-hero p {color:#dfedf0;font-size:14px;line-height:1.55}
+.amu-dashboard-shell .amu-hero-actions {display:flex;gap:8px;flex-wrap:wrap}
+.amu-dashboard-shell .amu-hero-actions :is(a,button) {min-height:44px;font-size:13px}
+.amu-dashboard-shell .amu-stat,.amu-dashboard-shell .amu-campaign-card {box-shadow:none;border:1px solid #d6e2e4;border-radius:14px}
+.amu-dashboard-shell .amu-section-top h2 {color:#143644;font-size:clamp(18px,3vw,24px)}
+.amu-dashboard-shell .amu-filter-bar button {min-height:40px;font-size:13px}
+@media(max-width:700px){
+ .amu-dashboard-shell .amu-hero-copy {padding:22px 18px;max-width:100%;position:relative;z-index:1}
+ .amu-dashboard-shell .amu-hero-art {display:none}
+ .amu-dashboard-shell .amu-hero-actions .amu-hero-outline {display:inline-flex}
+ .amu-dashboard-shell .amu-filter-bar {overflow-x:auto;flex-wrap:nowrap}
+ .amu-dashboard-shell .amu-filter-bar button {flex:none}
+ #mobile-nav button {min-height:44px}
+ #detail .detail-description {font-size:14px;line-height:1.55}
+}

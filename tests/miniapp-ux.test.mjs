@@ -36,7 +36,7 @@ test('UX uses actual local research data and does not fabricate wallet eligibili
  assert.match(app,/state\.saved\.includes\(p\.id\)/);
  assert.match(app,/Kampanye publik/);assert.doesNotMatch(app,/Contoh fiktif/);
  assert.match(app,/Manual check/);
- assert.match(app,/Scan otomatis belum tersedia/);
+ assert.match(app,/href="\/aggregator\.html#watchlist"/);
  assert.match(app,/seed phrase/);
  assert.doesNotMatch(css,/\b245\b/);
 });

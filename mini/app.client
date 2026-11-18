@@ -1,0 +1,1239 @@
+const tabs={home:'Beranda',explore:'Airdrop',missions:'Quest',workspace:'Portofolio',profile:'Profil'};
+const icons={
+ home:'M3 10.5 12 3l9 7.5V21h-6v-7H9v7H3z',
+ explore:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm4 5-2.5 5.5L8 16l2.5-5.5z',
+ missions:'m5 12 4 4L19 6',
+ workspace:'m12 3 10 5-10 5L2 8zm-9 9 9 4.5 9-4.5M3 16l9 4.5 9-4.5',
+ profile:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2',
+ search:'M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm6-2 4 4',
+ bookmark:'M6 3h12v18l-6-4-6 4z',
+ check:'m4 12 5 5L20 6',
+ arrow:'M5 12h14m-6-6 6 6-6 6',
+ book:'M4 4h16v16H4zM8 8h8M8 12h8',
+ shield:'M12 2 21 6v6c0 6-4.5 9-9 10-4.5-1-9-4-9-10V6z',
+ download:'M12 3v12m-5-5 5 5 5-5M4 18v3h16v-3',
+ edit:'M4 20h4l12-12-4-4L4 16z',
+ x:'M5 5l14 14M19 5 5 19',
+ layers:'m12 3 10 5-10 5L2 8zm-9 9 9 4.5 9-4.5'
+};
+const key='airdrop-museum-v1';
+const area=document.querySelector('#content'),head=document.querySelector('#view-head'),nav=document.querySelector('nav'),toast=document.querySelector('#toast');
+const guide=[
+ {id:'guide:source',name:'Periksa informasi dari sumber resmi',detail:'Pastikan alamat situs proyek valid dan gunakan dokumentasi aslinya.'},
+ {id:'guide:risks',name:'Catat risiko kampanye',detail:'Evaluasi batasan, tenggat waktu, dan persyaratan sebelum mengikuti.'},
+ {id:'guide:wallet',name:'Tinjau keamanan wallet',detail:'Jangan membagikan seed phrase atau menandatangani transaksi yang tidak dipahami.'}
+];
+let comparedCampaignIds=[],catalog=[],status='loading',query='',chain='all',category='all',campaignStatus='all',exploreGroup='all',sortBy='catalog',displayMode='grid',shown=12,requestSeq=0,toastTimer,cacheAt=0;
+const catalogCacheKey='airdrop-museum-public-catalog-v1';
+
+const monitorPreferenceKey='airdrop-museum-source-monitor-v1';
+let sourceEvents=[],sourceStatus='loading',sourceFetchedAt=0,sourceRequestSeq=0,sourceFilter='all';
+function sourcePrefs(){
+ try{
+  const raw=JSON.parse(localStorage.getItem(monitorPreferenceKey)||'null');
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw))
+   return {enabled:raw.enabled===true,seenAt:Number.isFinite(raw.seenAt)&&raw.seenAt>0?raw.seenAt:Date.now()};
+ }catch{}
+ return {enabled:false,seenAt:Date.now()};
+}
+function updateSourcePrefs(change){
+ const prefs=sourcePrefs();change(prefs);
+ try{localStorage.setItem(monitorPreferenceKey,JSON.stringify(prefs));render();}
+ catch{notify('Pengaturan pemantauan tidak dapat disimpan di perangkat.');}
+}
+function newWatchedEvents(state){
+ const prefs=sourcePrefs();
+ if(!prefs.enabled)return [];
+ const watched=new Set(state.saved);
+ return sourceEvents.filter(e=>
+  watched.has(e.campaignId)&&['changed','status'].includes(e.type)
+  &&Number.isFinite(Date.parse(e.timestamp))&&Date.parse(e.timestamp)>prefs.seenAt
+ );
+}
+function updateSourceBadges(state){
+ const count=Math.min(99,newWatchedEvents(state).length);
+ for(const navButton of [...nav.querySelectorAll('button[data-route="workspace"]'),...document.querySelectorAll('#legacy-desktop-tabs button[data-side-route="workspace"]')]){
+  let badge=navButton.querySelector('.source-unread-badge');
+  if(!count){badge?.remove();continue;}
+  if(!badge){badge=node('span','source-unread-badge','',navButton);badge.setAttribute('aria-hidden','true');}
+  badge.textContent=String(count);
+ }
+}
+function activityDate(value){
+ const date=new Date(value);
+ if(!Number.isFinite(date.getTime()))return 'Waktu belum dicatat';
+ return new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Jakarta'}).format(date)+' WIB';
+}
+function activityType(event){
+ return event.type==='changed'?'Sumber berubah':event.type==='unavailable'?'Sumber tidak tersedia':
+  event.type==='status'?'Status berubah':'Catatan pemeriksaan';
+}
+function showSourceActivity(state,parent){
+ const section=node('section','source-activity','',parent);
+ section.id='campaign-activity';
+ const head=node('div','source-activity-head','',section);
+ const title=node('div','','',head);
+ node('span','overline','OFFICIAL SOURCE MONITOR',title);
+ node('h2','','Aktivitas sumber resmi',title);
+ node('p','','Bukti pemeriksaan yang tercatat di database. Perubahan sumber bukan konfirmasi eligibility atau reward.',title);
+ const controls=node('div','source-monitor-actions','',head);
+ const prefs=sourcePrefs();
+ const toggle=button(prefs.enabled?'Matikan notifikasi':'Aktifkan notifikasi',controls,()=>{
+  updateSourcePrefs(p=>{
+   p.enabled=!p.enabled;
+   p.seenAt=Date.now(); // No alert for historical events on activation.
+  });
+  notify(!prefs.enabled?'Notifikasi dalam aplikasi aktif untuk perubahan baru di watchlist.':'Notifikasi watchlist dimatikan.');
+ },'btn '+(prefs.enabled?'btn-outline':'btn-primary')+' btn-small');
+ toggle.setAttribute('aria-pressed',String(prefs.enabled));
+ node('p','source-monitor-disclaimer','Notifikasi dalam aplikasi saat Mini App dibuka. Tidak mengirim pesan Telegram atau push di latar belakang.',section);
+ const filterBar=node('div','source-activity-filters','',section);
+ for(const [id,label] of [['all','Semua aktivitas'],['watched','Watchlist'],['changed','Perubahan'],['unavailable','Sumber gagal']]){
+  const b=button(label,filterBar,()=>{sourceFilter=id;render();},'filter-chip');
+  b.setAttribute('aria-pressed',String(sourceFilter===id));
+ }
+ const meta=node('div','source-activity-meta','',section);
+ node('span','','Riwayat terakhir: '+(sourceFetchedAt?activityDate(sourceFetchedAt):'belum dimuat'),meta);
+ button('Perbarui aktivitas',meta,loadSourceEvents,'btn btn-outline btn-small');
+ if(prefs.enabled&&newWatchedEvents(state).length){
+  const unread=node('div','source-unread-summary','',section);
+  node('strong','',newWatchedEvents(state).length+' pembaruan watchlist belum dibaca',unread);
+  button('Tandai dibaca',unread,()=>updateSourcePrefs(p=>{p.seenAt=Date.now();}),'btn btn-outline btn-small');
+ }
+ if(sourceStatus==='loading'&&!sourceEvents.length){
+  node('p','source-activity-empty','Memuat aktivitas sumber…',section);return;
+ }
+ if(sourceStatus==='error'){
+  const note=node('p','source-activity-error','Aktivitas sumber belum dapat diperbarui. Data yang tampil mungkin tidak terbaru.',section);
+  note.setAttribute('role','status');
+ }
+ const watched=new Set(state.saved);
+ const filtered=sourceEvents.filter(event=>
+  (sourceFilter!=='watched'||watched.has(event.campaignId))&&
+  (sourceFilter!=='changed'||['changed','status'].includes(event.type))&&
+  (sourceFilter!=='unavailable'||event.type==='unavailable')
+ ).slice(0,45);
+ if(!filtered.length){
+  node('p','source-activity-empty',sourceStatus==='error'?'Riwayat belum tersedia. Coba perbarui lagi.':
+   sourceFilter==='watched'?'Belum ada riwayat sumber untuk kampanye di watchlist.':
+   'Belum ada aktivitas sumber yang sesuai dengan filter.',section);
+  return;
+ }
+ const list=node('div','source-activity-list','',section);
+ for(const event of filtered){
+  const entry=node('article','source-event source-event-'+event.type,'',list);
+  const top=node('div','source-event-top','',entry);
+  node('span','source-event-status',activityType(event),top);
+  node('time','',activityDate(event.timestamp),top).dateTime=event.timestamp;
+  const row=node('div','source-event-title','',entry);
+  node('strong','',event.name,row);
+  if(watched.has(event.campaignId))node('span','source-event-watched','Watchlist',row);
+  node('p','',event.description,entry);
+  const actions=node('div','source-event-actions','',entry);
+  if(safeUrl(event.sourceUrl)){
+   const a=node('a','btn btn-outline btn-small','Buka sumber tercatat',actions);
+   a.href=event.sourceUrl;a.target='_blank';a.rel='noopener noreferrer';
+  }
+  if(catalog.some(p=>p.id===event.campaignId))
+   button('Detail kampanye',actions,()=>openCampaignDetail(event.campaignId),'btn btn-subtle btn-small');
+ }
+}
+async function loadSourceEvents(){
+ const seq=++sourceRequestSeq;
+ if(!sourceEvents.length)sourceStatus='loading';
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+ try{
+  const response=await fetch('/api/source-activity',{cache:'no-store',signal:controller.signal});
+  if(!response.ok)throw Error('SOURCE_ACTIVITY_HTTP_'+response.status);
+  const data=await response.json();
+  if(!data||!Array.isArray(data.events)||data.events.length>100)throw Error('INVALID_SOURCE_ACTIVITY');
+  if(seq!==sourceRequestSeq)return;
+  const list=[];
+  for(const e of data.events){
+   if(!e||typeof e.id!=='string'||typeof e.campaignId!=='string'||typeof e.name!=='string')continue;
+   if(!['changed','status','unavailable','record'].includes(e.type)||!safeUrl(e.sourceUrl))continue;
+   list.push({id:e.id.slice(0,100),campaignId:e.campaignId.slice(0,110),name:e.name.slice(0,100),
+    type:e.type,timestamp:typeof e.timestamp==='string'?e.timestamp.slice(0,35):'',
+    sourceUrl:e.sourceUrl,description:typeof e.description==='string'?e.description.slice(0,240):''});
+  }
+  sourceEvents=list;sourceFetchedAt=Date.now();sourceStatus='ready';
+ }catch{
+  if(seq!==sourceRequestSeq)return;
+  sourceStatus='error';
+ }finally{
+  clearTimeout(timeout);
+  if(seq===sourceRequestSeq)render();
+ }
+}
+
+// TON Connect UI: wallet picker opens immediately; no EVM pairing, signing or transfer flows.
+const TON_UI_CDNS=[
+ 'https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js',
+ 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js'
+];
+const TON_MANIFEST=location.origin+'/tonconnect-manifest.json';
+let tonUi=null,tonUiTask=null,tonLoader=null,tonInfo=null,tonOpening=false,tonIssue='',tonAutoboot=false;
+let walletData=null,walletLoading=false,walletError='',walletFetchSeq=0,walletLoadedAt=0,walletAbort=null;
+function walletDate(value){
+ if(!value||!Number.isFinite(Date.parse(value)))return 'Tidak diketahui';
+ return new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Jakarta'}).format(new Date(value))+' WIB';
+}
+function resetWalletSnapshot(){
+ walletFetchSeq++;walletAbort?.abort();walletAbort=null;walletData=null;walletLoading=false;walletError='';walletLoadedAt=0;
+}
+// Anonymous indexers rate-limit shared Worker IP addresses. Device-origin requests
+// are an optional fallback and carry only the public TON address, never private keys.
+function tonDecimal(raw,decimals=9){
+ const str=String(raw);
+ if(!/^\d{1,100}$/.test(str))throw Error('INVALID_AMOUNT');
+ const d=Number.isInteger(decimals)&&decimals>=0&&decimals<=18?decimals:9;
+ const digits=str.padStart(d+1,'0'),split=digits.length-d;
+ return digits.slice(0,split).replace(/^0+(?=\d)/,'')+(d&&digits.slice(split,split+6).replace(/0+$/,'')?'.'+digits.slice(split,split+6).replace(/0+$/,''):'');
+}
+async function fetchPublicTonJson(url,signal){
+ const r=await fetch(url,{method:'GET',mode:'cors',credentials:'omit',headers:{Accept:'application/json'},signal});
+ if(!r.ok)throw Error('TON_PROVIDER_HTTP_'+r.status);
+ const result=await r.json();
+ if(!result||typeof result!=='object')throw Error('TON_PROVIDER_INVALID');
+ return result;
+}
+async function tonBrowserFallback(raw,signal,onPartial){
+ const base='https://tonapi.io/v2/accounts/'+encodeURIComponent(raw);
+ let data,provider='TonAPI (langsung)',ton,status;
+ try{
+  data=await fetchPublicTonJson(base,signal);
+  if(!/^\d+$/.test(String(data.balance)))throw Error('TON_BALANCE_INVALID');
+  ton=tonDecimal(String(data.balance));status=String(data.status||'unknown').slice(0,40);
+ }catch{
+  const info=await fetchPublicTonJson('https://toncenter.com/api/v2/getAddressInformation?address='+encodeURIComponent(raw),signal);
+  if(info.ok!==true||!/^\d+$/.test(String(info.result?.balance)))throw Error('TON_BROWSER_NO_PROVIDER');
+  provider='TON Center (langsung)';ton=tonDecimal(String(info.result.balance));status=String(info.result.state||'unknown').slice(0,40);
+ }
+ const result={network:'TON mainnet',address:raw,ton,accountStatus:status,source:provider,
+  jettons:[],jettonsAvailable:false,nfts:[],nftsAvailable:false,events:[],eventsAvailable:false,checkedAt:new Date().toISOString()};
+ onPartial({...result});
+ if(provider!=='TonAPI (langsung)')return result;
+ // Public anonymous TonAPI permits approximately one request per four seconds.
+ const sections=['jettons','events','nfts'];
+ for(const section of sections){
+  await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},4300);
+   function abort(){clearTimeout(timer);reject(Error('ABORTED'));}
+   if(signal.aborted)return abort();
+   signal.addEventListener('abort',abort,{once:true});
+  });
+  if(signal.aborted)break;
+  try{
+   const data=await fetchPublicTonJson(base+'/'+section+(section==='events'?'?limit=8':section==='nfts'?'?limit=15':''),signal);
+   if(section==='jettons'&&Array.isArray(data.balances)){
+    result.jettons=data.balances.slice(0,20).filter(t=>t?.jetton&&/^\d+$/.test(String(t.balance))).map(t=>({
+     symbol:String(t.jetton.symbol||'JETTON').slice(0,14),name:String(t.jetton.name||'Jetton').slice(0,60),
+     amount:tonDecimal(String(t.balance),Number(t.jetton.decimals))
+    })).filter(t=>t.amount!=='0').slice(0,15);
+    result.jettonsAvailable=true;
+   }
+   if(section==='events'&&Array.isArray(data.events)){
+    result.events=data.events.slice(0,8).map(ev=>{
+     const action=Array.isArray(ev.actions)?ev.actions.find(x=>x?.type):null;
+     const type=String(action?.type||'Activity').slice(0,30);
+     let amount=null;
+     try{
+      if(type==='TonTransfer'&&/^\d+$/.test(String(action?.TonTransfer?.amount)))amount=tonDecimal(action.TonTransfer.amount)+' TON';
+      if(type==='JettonTransfer'&&/^\d+$/.test(String(action?.JettonTransfer?.amount)))
+       amount=tonDecimal(action.JettonTransfer.amount,Number(action.JettonTransfer.jetton?.decimals))+' '+String(action.JettonTransfer.jetton?.symbol||'JETTON').slice(0,14);
+     }catch{}
+     const seconds=Number(ev.timestamp);
+     return{type,amount,id:String(ev.event_id||'').slice(0,100),
+      time:Number.isFinite(seconds)&&seconds>0?new Date(seconds*1000).toISOString():''};
+    }).filter(x=>x.time);
+    result.eventsAvailable=true;
+   }
+   if(section==='nfts'&&Array.isArray(data.nft_items)){
+    result.nfts=data.nft_items.slice(0,15).map(n=>({
+     name:String(n?.metadata?.name||'NFT').slice(0,65),collection:String(n?.collection?.name||'Tanpa koleksi').slice(0,55),
+     address:String(n?.address||'').slice(0,100)
+    })).filter(n=>n.address);
+    result.nftsAvailable=true;
+   }
+   onPartial({...result});
+  }catch{}
+ }
+ return result;
+}
+
+async function loadWalletSnapshot(force=false){
+ const raw=tonInfo?.raw;
+ if(!raw||!/^0:[a-f0-9]{64}$/.test(raw))return;
+ if(walletLoading&&!force)return;
+ if(!force&&walletData&&Date.now()-walletLoadedAt<60000)return;
+ const seq=++walletFetchSeq;walletAbort?.abort();
+ const controller=new AbortController();walletAbort=controller;walletLoading=true;walletError='';
+ if(['profile','workspace'].includes(currentRoute()))render();
+ const timer=setTimeout(()=>controller.abort(),48000);
+ try{
+  const r=await fetch('/api/ton-wallet?address='+encodeURIComponent(raw),{cache:'no-store',signal:controller.signal});
+  let payload;
+  if(r.ok)payload=await r.json();
+  else{
+   payload=await tonBrowserFallback(raw,controller.signal,partial=>{
+    if(seq!==walletFetchSeq||tonInfo?.raw!==raw)return;
+    walletData=partial;walletLoadedAt=Date.now();walletError='';
+    if(['profile','workspace'].includes(currentRoute()))render();
+   });
+  }
+  if(!payload||payload.address!==raw||payload.network!=='TON mainnet'||typeof payload.ton!=='string')throw Error('INVALID_WALLET_DATA');
+  if(seq!==walletFetchSeq||tonInfo?.raw!==raw)return;
+  walletData=payload;walletLoadedAt=Date.now();walletError='';
+ }catch(error){
+  if(seq!==walletFetchSeq||tonInfo?.raw!==raw)return;
+  walletData=null;
+  walletError=controller.signal.aborted?'Permintaan data wallet terlalu lama. Coba perbarui.':
+   String(error.message)==='HTTP_429'?'Layanan blockchain membatasi permintaan. Coba lagi.':
+   'Data blockchain sementara tidak tersedia. Periksa jaringan lalu coba lagi.';
+ }finally{
+  clearTimeout(timer);
+  if(seq===walletFetchSeq){walletLoading=false;walletAbort=null;if(['profile','workspace'].includes(currentRoute()))render();}
+ }
+}
+function renderTonWalletAssets(parent){
+ const card=node('section','ton-assets-panel','',parent);
+ const header=node('div','ton-assets-header','',card);
+ const copy=node('div','','',header);
+ node('span','overline','TON MAINNET · DATA BLOCKCHAIN',copy);
+ node('h2','','Portofolio Wallet TON',copy);
+ node('p','',tonInfo?'Saldo, token, NFT, dan aktivitas dari data jaringan publik.':'Hubungkan TON Wallet di Profil agar data aset dan aktivitas Anda dapat ditampilkan.',copy);
+ if(!tonInfo){
+  button('Hubungkan Wallet',card,()=>go('profile'),'btn btn-primary btn-small');return;
+ }
+ const bar=node('div','ton-assets-controls','',card);
+ const a=node('a','ton-explorer-link','Lihat di TON Viewer',bar);
+ a.href='https://tonviewer.com/'+encodeURIComponent(tonInfo.address);a.target='_blank';a.rel='noopener noreferrer';
+ const refresh=button(walletLoading?'Memuat…':'Perbarui data',bar,()=>loadWalletSnapshot(true),'btn btn-outline btn-small');
+ refresh.disabled=walletLoading;
+ if(walletLoading&&!walletData)node('p','ton-assets-pending','Mengambil data TON mainnet dari penyedia blockchain…',card);
+ if(walletError){const e=node('p','ton-assets-error',walletError,card);e.setAttribute('role','status');}
+ if(!walletData)return;
+ const info=node('div','ton-assets-balance','',card);
+ node('span','','Saldo TON',info);
+ node('strong','',walletData.ton+' TON',info);
+ node('small','','Status akun: '+(walletData.accountStatus||'tidak diketahui')+' · '+(walletData.source||'Sumber blockchain'),info);
+ node('small','','Diperiksa: '+walletDate(walletData.checkedAt),info);
+ const grid=node('div','ton-assets-columns','',card);
+ const tokenPanel=node('section','ton-assets-section','',grid);
+ node('h3','','Jetton',tokenPanel);
+ if(!walletData.jettonsAvailable)node('p','ton-assets-muted','Daftar Jetton belum tersedia dari penyedia data.',tokenPanel);
+ else if(!walletData.jettons?.length)node('p','ton-assets-muted','Tidak ada saldo Jetton yang terdeteksi.',tokenPanel);
+ else for(const token of walletData.jettons.slice(0,15)){
+  const row=node('div','ton-asset-row','',tokenPanel);
+  const info=node('div','','',row);node('strong','',token.symbol||'JETTON',info);node('small','',token.name||'Token',info);
+  node('span','',String(token.amount),row);
+ }
+ const nftPanel=node('section','ton-assets-section','',grid);
+ node('h3','','NFT',nftPanel);
+ if(!walletData.nftsAvailable)node('p','ton-assets-muted','Daftar NFT belum tersedia dari penyedia data.',nftPanel);
+ else if(!walletData.nfts?.length)node('p','ton-assets-muted','Belum ada NFT yang terdeteksi.',nftPanel);
+ else for(const nft of walletData.nfts.slice(0,10)){
+  const row=node('div','ton-asset-row','',nftPanel);
+  const info=node('div','','',row);node('strong','',nft.name||'NFT',info);node('small','',nft.collection||'Tanpa koleksi',info);
+ }
+ const timeline=node('section','ton-assets-section ton-activity-list','',card);
+ node('h3','','Aktivitas terbaru',timeline);
+ if(!walletData.eventsAvailable)node('p','ton-assets-muted','Riwayat transaksi belum tersedia dari penyedia data.',timeline);
+ else if(!walletData.events?.length)node('p','ton-assets-muted','Belum ada aktivitas yang tersedia.',timeline);
+ else for(const event of walletData.events.slice(0,8)){
+  const row=node('div','ton-activity-row','',timeline);
+  const info=node('div','','',row);node('strong','',event.type||'Transaksi',info);
+  node('small','',walletDate(event.time),info);
+  if(event.amount)node('span','',event.amount,row);
+ }
+ const research=node('div','ton-campaign-compat','',card);
+ const matches=catalog.filter(p=>/\bton\b/i.test(p.chain||''));
+ node('strong','','Kaitan dengan katalog airdrop',research);
+ node('p','',matches.length?
+  matches.length+' kampanye mencantumkan jaringan TON. Cocok jaringan tidak berarti wallet ini eligible.':
+  'Belum ada kampanye TON pada katalog saat ini. Data wallet tidak dapat membuktikan kelayakan kampanye pada jaringan lain.',research);
+ if(matches.length)button('Tinjau kampanye',research,()=>{chain='all';query='ton';go('explore');},'btn btn-outline btn-small');
+}
+
+function tonErrorMessage(error){
+ const message=String(error?.message||error||'');
+ if(/manifest/i.test(message))return 'Identitas aplikasi tidak tersedia. Periksa koneksi dan coba lagi.';
+ if(/user.reject|user cancel|closed modal/i.test(message))return '';
+ if(/network|connection|bridge/i.test(message))return 'Koneksi wallet gagal. Periksa internet dan buka kembali daftar wallet.';
+ return 'Pemilih wallet tidak dapat dibuka. Coba lagi atau gunakan aplikasi wallet lain.';
+}
+function loadTonScriptFrom(src){
+ return new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.async=true;script.src=src;script.crossOrigin='anonymous';
+  let done=false;const timer=setTimeout(()=>finish(Error('TON_UI_LOAD_TIMEOUT')),8500);
+  function finish(error){
+   if(done)return;done=true;clearTimeout(timer);script.onload=null;script.onerror=null;
+   if(error){script.remove();reject(error);}else resolve(window.TON_CONNECT_UI);
+  }
+  script.onload=()=>window.TON_CONNECT_UI?.TonConnectUI?finish():finish(Error('TON_UI_MISSING'));
+  script.onerror=()=>finish(Error('TON_UI_NETWORK'));
+  document.head.append(script);
+ });
+}
+function tonLibrary(){
+ if(window.TON_CONNECT_UI?.TonConnectUI)return Promise.resolve(window.TON_CONNECT_UI);
+ if(tonLoader)return tonLoader;
+ tonLoader=(async()=>{
+  for(const src of TON_UI_CDNS){
+   try{return await loadTonScriptFrom(src);}
+   catch{} // Retry once through the pinned secondary CDN.
+  }
+  throw Error('TON_UI_UNAVAILABLE');
+ })().finally(()=>{tonLoader=null;});
+ return tonLoader;
+}
+function tonWalletUpdate(wallet,error){
+ if(error){tonIssue=tonErrorMessage(error);}
+ if(wallet?.account){
+  if(String(wallet.account.chain)!=='-239'){
+   tonInfo=null;resetWalletSnapshot();tonIssue='Hanya TON mainnet yang didukung. Pilih wallet mainnet.';
+   void Promise.resolve(tonUi?.disconnect()).catch(()=>{});
+  }else{
+   const raw=String(wallet.account.address||'');
+   const helpers=window.TON_CONNECT_UI;
+   let friendly=raw;
+   try{friendly=helpers?.toUserFriendlyAddress?.(raw) || raw;}catch{}
+   const address=raw.toLowerCase();
+   if(!/^0:[a-f0-9]{64}$/.test(address)){
+    tonInfo=null;resetWalletSnapshot();tonIssue='Alamat TON dari wallet tidak valid.';
+   }else{
+    const changed=tonInfo?.raw!==address;
+    tonInfo={address:friendly,raw:address,app:String(wallet.device?.appName||'TON Wallet').slice(0,42),chain:'TON Mainnet'};
+    tonIssue='';
+    if(changed){resetWalletSnapshot();void loadWalletSnapshot();}
+   }
+  }
+ }else{tonInfo=null;resetWalletSnapshot();}
+ if(['profile','workspace'].includes(currentRoute()))render();
+}
+function tonConnector(){
+ if(tonUi)return Promise.resolve(tonUi);
+ if(tonUiTask)return tonUiTask;
+ tonUiTask=(async()=>{
+  const library=await tonLibrary();
+  const ui=new library.TonConnectUI({
+   manifestUrl:TON_MANIFEST,
+   uiPreferences:{theme:library.THEME?.LIGHT||'LIGHT'}
+  });
+  tonUi=ui;
+  ui.onStatusChange(tonWalletUpdate,error=>tonWalletUpdate(null,error));
+  if(ui.wallet)tonWalletUpdate(ui.wallet);
+  return ui;
+ })().catch(e=>{tonUi=null;throw e;}).finally(()=>{tonUiTask=null;});
+ return tonUiTask;
+}
+async function connectTon(){
+ if(tonOpening)return;
+ tonOpening=true;tonIssue='';if(currentRoute()==='profile')render();
+ try{
+  const ui=await tonConnector();
+  tonOpening=false;
+  if(currentRoute()!=='profile')return; // User navigated away before the SDK was ready.
+  render();
+  // Opening the selector is success; don't wait for an external wallet to approve.
+  Promise.resolve(ui.openModal()).catch(e=>{
+   const message=tonErrorMessage(e);
+   if(message){tonIssue=message;if(currentRoute()==='profile')render();}
+  });
+ }catch(e){
+  tonOpening=false;tonIssue=tonErrorMessage(e);
+  if(currentRoute()==='profile')render();
+ }
+}
+async function disconnectTon(){
+ if(tonOpening)return;
+ tonOpening=true;tonIssue='';if(currentRoute()==='profile')render();
+ try{
+  await tonUi?.disconnect();
+  tonInfo=null;resetWalletSnapshot();notify('Koneksi TON Wallet telah diputus.');
+ }catch(e){
+  tonIssue='Gagal memutuskan sesi di wallet. Coba lagi dari wallet Anda.';
+ }finally{
+  tonOpening=false;if(currentRoute()==='profile')render();
+ }
+}
+function renderTonConnect(parent){
+ const panel=node('section','panel ton-connect-panel','',parent);
+ const row=node('div','ton-connection-head','',panel);
+ const icon=node('span','ton-logo','',row);
+ icon.textContent='◇';
+ const info=node('div','ton-heading','',row);
+ node('h3','','Hubungkan Wallet',info);
+ node('p','page-subtitle','TON Connect · Telegram Wallet, Tonkeeper dan wallet TON lainnya',info);
+ node('span','ton-connection-state '+(tonInfo?'connected':''),tonInfo?'Terhubung':'Belum terhubung',row);
+ if(tonInfo){
+  const details=node('div','ton-connected-details','',panel);
+  const summary=node('div','ton-wallet-label','',details);
+  node('strong','',tonInfo.app,summary);
+  node('small','',tonInfo.chain,summary);
+  node('code','ton-address',tonInfo.address,details);
+  if(walletData)node('strong','ton-wallet-mini-balance',walletData.ton+' TON · '+(walletData.jettons?.length||0)+' Jetton · '+(walletData.nfts?.length||0)+' NFT',panel);
+  else if(walletLoading)node('p','ton-wallet-mini-info','Mengambil saldo dan aset blockchain…',panel);
+  else if(walletError)node('p','ton-wallet-mini-info',walletError,panel);
+  const actions=node('div','ton-actions','',panel);
+  button('Lihat aset & aktivitas',actions,()=>go('workspace'),'btn btn-primary btn-small');
+  button('Putuskan koneksi',actions,disconnectTon,'btn btn-outline btn-small').disabled=tonOpening;
+ }else{
+  node('p','ton-description','Pilih wallet melalui daftar TON Connect, lalu setujui koneksi di aplikasi wallet Anda.',panel);
+  const actions=node('div','ton-actions','',panel);
+  button(tonOpening?'Membuka daftar wallet…':'Hubungkan Wallet',actions,connectTon,'btn btn-primary ton-connect-button').disabled=tonOpening;
+ }
+ if(tonIssue){const alert=node('p','ton-connect-error',tonIssue,panel);alert.setAttribute('role','alert');}
+ node('p','ton-connect-footnote','Koneksi dipakai untuk membaca saldo, Jetton, NFT, dan aktivitas TON mainnet. Tidak melakukan transaksi atau klaim.',panel);
+}
+
+function node(tag,cls='',text='',parent){
+ const x=document.createElement(tag);
+ if(cls)x.className=cls;
+ if(text!==undefined&&text!==null)x.textContent=String(text);
+ if(parent)parent.append(x);
+ return x;
+}
+function svg(name){
+ const v=document.createElementNS('http://www.w3.org/2000/svg','svg');
+ v.setAttribute('viewBox','0 0 24 24');v.setAttribute('fill','none');
+ v.setAttribute('stroke','currentColor');v.setAttribute('stroke-width','1.75');
+ v.setAttribute('stroke-linecap','round');v.setAttribute('stroke-linejoin','round');
+ v.setAttribute('aria-hidden','true');
+ const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+ p.setAttribute('d',icons[name]||icons.layers);v.append(p);
+ return v;
+}
+function button(label,parent,callback,cls='btn'){
+ const el=node('button',cls,label,parent);
+ el.type='button';el.addEventListener('click',callback);return el;
+}
+function iconButton(label,name,parent,callback){
+ const b=button('',parent,callback,'action-icon');
+ b.setAttribute('aria-label',label);b.append(svg(name));return b;
+}
+function action(label,parent,callback){return button(label,parent,callback,'btn btn-primary');}
+function safeUrl(value){
+ if(typeof value!=='string')return null;
+ try{const url=new URL(value);return url.protocol==='https:'?url.href:null;}catch{return null;}
+}
+function projectRow(p){
+ if(!p||typeof p.id!=='string'||!p.id||typeof p.name!=='string'||!p.name.trim())return null;
+ const official=Array.isArray(p.official_urls)?p.official_urls.map(safeUrl).filter(Boolean).slice(0,12):[];
+ const site=safeUrl(p.website)||official[0]||null;
+ const updated=typeof p.updatedAt==='string'?p.updatedAt:(typeof p.updated_at==='string'?p.updated_at:'');
+ return {id:p.id,name:p.name.trim().slice(0,100),chain:typeof p.chain==='string'?p.chain.slice(0,140):'',category:typeof p.category==='string'?p.category.slice(0,60):'',
+  desc:typeof p.desc==='string'?p.desc.slice(0,1200):(typeof p.description==='string'?p.description.slice(0,1200):''),
+  website:site,official_urls:[...new Set([site,...official].filter(Boolean))].slice(0,12),
+  status:typeof p.status==='string'?p.status.slice(0,32):'',
+  updatedAt:Number.isFinite(Date.parse(updated))&&/^\d{4}-\d{2}-\d{2}/.test(updated)?updated:'',
+  lastVerifiedAt:typeof p.lastVerifiedAt==='string'&&Number.isFinite(Date.parse(p.lastVerifiedAt))?p.lastVerifiedAt:'',
+  claimDeadlineAt:typeof p.claimDeadlineAt==='string'&&Number.isFinite(Date.parse(p.claimDeadlineAt))?p.claimDeadlineAt:'',
+  snapshotAt:typeof p.snapshotAt==='string'&&Number.isFinite(Date.parse(p.snapshotAt))?p.snapshotAt:'',
+  riskFlags:Array.isArray(p.riskFlags)?p.riskFlags.filter(x=>typeof x==='string').map(x=>x.slice(0,100)).slice(0,16):[],
+  tasks:Array.isArray(p.tasks)?p.tasks.filter(x=>typeof x==='string'&&x.trim()).map(x=>x.slice(0,400)).slice(0,40):[]};
+}
+function read(){
+ const raw=JSON.parse(localStorage.getItem(key)||'{}');
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('INVALID_LOCAL_STATE');
+ const saved=Array.isArray(raw.saved)?[...new Set(raw.saved.filter(x=>typeof x==='string'))].slice(0,1200):[];
+ const done=raw.done&&typeof raw.done==='object'&&!Array.isArray(raw.done)?raw.done:{};
+ const notes=raw.notes&&typeof raw.notes==='object'&&!Array.isArray(raw.notes)?raw.notes:{};
+ const custom=Array.isArray(raw.custom)?raw.custom.slice(0,500):[];
+ return {...raw,saved,done,notes,custom};
+}
+function edit(change,message){
+ try{const state=read();change(state);localStorage.setItem(key,JSON.stringify(state));render();if(message)notify(message);}
+ catch{notify('Penyimpanan perangkat tidak tersedia. Data lama tidak dihapus.');}
+}
+function notify(text){
+ toast.textContent=text;toast.classList.add('visible');clearTimeout(toastTimer);
+ toastTimer=setTimeout(()=>toast.classList.remove('visible'),3300);
+}
+function go(route){
+ const next=Object.hasOwn(tabs,route)?route:'home';
+ if(location.hash!=='#'+next)location.hash=next;else render();
+ window.scrollTo({top:0,behavior:'instant'});
+}
+function currentRoute(){
+ let r=location.hash.slice(1);
+ if(!Object.hasOwn(tabs,r)){r='home';history.replaceState(null,'','#home');}
+ return r;
+}
+function title(name,summary){
+ head.replaceChildren();
+ node('span','overline','AIRDROP MUSEUM  /  EXPLORE & TRACK',head);
+ node('h1','page-title',name,head);
+ if(summary)node('p','page-subtitle',summary,head);
+}
+function section(name,description,parent=area){
+ const h=node('div','section-heading','',parent),left=node('div','','',h);
+ node('h2','',name,left);if(description)node('p','',description,left);return h;
+}
+function empty(name,description,label,callback,parent=area,icon='layers'){
+ const wrap=node('div','empty-state','',parent),symbol=node('div','empty-symbol','',wrap);
+ symbol.append(svg(icon));node('h3','',name,wrap);node('p','',description,wrap);
+ if(label){const actions=node('div','empty-actions','',wrap);action(label,actions,callback);}
+ return wrap;
+}
+function loading(parent=area){
+ const card=node('div','loading-box','',parent);
+ node('div','skeleton-row','',card);node('div','skeleton-row','',card);node('p','','Memuat katalog resmi…',card);
+}
+function tag(text,parent,variant=''){return node('span','tag '+variant,text,parent);}
+function artColor(name){
+ let h=2166136261;
+ for(const ch of String(name||'')){h=Math.imul(h^ch.charCodeAt(0),16777619);}
+ return (h>>>0)%6;
+}
+function campaignCover(p,parent,small=false){
+ const wrap=node('div','campaign-cover cover-tone-'+artColor(p.id)+(small?' cover-small':''),'',parent);
+ const caption=node('div','cover-header','',wrap);
+ node('span','cover-label','AIRDROP MUSEUM',caption);
+ node('span','cover-id','#'+String(p.id).slice(0,4).toUpperCase(),caption);
+ const shape=node('div','cover-orbit','',wrap);
+ const core=node('div','cover-core','',shape);
+ node('span','',p.name.slice(0,1).toLocaleUpperCase(),core);
+ node('div','cover-footer',p.chain||p.category||'WEB3 RESEARCH',wrap);
+ return wrap;
+}
+function projects(state){
+ const byId=new Map();
+ for(const p of [...catalog,...state.custom]){const clean=projectRow(p);if(clean&&!byId.has(clean.id))byId.set(clean.id,clean);}
+ return [...byId.values()];
+}
+function progress(state,rows){
+ const list=[...guide.map(x=>x.id)];
+ for(const p of rows.filter(p=>state.saved.includes(p.id)))for(let i=0;i<p.tasks.length;i++)list.push(p.id+':'+i);
+ const total=list.length,done=list.filter(id=>state.done[id]).length;
+ return {total,done,percent:total?Math.round(done/total*100):0};
+}
+function sourceLink(p,parent){
+ if(!p.website)return;
+ const a=node('a','action-icon','',parent);
+ a.append(svg('arrow'));a.href=p.website;a.target='_blank';a.rel='noopener noreferrer';
+ a.setAttribute('aria-label','Sumber resmi '+p.name);
+ a.title='Buka sumber resmi';return a;
+}
+function card(p,state,parent){
+ const el=node('article','campaign-card','',parent);
+ campaignCover(p,el);
+ const body=node('div','campaign-body','',el);
+ const top=node('div','campaign-top','',body);
+ node('div','project-mark',p.name.slice(0,1).toLocaleUpperCase(),top);
+ const info=node('div','project-header','',top);
+ const cardTitle=node('h3','','',info);
+ const titleButton=button(p.name,cardTitle,()=>openCampaignDetail(p.id),'campaign-title-button');
+ titleButton.setAttribute('aria-label','Detail '+p.name);
+ node('small','',[p.chain,p.category].filter(Boolean).join(' · ')||'Web3 · Riset mandiri',info);
+ const badges=node('div','campaign-tags','',body);
+ const s=p.status.toUpperCase();
+ if(s==='CONFIRMED')tag('Terkonfirmasi',badges,'verified');
+ else if(s==='RUMORED')tag('Rumor',badges,'unknown');
+ else if(s==='EXPIRED')tag('Berakhir',badges,'expired');
+ else if(s==='SPECULATIVE')tag('Spekulatif',badges,'unknown');
+ else tag('Perlu riset',badges);
+ if(p.tasks.length)tag(p.tasks.length+' tugas',badges);
+ const evidence=campaignEvidenceStatus(p);
+ if(evidence.reviewRequired)tag(evidence.flag?'Perubahan sumber':evidence.age===null?'Belum ada verifikasi':'Verifikasi lama',badges,'campaign-evidence-badge');
+ node('p','desc',p.desc||'Periksa sumber resmi dan dokumentasi proyek sebelum berpartisipasi.',body);
+ const done=p.tasks.filter((_,i)=>state.done[p.id+':'+i]).length;
+ if(p.tasks.length&&state.saved.includes(p.id)){
+  const progressRow=node('div','campaign-progress','',body);
+  node('span','',done+'/'+p.tasks.length+' langkah ditinjau',progressRow);
+  const meter=node('div','mini-meter','',progressRow);
+  const fill=node('div','mini-meter-fill','',meter);fill.style.width=(done/p.tasks.length*100)+'%';
+ }
+ const actions=node('div','campaign-actions','',body),isSaved=state.saved.includes(p.id);
+ button('Detail',actions,()=>openCampaignDetail(p.id),'btn btn-outline btn-small');
+ if(currentRoute()==='explore'){
+  const isCompared=comparedCampaignIds.includes(p.id);
+  const compare=button(isCompared?'Dipilih ✓':'Bandingkan',actions,()=>toggleCampaignComparison(p.id),'btn btn-outline btn-small campaign-compare-action');
+  compare.setAttribute('aria-pressed',String(isCompared));
+ }
+ const save=button(isSaved?'Tersimpan ✓':'Simpan ke portofolio',actions,()=>{
+  edit(s=>{s.saved=s.saved.includes(p.id)?s.saved.filter(x=>x!==p.id):[...s.saved,p.id];},isSaved?'Kampanye dilepas dari portofolio.':'Kampanye ditambahkan.');
+ },'btn '+(isSaved?'btn-secondary':'btn-primary')+' btn-small');
+ save.setAttribute('aria-pressed',String(isSaved));
+ if(p.tasks.length)button('Tugas',actions,()=>{if(!state.saved.includes(p.id)){edit(s=>{s.saved=[...s.saved,p.id];},'Kampanye disimpan untuk checklist.');}go('missions');},'btn btn-outline btn-small');
+ sourceLink(p,actions);
+ return el;
+}
+function dateLabel(value){
+ if(!value||!Number.isFinite(Date.parse(value)))return 'Belum dicatat';
+ try{return new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeZone:'UTC'}).format(new Date(value));}
+ catch{return 'Belum dicatat';}
+}
+
+function campaignEvidenceStatus(p,now=Date.now()){
+ const flag=p.riskFlags?.includes('source_changed_review_required');
+ const verified=Date.parse(p.lastVerifiedAt);
+ const age=Number.isFinite(verified)?Math.max(0,Math.floor((now-verified)/86400000)):null;
+ return {
+  flag:!!flag,
+  age,
+  label:flag?'Perubahan sumber perlu ditinjau':
+    age===null?'Waktu verifikasi belum dicatat':
+    age>30?'Verifikasi lebih dari 30 hari':
+    'Verifikasi tercatat '+age+' hari lalu',
+  reviewRequired:!!flag||age===null||age>30
+ };
+}
+function campaignStatusName(p){
+ return ({CONFIRMED:'Terkonfirmasi',RUMORED:'Rumor',SPECULATIVE:'Spekulatif',EXPIRED:'Berakhir'})[String(p.status||'').toUpperCase()]||'Belum jelas';
+}
+function currentCompareRows(){
+ let state;try{state=read();}catch{return [];}
+ const byId=new Map(projects(state).map(p=>[p.id,p]));
+ return comparedCampaignIds.map(id=>byId.get(id)).filter(Boolean).slice(0,3);
+}
+function toggleCampaignComparison(id){
+ if(comparedCampaignIds.includes(id)){
+  comparedCampaignIds=comparedCampaignIds.filter(value=>value!==id);
+ }else{
+  if(comparedCampaignIds.length>=3)return notify('Maksimal tiga kampanye untuk perbandingan.');
+  comparedCampaignIds=[...comparedCampaignIds,id];
+ }
+ render();
+}
+function downloadCampaignComparison(rows){
+ // Formula-looking fields must remain plain text when opened in spreadsheet software.
+ const safeCell=value=>{
+  const s=String(value??'');
+  const normalized=/^[\s]*[=+\-@]/.test(s)?"'"+s:s;
+  return '"'+normalized.replace(/"/g,'""')+'"';
+ };
+ const headers=['Kampanye','Jaringan','Kategori','Status','Terakhir diverifikasi','Diperbarui','Sumber tercatat','Checklist','Perubahan sumber perlu tinjau','Tenggat tercatat'];
+ const values=rows.map(p=>[
+  p.name,p.chain,p.category,campaignStatusName(p),p.lastVerifiedAt||'',p.updatedAt||'',
+  p.official_urls.length,p.tasks.length,p.riskFlags.includes('source_changed_review_required')?'Ya':'Tidak',p.claimDeadlineAt||''
+ ]);
+ const csv=[headers,...values].map(row=>row.map(safeCell).join(',')).join('\r\n');
+ const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='airdrop-museum-perbandingan-'+new Date().toISOString().slice(0,10)+'.csv';
+ document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),3000);
+ notify('Perbandingan kampanye disiapkan sebagai CSV.');
+}
+function openCampaignComparison(){
+ const rows=currentCompareRows();
+ if(rows.length<2)return notify('Pilih minimal dua kampanye.');
+ document.querySelector('.campaign-compare-dialog')?.close();
+ const dialog=node('dialog','campaign-compare-dialog','',document.body);
+ dialog.setAttribute('aria-label','Perbandingan kampanye');
+ const prior=document.activeElement;
+ dialog.addEventListener('close',()=>{
+  dialog.remove();if(prior?.isConnected)prior.focus();
+ });
+ dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
+ const header=node('div','campaign-compare-head','',dialog);
+ const group=node('div','','',header);
+ node('span','overline','RESEARCH COMPARISON',group);
+ node('h2','','Bandingkan kampanye',group);
+ node('p','','Ringkasan berdasarkan data katalog. Tidak menentukan kelayakan wallet, reward, atau keamanan investasi.',group);
+ iconButton('Tutup perbandingan','x',header,()=>dialog.close());
+ const overflow=node('div','campaign-compare-scroll','',dialog);
+ const table=node('table','campaign-compare-table','',overflow);
+ const thead=node('thead','','',table);
+ const headrow=node('tr','','',thead);
+ node('th','','Parameter',headrow).scope='col';
+ for(const p of rows)node('th','',p.name,headrow).scope='col';
+ const tbody=node('tbody','','',table);
+ const attributes=[
+  ['Jaringan',p=>p.chain||'Tidak dicatat'],
+  ['Kategori',p=>p.category||'Tidak dicatat'],
+  ['Status kampanye',p=>campaignStatusName(p)],
+  ['Pemeriksaan sumber',p=>campaignEvidenceStatus(p).label],
+  ['Terakhir diverifikasi',p=>dateLabel(p.lastVerifiedAt)],
+  ['Diperbarui',p=>dateLabel(p.updatedAt)],
+  ['Tautan sumber',p=>String(p.official_urls.length)],
+  ['Langkah riset',p=>String(p.tasks.length)],
+  ['Tenggat tercatat',p=>dateLabel(p.claimDeadlineAt)],
+  ['Snapshot tercatat',p=>dateLabel(p.snapshotAt)]
+ ];
+ for(const [label,fn] of attributes){
+  const tr=node('tr','','',tbody);node('th','',label,tr).scope='row';
+  for(const p of rows)node('td','',fn(p),tr);
+ }
+ const notes=node('p','campaign-compare-note','Perbandingan ini memakai metadata yang tercatat, bukan verifikasi on-chain. Status "Terkonfirmasi" tidak berarti wallet Anda memenuhi persyaratan.',dialog);
+ const actions=node('div','campaign-compare-actions','',dialog);
+ button('Ekspor CSV',actions,()=>downloadCampaignComparison(rows),'btn btn-primary btn-small');
+ button('Tutup',actions,()=>dialog.close(),'btn btn-outline btn-small');
+ if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
+}
+function showComparisonTray(parent){
+ if(!comparedCampaignIds.length)return;
+ const selected=currentCompareRows();
+ const tray=node('div','campaign-compare-tray','',parent);
+ node('strong','',selected.length+' dari 3 kampanye dipilih',tray);
+ const names=node('span','',selected.map(p=>p.name).join(' · '),tray);
+ const actions=node('div','','',tray);
+ button('Bandingkan',actions,openCampaignComparison,'btn btn-primary btn-small').disabled=selected.length<2;
+ button('Bersihkan',actions,()=>{comparedCampaignIds=[];render();},'btn btn-outline btn-small');
+}
+
+// Detail appears in-place, not a hidden route or new screen.
+function openCampaignDetail(id){
+ let p;
+ try{p=projects(read()).find(item=>item.id===id);}catch{}
+ if(!p){notify('Kampanye tidak lagi tersedia. Muat ulang katalog.');return;}
+ document.querySelector('.campaign-detail-dialog')?.close();
+ const previousFocus=document.activeElement;
+ const dialog=node('dialog','campaign-detail-dialog','',document.body);
+ dialog.setAttribute('aria-label','Detail kampanye '+p.name);
+ dialog.addEventListener('close',()=>{
+  dialog.remove();
+  if(previousFocus?.isConnected)previousFocus.focus();
+ });
+ dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+ function refresh(){
+  let state;
+  try{state=read();}catch{return dialog.close();}
+  dialog.replaceChildren();
+  const shell=node('div','campaign-detail-shell','',dialog);
+  const header=node('div','campaign-detail-head','',shell);
+  const logo=node('div','campaign-detail-mark',p.name.slice(0,1).toLocaleUpperCase(),header);
+  const meta=node('div','campaign-detail-heading','',header);
+  node('span','overline','CAMPAIGN RESEARCH',meta);
+  node('h2','',p.name,meta);
+  node('p','',([p.chain,p.category].filter(Boolean).join(' · ')||'Informasi dari katalog'),meta);
+  const close=iconButton('Tutup detail','x',header,()=>dialog.close());
+  close.classList.add('campaign-detail-close');
+  const body=node('div','campaign-detail-body','',shell);
+  const badges=node('div','campaign-detail-badges','',body);
+  const statusCode=p.status.toUpperCase();
+  const statusLabel=({CONFIRMED:'Terkonfirmasi',RUMORED:'Rumor',SPECULATIVE:'Spekulatif',EXPIRED:'Berakhir'})[statusCode]||'Perlu riset';
+  tag(statusLabel,badges,statusCode==='CONFIRMED'?'verified':statusCode==='EXPIRED'?'expired':'');
+  node('span','campaign-detail-updated','Diperbarui: '+dateLabel(p.updatedAt),badges);
+  const evidence=campaignEvidenceStatus(p);
+  const verification=node('div','campaign-evidence-note'+(evidence.reviewRequired?' requires-review':''),'',body);
+  node('strong','',evidence.label,verification);
+  node('p','','Terakhir diverifikasi: '+dateLabel(p.lastVerifiedAt)+'. Waktu pembaruan metadata bukan verifikasi ulang sumber.',verification);
+  if(p.claimDeadlineAt)node('p','','Tenggat tercatat: '+dateLabel(p.claimDeadlineAt)+'. Periksa perubahan di sumber resmi.',verification);
+  if(evidence.flag)node('p','','Ada tanda perubahan sumber yang belum ditinjau ulang. Jangan menganggap syarat tetap sama.',verification);
+  node('p','campaign-detail-description',p.desc||'Belum ada deskripsi yang dicatat dalam katalog. Periksa sumber proyek terlebih dahulu.',body);
+  const sourceSection=node('section','campaign-detail-section','',body);
+  node('h3','','Sumber yang tercatat',sourceSection);
+  const sources=p.official_urls||[];
+  if(!sources.length)node('p','campaign-detail-empty','Tidak ada tautan HTTPS resmi yang tercatat. Jangan menganggap kampanye terverifikasi.',sourceSection);
+  else{
+   const links=node('div','campaign-detail-sources','',sourceSection);
+   sources.forEach((url,index)=>{
+    const a=node('a','campaign-source-link','',links);
+    const hostname=new URL(url).hostname;
+    node('span','',hostname,a);node('small','',index===0?'Buka situs':'Sumber '+(index+1),a);
+    a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.setAttribute('aria-label','Buka sumber tercatat '+hostname);
+   });
+  }
+  const taskSection=node('section','campaign-detail-section','',body);
+  const taskHead=node('div','campaign-detail-section-head','',taskSection);
+  node('h3','','Checklist riset manual',taskHead);
+  const completed=p.tasks.filter((_,i)=>state.done[p.id+':'+i]).length;
+  node('span','campaign-detail-counter',completed+'/'+p.tasks.length,taskHead);
+  if(!p.tasks.length)node('p','campaign-detail-empty','Belum ada instruksi tugas dalam katalog.',taskSection);
+  for(const [i,item] of p.tasks.entries()){
+   const tid=p.id+':'+i,row=node('label','campaign-detail-task','',taskSection);
+   const cb=node('input','','',row);cb.type='checkbox';cb.checked=!!state.done[tid];
+   node('span','',item,row);
+   cb.addEventListener('change',()=>{
+    const checked=cb.checked;
+    edit(s=>{s.done={...s.done,[tid]:checked};s.taskStates={...s.taskStates,[tid]:checked?'done':'pending'};},checked?'Langkah riset ditandai selesai.':'Langkah riset dibuka kembali.');
+    refresh();
+   });
+  }
+  const noteSection=node('section','campaign-detail-section','',body);
+  const noteForm=node('form','campaign-detail-note-form','',noteSection);
+  const noteLabel=node('label','','Catatan pribadi',noteForm);
+  const textarea=node('textarea','','',noteForm);
+  textarea.id='campaign-detail-note';noteLabel.htmlFor=textarea.id;
+  textarea.maxLength=4000;textarea.rows=3;textarea.placeholder='Catat temuan, tautan yang ditinjau, dan risiko…';
+  textarea.value=typeof state.notes[p.id]==='string'?state.notes[p.id]:'';
+  const savedNote=typeof state.notes[p.id]==='string'&&state.notes[p.id].trim();
+  if(savedNote)node('small','campaign-note-saved','Catatan tersimpan di perangkat ini.',noteForm);
+  const saveNote=button('Simpan catatan',noteForm,()=>{
+   edit(s=>{s.notes={...s.notes,[p.id]:textarea.value.slice(0,4000)};},'Catatan riset disimpan.');
+   refresh();
+  },'btn btn-outline btn-small');
+  noteForm.addEventListener('submit',e=>{e.preventDefault();saveNote.click();});
+  const actions=node('div','campaign-detail-actions','',shell);
+  const saved=state.saved.includes(p.id);
+  button(saved?'Hapus dari watchlist':'Simpan ke watchlist',actions,()=>{
+   edit(s=>{s.saved=s.saved.includes(p.id)?s.saved.filter(v=>v!==p.id):[...s.saved,p.id];},saved?'Dilepas dari watchlist.':'Kampanye tersimpan.');
+   refresh();
+  },'btn btn-primary btn-small');
+  button('Tutup',actions,()=>dialog.close(),'btn btn-outline btn-small');
+ }
+ refresh();
+ if(typeof dialog.showModal==='function')dialog.showModal();
+ else dialog.setAttribute('open','');
+}
+
+function grid(items,state,parent=area){
+ const root=node('div','card-grid','',parent);
+ for(const p of items)card(p,state,root);
+ return root;
+}
+function stat(titleTxt,value,detail,iconName,parent){
+ const root=node('div','stat-card','',parent),h=node('div','stat-head','',root);
+ node('span','stat-title',titleTxt,h);
+ const i=node('span','stat-icon','',h);i.append(svg(iconName));
+ node('strong','',value,root);node('small','',detail,root);
+}
+function renderHome(state,rows){
+ title('Ringkasan','Kampanye terpantau, catatan, dan progres riset pribadi.');
+ const dashboard=node('div','legacy-dashboard-shell','',area);
+ const primary=node('div','legacy-primary-column','',dashboard);
+ const rail=node('div','legacy-right-rail','',dashboard);
+ const hero=node('section','hero quest-hero legacy-hero','',primary);
+ const copy=node('div','hero-copy','',hero);
+ const badge=node('span','hero-badge','',copy);badge.append('YOUR RESEARCH SPACE');
+ node('h2','','Airdrop Museum.\nBukti, bukan janji.',copy);
+ node('p','','Amati peluang, periksa sumber resmi, dan dokumentasikan riset Anda. Tanpa klaim otomatis atau transaksi.',copy);
+ const heroActions=node('div','hero-actions','',copy);
+ button('Jelajahi Airdrop',heroActions,()=>go('explore'),'btn btn-light').append(svg('arrow'));
+ button('Quest saya',heroActions,()=>go('missions'),'btn btn-glass');
+ const art=node('div','hero-visual legacy-hero-art','',hero);
+ node('div','legacy-cloud legacy-cloud-one','',art);
+ node('div','legacy-cloud legacy-cloud-two','',art);
+ node('div','legacy-parachute','',art);
+ const ropes=node('div','legacy-ropes','',art);
+ for(let i=0;i<4;i++)node('i','','',ropes);
+ node('div','legacy-crate','◈',art);
+ node('div','legacy-island','',art);
+ const top=section('Kampanye Terbaru','Sumber katalog aktual · tidak menjamin reward.',primary);
+ button('Lihat semua',top,()=>go('explore'),'btn btn-text btn-small').append(svg('arrow'));
+ const filterBar=node('div','legacy-quick-filters','',primary);
+ const chains=[...new Set(rows.map(p=>p.chain).filter(Boolean))].slice(0,4);
+ const filters=[['all','Semua'],['saved','Watchlist'],...chains.map(v=>[v,v])];
+ for(const [id,label] of filters){
+  const b=button(label,filterBar,()=>{exploreGroup=id==='saved'?'saved':'all';chain=id==='saved'?'all':id;category='all';query='';shown=12;go('explore');},'filter-chip');
+  if(id==='all')b.setAttribute('aria-pressed','true');
+ }
+ if(status==='loading')loading(primary);
+ else if(status==='error')empty('Katalog belum dapat dimuat','Periksa koneksi, lalu muat kembali katalog. Data riset pribadi tetap tersedia.','Coba lagi',load,primary,'explore');
+ else if(!catalog.length)empty('Belum ada kampanye publik','Tidak ada data sumber publik yang dapat ditampilkan sekarang.','Muat ulang',load,primary,'explore');
+ else grid(catalog.slice(0,8).map(projectRow).filter(Boolean),state,primary);
+ const done=progress(state,rows),stats=node('div','stats legacy-stats','',primary);
+ stat('Kampanye publik',(status==='ready'||status==='cached')?catalog.length:'—','Dari katalog langsung','explore',stats);
+ stat('Watchlist',state.saved.length,'Tersimpan di perangkat','bookmark',stats);
+ stat('Riset selesai',done.done,'Dari '+done.total+' langkah','check',stats);
+ stat('Sumber HTTPS',(status==='ready'||status==='cached')?catalog.filter(p=>!!safeUrl(p.website)).length:'—','Tautan yang terindeks','shield',stats);
+ const note=node('div','legacy-catalog-notice','',primary);
+ note.append(svg('shield'));
+ node('span','','Selalu periksa tautan dan syarat di situs resmi proyek. Status di katalog adalah bahan riset, bukan verifikasi kelayakan.',note);
+ const questPanel=node('section','legacy-rail-panel','',rail);
+ const questTitle=node('div','legacy-rail-title','',questPanel);questTitle.append(svg('missions'));node('h3','','Langkah Riset',questTitle);
+ node('p','legacy-rail-desc',done.done+' dari '+done.total+' langkah telah ditinjau secara manual.',questPanel);
+ for(const entry of guide){
+  const item=node('div','legacy-rail-item','',questPanel);
+  node('span','legacy-rail-check'+(state.done[entry.id]?' is-done':''),state.done[entry.id]?'✓':'○',item);
+  node('span','',entry.name,item);
+ }
+ button('Buka Quest',questPanel,()=>go('missions'),'btn btn-text btn-small');
+ const watchPanel=node('section','legacy-rail-panel','',rail);
+ const watchTitle=node('div','legacy-rail-title','',watchPanel);watchTitle.append(svg('bookmark'));node('h3','','Koleksi Pribadi',watchTitle);
+ node('strong','legacy-rail-value',state.saved.length+' kampanye',watchPanel);
+ node('p','legacy-rail-desc','Riset tersimpan hanya pada perangkat ini. Periksa dan ekspor dari profil.',watchPanel);
+ button('Lihat Portofolio',watchPanel,()=>go('workspace'),'btn btn-text btn-small');
+ const monitorPanel=node('section','legacy-rail-panel','',rail);
+ const monitorHeader=node('div','legacy-rail-title','',monitorPanel);monitorHeader.append(svg('shield'));
+ node('h3','','Pembaruan Sumber',monitorHeader);
+ const unseen=newWatchedEvents(state).length;
+ node('strong','legacy-rail-value',unseen?unseen+' baru':sourceEvents.length+' catatan',monitorPanel);
+ node('p','legacy-rail-desc',unseen?'Perubahan baru pada kampanye tersimpan.':'Pantau perubahan dan kegagalan akses sumber resmi.',monitorPanel);
+ button('Lihat aktivitas',monitorPanel,()=>{
+  go('workspace');
+  setTimeout(()=>document.getElementById('campaign-activity')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
+ },'btn btn-text btn-small');
+ const infoPanel=node('section','legacy-rail-panel','',rail);
+ const infoTitle=node('div','legacy-rail-title','',infoPanel);infoTitle.append(svg('shield'));node('h3','','Prinsip Museum',infoTitle);
+ node('p','legacy-rail-desc','Bukti, bukan janji. Tidak ada seed phrase, private key, claim, atau tanda tangan transaksi.',infoPanel);
+}
+function renderExplore(state,rows){
+ title('Explore Quests','Pusat penelusuran kampanye. Semua sumber dan hasil harus diverifikasi sendiri.');
+ const tabsBar=node('div','explore-tabs','',area);
+ for(const [id,label] of [['all','Semua campaign'],['saved','Watchlist']]){
+  const b=button(label,tabsBar,()=>{exploreGroup=id;shown=12;render();},'explore-tab');
+  b.setAttribute('aria-pressed',String(exploreGroup===id));
+ }
+ const filters=node('div','filters','',area),search=node('div','search-field','',filters);
+ search.append(svg('search'));
+ const input=node('input','','',search);input.type='search';input.placeholder='Cari campaign, project, network…';
+ input.setAttribute('aria-label','Cari nama kampanye atau jaringan');input.value=query;
+ const chains=[...new Set(rows.map(p=>p.chain).filter(Boolean))].sort().slice(0,30);
+ const cats=[...new Set(rows.map(p=>p.category).filter(Boolean))].sort().slice(0,15);
+ const chips=node('div','chips','',filters);
+ for(const name of ['all',...chains]){
+  const b=button(name==='all'?'Semua jaringan':name,chips,()=>{chain=name;shown=12;render();},'filter-chip');
+  b.setAttribute('aria-pressed',String(chain===name));
+ }
+ if(cats.length){
+  const categoryChips=node('div','chips category-chips','',filters);
+  for(const name of ['all',...cats]){
+   const b=button(name==='all'?'Semua kategori':name,categoryChips,()=>{category=name;shown=12;render();},'filter-chip');
+   b.setAttribute('aria-pressed',String(category===name));
+  }
+ }
+ showComparisonTray(area);
+ const toolbar=node('div','results-toolbar','',area);
+ const hd=node('div','','',toolbar);node('h2','','Campaigns',hd);
+ const counter=node('p','results-counter','',hd);
+ const tools=node('div','view-tools','',toolbar);
+ const sort=node('select','sort-select','',tools);sort.setAttribute('aria-label','Urutkan kampanye');
+ for(const [value,label] of [['catalog','Urutan katalog'],['updated','Terakhir diperbarui'],['az','Nama A–Z'],['za','Nama Z–A'],['tasks','Tugas terbanyak']]){
+  const option=node('option','',label,sort);option.value=value;option.selected=sortBy===value;
+ }
+ sort.onchange=()=>{sortBy=sort.value;shown=12;update();};
+ const filterStatus=node('select','sort-select campaign-status-filter','',tools);
+ filterStatus.setAttribute('aria-label','Filter status kampanye');
+ for(const [value,label] of [['all','Semua status'],['CONFIRMED','Terkonfirmasi'],['RUMORED','Rumor'],['SPECULATIVE','Spekulatif'],['EXPIRED','Berakhir']]){
+  const option=node('option','',label,filterStatus);option.value=value;option.selected=campaignStatus===value;
+ }
+ filterStatus.onchange=()=>{campaignStatus=filterStatus.value;shown=12;update();};
+ for(const [mode,label] of [['grid','Kisi'],['list','Daftar']]){
+  const b=button(label,tools,()=>{displayMode=mode;update();},'view-switch');
+  b.dataset.mode=mode;b.setAttribute('aria-pressed',String(displayMode===mode));
+ }
+ const results=node('div','','',area);
+ function update(){
+  results.replaceChildren();
+  for(const b of tools.querySelectorAll('button[data-mode]'))b.setAttribute('aria-pressed',String(b.dataset.mode===displayMode));
+  if(status==='loading'){counter.textContent='Memuat…';loading(results);return;}
+  if(status==='error'){counter.textContent='Katalog offline';empty('Gagal memuat katalog','Periksa koneksi atau coba beberapa saat lagi.','Muat ulang',load,results,'explore');return;}
+  let filtered=rows.filter(p=>(exploreGroup!=='saved'||state.saved.includes(p.id))&&(campaignStatus==='all'||p.status.toUpperCase()===campaignStatus)&&(chain==='all'||p.chain===chain)&&(category==='all'||p.category===category)&&([p.name,p.chain,p.category,p.desc].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())));
+  if(sortBy==='updated')filtered=[...filtered].sort((a,b)=>(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0)||a.name.localeCompare(b.name));
+  if(sortBy==='az')filtered=[...filtered].sort((a,b)=>a.name.localeCompare(b.name));
+  if(sortBy==='za')filtered=[...filtered].sort((a,b)=>b.name.localeCompare(a.name));
+  if(sortBy==='tasks')filtered=[...filtered].sort((a,b)=>b.tasks.length-a.tasks.length);
+  counter.textContent=filtered.length+' campaign'+(exploreGroup==='saved'?' tersimpan':'');
+  if(!filtered.length){empty(exploreGroup==='saved'?'Watchlist masih kosong':'Tidak ada campaign','Coba filter lain atau simpan campaign dari katalog.','Reset filter',()=>{chain='all';category='all';campaignStatus='all';query='';shown=12;exploreGroup='all';render();},results,'search');return;}
+  const g=grid(filtered.slice(0,shown),state,results);
+  if(displayMode==='list')g.classList.add('grid-list-view');
+  if(filtered.length>shown)button('Muat '+Math.min(12,filtered.length-shown)+' campaign lagi',results,()=>{shown+=12;update();},'btn btn-outline load-more');
+ }
+ input.addEventListener('input',()=>{query=input.value;shown=12;update();});
+ update();
+}
+function checkboxTask(labelText,id,state,parent,description){
+ const row=node('div','quest-item'+(state.done[id]?' is-done':''),'',parent);
+ const checkbox=node('input','','',row);checkbox.type='checkbox';checkbox.id='task-'+id.replace(/[^a-z0-9-]/gi,'-');checkbox.checked=!!state.done[id];
+ const details=node('div','','',row),label=node('label','',labelText,details);
+ label.htmlFor=checkbox.id;
+ if(description)node('small','',description,details);
+ checkbox.addEventListener('change',()=>edit(s=>{
+  s.done={...s.done,[id]:checkbox.checked};s.taskStates={...s.taskStates,[id]:checkbox.checked?'done':'pending'};
+ },checkbox.checked?'Langkah riset selesai.':'Langkah riset dibuka kembali.'));
+}
+function renderQuest(state,rows){
+ title('My Quests','Daftar tugas riset yang Anda kendalikan sendiri, bukan penilaian eligibility.');
+ const total=progress(state,rows),hero=node('section','progress-hero quest-progress-hero','',area),copy=node('div','','',hero);
+ node('span','overline','MY RESEARCH PROGRESS',copy);
+ node('h2','','Quest journey',copy);
+ node('p','',total.done+' dari '+total.total+' langkah ditinjau. '+(total.done*10)+' research XP lokal, bukan aset ataupun reward proyek.',copy);
+ const ring=node('div','progress-ring','',hero);
+ ring.style.setProperty('--progress',total.percent+'%');node('strong','',total.percent+'%',ring);
+ const h=section('Starter Missions','Checklist riset yang selalu tersedia.');
+ node('span','tag','+'+(guide.length*10)+' XP riset lokal',h);
+ const basic=node('div','quest-group','',area);
+ for(const item of guide)checkboxTask(item.name,item.id,state,basic,item.detail);
+ const saved=rows.filter(x=>state.saved.includes(x.id)&&x.tasks.length);
+ const hd=section('Campaign Missions',saved.length+' kampanye tersimpan dengan tugas.');
+ node('span','tag',saved.length+' terpantau',hd);
+ if(!saved.length){empty('Simpan campaign untuk mulai','Campaign yang disimpan akan menampilkan langkah-langkah riset spesifik.','Explore campaigns',()=>go('explore'),area,'missions');return;}
+ for(const p of saved){
+  const group=node('section','quest-group campaign-mission','',area);
+  const header=node('div','mission-heading','',group);
+  node('span','mission-avatar',p.name.slice(0,1).toLocaleUpperCase(),header);
+  const meta=node('div','','',header);node('h3','',p.name,meta);
+  const complete=p.tasks.filter((_,i)=>state.done[p.id+':'+i]).length;
+  node('span','mission-counter',complete+'/'+p.tasks.length+' langkah selesai',meta);
+  p.tasks.forEach((task,i)=>checkboxTask(task,p.id+':'+i,state,group));
+ }
+ node('p','help-note','Semua checklist adalah catatan manual. Tidak ada klaim, tanda tangan wallet, atau verifikasi eligibility otomatis.',area);
+}
+function noteEditor(p,state,parent){
+ const form=node('form','notes-form','',parent);
+ const label=node('label','','Catatan riset pribadi',form),textarea=node('textarea','','',form);
+ label.htmlFor='note-'+p.id.replace(/[^a-z0-9-]/gi,'-');textarea.id=label.htmlFor;
+ textarea.value=typeof state.notes[p.id]==='string'?state.notes[p.id]:'';
+ textarea.maxLength=4000;textarea.placeholder='Sumber yang diperiksa, tanggal, risiko, dan temuan…';
+ button('Simpan catatan',form,()=>edit(s=>{s.notes={...s.notes,[p.id]:textarea.value.slice(0,4000)};},'Catatan berhasil disimpan.'),'btn btn-primary btn-small');
+ form.addEventListener('submit',e=>e.preventDefault());
+}
+function renderPortfolio(state,rows){
+ title('Watchlist','Campaign tersimpan, catatan riset, dan progres tindak lanjut.');
+ renderTonWalletAssets(area);
+ if(!tonAutoboot){tonAutoboot=true;void tonConnector().catch(()=>{});}
+ const saved=rows.filter(x=>state.saved.includes(x.id)),completed=progress(state,rows);
+ const overview=node('section','watchlist-overview','',area);
+ const left=node('div','','',overview);
+ node('span','overline','YOUR COLLECTION',left);
+ node('h2','','My Watchlist',left);
+ node('p','',state.saved.length+' campaign dipantau · '+Object.values(state.notes||{}).filter(x=>typeof x==='string'&&x.trim()).length+' catatan pribadi',left);
+ const summary=node('div','watchlist-total',String(state.saved.length).padStart(2,'0'),overview);
+ showSourceActivity(state,area);
+ const toolbar=node('div','portfolio-toolbar','',area);
+ node('p','',completed.done+' langkah riset telah ditinjau',toolbar);
+ button('Explore campaign',toolbar,()=>go('explore'),'btn btn-outline btn-small');
+ if(!saved.length){
+  if(state.saved.length&&status!=='ready'&&status!=='cached'){empty('Katalog sementara tidak tersedia','ID campaign tersimpan tetap aman. Muat kembali katalog untuk menampilkan detail watchlist.','Muat ulang',load,area,'bookmark');return;}
+  empty('Mulai koleksi campaign','Simpan campaign dari Explore untuk mengumpulkan dan meninjau sumber yang relevan.','Jelajahi campaign',()=>go('explore'),area,'bookmark');return;
+ }
+ for(const p of saved){
+  const row=node('article','saved-row watchlist-row','',area);
+  const art=node('div','watchlist-art','',row);campaignCover(p,art,true);
+  const middle=node('div','saved-main','',row);
+  const badges=node('div','campaign-tags','',middle);
+  if(p.status)tag(p.status.toUpperCase(),badges,p.status.toUpperCase()==='CONFIRMED'?'verified':'');
+  node('h3','',p.name,middle);
+  node('small','',[p.chain,p.category].filter(Boolean).join(' · ')||'Campaign tersimpan',middle);
+  if(p.tasks.length){
+   const complete=p.tasks.filter((_,i)=>state.done[p.id+':'+i]).length;
+   node('p','watchlist-progress',complete+'/'+p.tasks.length+' langkah riset selesai',middle);
+  }
+  const controls=node('div','saved-actions','',middle);
+  button('Detail',controls,()=>openCampaignDetail(p.id),'btn btn-primary btn-small');
+  button('Catatan riset',controls,()=>{
+   const form=middle.querySelector('.notes-form');
+   if(form){form.remove();return;}noteEditor(p,state,middle);
+  },'btn btn-secondary btn-small');
+  if(p.tasks.length)button('Lihat quest',controls,()=>go('missions'),'btn btn-outline btn-small');
+  if(p.website){const a=node('a','btn btn-small','Sumber resmi',controls);a.href=p.website;a.rel='noopener noreferrer';a.target='_blank';}
+  iconButton('Lepas '+p.name+' dari portofolio','x',row,()=>edit(s=>{s.saved=s.saved.filter(x=>x!==p.id);},'Campaign dihapus dari watchlist.'));
+ }
+ const missing=state.saved.filter(id=>!rows.some(p=>p.id===id));
+ if(missing.length)node('p','help-note',missing.length+' ID campaign tidak ditemukan dalam katalog saat ini; tetap dipertahankan saat ekspor.',area);
+}
+function initials(name){return String(name||'M').trim().charAt(0).toLocaleUpperCase();}
+function renderProfile(state,rows){
+ title('My Space','Profil riset, koleksi campaign, dan pengaturan privasi perangkat.');
+ const card=node('section','profile-card identity-card','',area);
+ node('div','avatar',initials(state.name||'Museum Explorer'),card);
+ const text=node('div','','',card);
+ node('span','identity-kicker','MUSEUM EXPLORER',text);
+ node('h2','',state.name||'Museum Explorer',text);node('p','','Personal research profile · No wallet required',text);
+ const totals=progress(state,rows),profileStats=node('div','identity-stats','',area);
+ stat('Campaigns',state.saved.length,'Watchlist lokal','bookmark',profileStats);
+ stat('Steps reviewed',totals.done,'Checklist manual','check',profileStats);
+ stat('Research XP',totals.done*10,'Bukan reward blockchain','missions',profileStats);
+ renderTonConnect(area);
+ // Restore an existing TON Connect session when the profile is first opened.
+ if(!tonAutoboot){tonAutoboot=true;void tonConnector().catch(()=>{});}
+ const panel=node('section','panel','',area);node('h3','','Identitas lokal',panel);
+ const form=node('form','','',panel),row=node('div','form-group','',form);
+ const label=node('label','','Nama profil di perangkat ini',row),input=node('input','','',row);
+ input.id='display-name';label.htmlFor=input.id;input.value=state.name||'Museum Explorer';input.maxLength=60;input.required=true;
+ button('Simpan nama',form,()=>{
+  if(!input.value.trim())return notify('Nama tidak boleh kosong.');
+  edit(s=>{s.name=input.value.trim().slice(0,60);},'Nama profil diperbarui.');
+ },'btn btn-primary btn-small');
+ form.addEventListener('submit',e=>{e.preventDefault();form.querySelector('button').click();});
+ const data=node('section','panel','',area);node('h3','','Cadangan portofolio',data);
+ node('p','page-subtitle','Simpan data riset sebagai file JSON atau pulihkan dari cadangan sebelumnya.',data);
+ const actions=node('div','inline-actions','',data);
+ button('Ekspor data',actions,()=>{
+  const data=JSON.stringify(read(),null,2),blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob),link=node('a','','',document.body);
+  link.href=url;link.download='airdrop-museum-'+new Date().toISOString().slice(0,10)+'.json';link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);notify('Cadangan JSON telah disiapkan.');
+ },'btn btn-secondary btn-small');
+ const file=node('input','hidden','',actions);file.type='file';file.accept='.json,application/json';file.setAttribute('aria-label','Pilih cadangan JSON');
+ button('Impor cadangan',actions,()=>file.click(),'btn btn-subtle btn-small');
+ file.onchange=async()=>{
+  const pick=file.files?.[0];if(!pick)return;
+  try{
+   if(pick.size>1024*1024)throw Error('File lebih dari 1 MB');
+   const data=JSON.parse(await pick.text());
+   if(!data||typeof data!=='object'||!Array.isArray(data.saved)||data.saved.length>1200)throw Error('Format cadangan tidak sesuai');
+   if(!confirm('Ganti data lokal dengan cadangan ini?'))return;
+   localStorage.setItem(key,JSON.stringify({name:typeof data.name==='string'?data.name.slice(0,60):'Museum Explorer',
+    saved:data.saved.filter(x=>typeof x==='string'),done:data.done&&typeof data.done==='object'?data.done:{},
+    notes:data.notes&&typeof data.notes==='object'?data.notes:{},custom:Array.isArray(data.custom)?data.custom.slice(0,500):[]}));
+   render();notify('Cadangan berhasil dipulihkan.');
+  }catch(e){notify('Gagal mengimpor: '+e.message);}finally{file.value='';}
+ };
+ const privacy=node('section','panel','',area);node('h3','','Keamanan & transparansi',privacy);
+ const list=node('ul','privacy-list','',privacy);
+ for(const s of ['Catatan disimpan di perangkat ini, bukan saldo wallet.','XP dan checklist hanyalah progres riset, bukan reward yang bisa diklaim.','Mini App tidak meminta seed phrase, private key, atau persetujuan transaksi.','Sumber proyek perlu diverifikasi secara mandiri.'])node('li','',s,list);
+}
+function render(){
+ const route=currentRoute();
+ document.body.dataset.view=route;
+ for(const b of nav.querySelectorAll('button')){if(b.dataset.route===route)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
+ for(const b of document.querySelectorAll('#legacy-desktop-tabs button')){if(b.dataset.sideRoute===route)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
+ area.replaceChildren();
+ if(status==='cached'){
+  const message=node('div','catalog-cache-warning','',area);
+  const copy=node('div','','',message);
+  node('strong','','Katalog offline · data tersimpan',copy);
+  node('small','','Salinan publik terakhir: '+dateLabel(new Date(cacheAt).toISOString())+'. Status dapat berubah sejak saat itu.',copy);
+  button('Perbarui',message,load,'btn btn-outline btn-small');
+ }
+ let state;try{state=read();}catch{
+  title('Data tidak dapat dibaca','Data lama tidak dihapus.');
+  empty('Penyimpanan bermasalah','Periksa pengaturan penyimpanan perangkat. Hindari menghapus data sebelum memiliki cadangan.',null,null,area,'shield');return;
+ }
+ const rows=projects(state);
+ updateSourceBadges(state);
+ const profileTop=document.querySelector('#legacy-profile-top');
+ if(profileTop)profileTop.textContent=initials(state.name||'Museum Explorer');
+ ({home:renderHome,explore:renderExplore,missions:renderQuest,workspace:renderPortfolio,profile:renderProfile}[route])(state,rows);
+}
+async function load(){
+ const seq=++requestSeq;status='loading';render();
+ try{
+  const ctrl=new AbortController(),timeout=setTimeout(()=>ctrl.abort(),12000);
+  let response;try{response=await fetch('/api/projects',{cache:'no-store',signal:ctrl.signal});}finally{clearTimeout(timeout);}
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const body=await response.json();if(!Array.isArray(body.projects))throw Error('INVALID_CATALOG');
+  if(seq!==requestSeq)return;
+  catalog=body.projects.map(projectRow).filter(Boolean);status='ready';cacheAt=Date.now();
+  try{localStorage.setItem(catalogCacheKey,JSON.stringify({at:cacheAt,projects:catalog.slice(0,300)}));}catch{}
+ }catch{
+  if(seq!==requestSeq)return;
+  let cached=null;
+  try{
+   const data=JSON.parse(localStorage.getItem(catalogCacheKey)||'null');
+   if(data&&Number.isFinite(data.at)&&data.at>0&&Date.now()-data.at<30*86400000&&Array.isArray(data.projects)&&data.projects.length<=300)
+    cached=data;
+  }catch{}
+  if(cached){catalog=cached.projects.map(projectRow).filter(Boolean);cacheAt=cached.at;status='cached';}
+  else status='error';
+ }
+ render();
+}
+const desktopTabs=document.querySelector('#legacy-desktop-tabs');
+for(const [route,label] of Object.entries(tabs)){
+ const control=button('',nav,()=>go(route),'');
+ control.dataset.route=route;control.append(svg(route));node('span','',label,control);
+ if(desktopTabs){
+  const side=button('',desktopTabs,()=>go(route),'legacy-side-tab');
+  side.dataset.sideRoute=route;side.append(svg(route));node('span','',label,side);
+ }
+}
+const topProfile=document.querySelector('#legacy-profile-top');
+if(topProfile)topProfile.addEventListener('click',()=>go('profile'));
+for(const form of document.querySelectorAll('.legacy-global-search,.legacy-mobile-search')){
+ const input=form.querySelector('[data-legacy-search]');
+ if(!input)continue;
+ input.value=query;
+ input.addEventListener('input',()=>{
+  query=input.value;
+  for(const peer of document.querySelectorAll('[data-legacy-search]'))if(peer!==input)peer.value=query;
+  if(currentRoute()==='explore'){
+   const exploreInput=area.querySelector('.search-field input');
+   if(exploreInput){exploreInput.value=query;exploreInput.dispatchEvent(new Event('input',{bubbles:true}));}
+  }
+ });
+ form.addEventListener('submit',e=>{
+  e.preventDefault();query=input.value.trim();go('explore');
+ });
+}
+window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
+window.addEventListener('storage',e=>{if(e.key===key||e.key===monitorPreferenceKey)render();});
+const tg=window.Telegram?.WebApp;try{tg?.BackButton?.hide?.();tg?.ready?.();tg?.expand?.();}catch{}
+render();load();loadSourceEvents();
+setInterval(()=>{if(document.visibilityState==='visible')void loadSourceEvents();},300000);
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='visible'&&Date.now()-sourceFetchedAt>60000)void loadSourceEvents();
+});

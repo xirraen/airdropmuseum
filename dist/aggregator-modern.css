@@ -100,3 +100,21 @@ body.agg-modern{background:#f5f8fd;color:#18304e;max-width:100%;margin:0;overflo
  .agg-modern #filters>button{grid-column:auto}
 }
 @media(prefers-reduced-motion:reduce){.agg-modern *, .agg-modern *:before,.agg-modern *:after{transition:none!important;scroll-behavior:auto!important}}
+
+.agg-modern .agg-hero {background:linear-gradient(115deg,#102f43,#174958);border-radius:18px;box-shadow:none}
+.agg-modern .agg-hero h1 em {color:#a7e6ce}
+.agg-modern .agg-hero p:not(.eyebrow) {font-size:14px;line-height:1.55;color:#dfedf0}
+.agg-modern .catalog-filters {border:1px solid #cfdddf;border-radius:12px;padding:0 14px;background:#f6faf9}
+.agg-modern .catalog-filters summary {cursor:pointer;padding:14px 0;font-weight:700;color:#174958}
+.agg-modern .catalog-filters[open] summary {border-bottom:1px solid #cfdddf}
+.agg-modern .catalog-filters .grid {padding:12px 0}
+.agg-modern main label {font-size:13px}
+.agg-modern .card {border-color:#d6e2e4;box-shadow:none}
+@media(max-width:780px){
+ .agg-modern .agg-hero {min-height:0;padding:22px 18px}
+ .agg-modern .agg-hero-copy {max-width:100%}
+ .agg-modern .agg-hero-art {display:none}
+ .agg-modern .agg-section-links a,.agg-modern button {min-height:44px;font-size:13px}
+ .agg-modern .agg-mobile-nav a small {font-size:11px}
+ .agg-modern input:not([type=checkbox]),.agg-modern select {font-size:16px;min-height:44px}
+}

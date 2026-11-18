@@ -1,0 +1,13 @@
+{
+  "LICENSE": "46231df5a7733c3f52f11b71f3df61813007745b62b09031acfb45fb42d75082",
+  "dist/index.mjs": "392eb4548ff63e9805b84867851e6ace930cb9f1bd0f5b6b9096ab4dc739b78a",
+  "dist/index.cjs": "9844afef81725b7d96ad9db5bfdca910b1a58e486d7db35ad3b0f0faed4d40f9",
+  "dist/shared/unstorage.D3XyewAC.cjs": "0a651614cfed39fb002dccb2f5d224b645d66e67a8f5d6b209c7a993874cecdb",
+  "dist/shared/unstorage.lWbgcyKt.mjs": "b54c7111467dc4937e778863c23a9f3164f546656913ec724d5e3737f99e75ba",
+  "drivers/fs-lite.mjs": "48221488f71cc5f6e496448d40c02c91489207dfe3e7e0c3bee5a96ee6d6a05e",
+  "drivers/fs-lite.cjs": "279b84c6f6346ea238c27a55d8299980e4d144815fcd7cc4a8541202113c36a3",
+  "drivers/utils/index.mjs": "96cbcc7595dab46810d117060470232bc7fcf389f6cfb79c538483fa8df68f94",
+  "drivers/utils/index.cjs": "f46fb3fa4ef6642d6a6b2f909280eb168e6096bee3987de6bfb35b78cfc14511",
+  "drivers/utils/node-fs.mjs": "681201660bbb5c555f1b8c64a868938144041ba18f8ae41b150fc736c7fd2558",
+  "drivers/utils/node-fs.cjs": "58189fbb0054f24ace0d82d2a47b8c936b011ca6eaf5f52ddf2d45375339f1b3"
+}

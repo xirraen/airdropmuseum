@@ -55,3 +55,18 @@ test('pairing cancellation disconnects and removes the temporary listener',async
  await assert.rejects(()=>createWalletConnect({projectId},{factory:{init:async()=>universal},showPairing:(_uri,cancel)=>{queueMicrotask(cancel);return ()=>{};}}),/CANCELLED/);
  assert.equal(aborted,true);assert.equal(disconnected,true);assert.equal(listeners.has('display_uri'),false);
 });
+
+test('unsupported chain events fail closed instead of using the previous network',async()=>{
+ const listeners=new Map();let calls=0;
+ const universal={session:{namespaces:{eip155:{accounts:['eip155:1:'+address]}}},on:(n,cb)=>listeners.set(n,cb),removeListener:n=>listeners.delete(n),request:async()=>{calls++;},async disconnect(){}};
+ const p=await createWalletConnect({projectId},{factory:{init:async()=>universal}});
+ listeners.get('chainChanged')('eip155:11155111');
+ await assert.rejects(()=>p.request({method:'eth_getBalance',params:[address,'latest']}),/CHAIN_UNSUPPORTED/);
+ assert.equal(calls,0);
+ listeners.get('chainChanged')('eip155:8453');
+ await assert.rejects(()=>p.request({method:'eth_getBalance',params:[address,'latest']}),/CHAIN_NOT_APPROVED/);
+ assert.equal(calls,0);
+ listeners.get('chainChanged')('eip155:1');
+ assert.deepEqual(await p.request({method:'eth_accounts'}),[address]);
+ await p.disconnect();
+});
