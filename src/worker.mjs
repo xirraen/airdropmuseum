@@ -33,7 +33,7 @@ export default {scheduled(event,env,ctx){if(env.DB&&env.JOURNAL_ERASURE_LEDGER)c
  if(url.pathname.startsWith('/api/'))return api(request,env,headers);
  if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{...headers,Allow:'GET, HEAD'}});
  const head=request.method==='HEAD';
- const asset=assets[url.pathname==='/'?'/index.html':url.pathname==='/admin'?'/admin.html':url.pathname==='/museum.html'?'/index.html':url.pathname];
+ const asset=assets[url.pathname==='/'?'/index.html':url.pathname];
  if(!asset)return new Response(head?null:'Not found',{status:404,headers});
  const bytes=Uint8Array.from(atob(asset.body),c=>c.charCodeAt(0));
  const compressed=asset.encoding==='gzip',acceptGzip=false;const body=compressed&&!acceptGzip?new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')):bytes;
