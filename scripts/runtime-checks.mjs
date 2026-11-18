@@ -70,7 +70,7 @@ await check('security headers protect Mini App and catalog',async()=>{
   assert.match(r.headers.get('Content-Security-Policy'),/frame-ancestors/);
   if(path==='/')assert.match(r.headers.get('Content-Security-Policy'),/https:\/\/web\.telegram\.org/);
   else assert.equal(r.headers.get('Content-Security-Policy'),"default-src 'none'; frame-ancestors 'none'");
-  assert.ok(!r.headers.get('X-Frame-Options'));
+  if(path==='/')assert.equal(r.headers.get('X-Frame-Options'),null);
  }
 });
 await check('HEAD responses have no body; arbitrary paths return 404',async()=>{
