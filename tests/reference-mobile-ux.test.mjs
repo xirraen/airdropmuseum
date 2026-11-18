@@ -27,7 +27,7 @@ test('portfolio notes and local quests have usable controls',()=>{
 });
 test('wallet signing is not exposed; read-only research disclaimers remain explicit',()=>{
  assert.match(html,/seed phrase/);
- assert.match(js,/tidak meminta transaksi blockchain/);
+ assert.match(html,/tidak ada transaksi/i);
  assert.doesNotMatch(html,/walletconnect|admin\.html|decision-lab/);
  assert.doesNotMatch(js,/eth_sendTransaction|personal_sign/);
 });
