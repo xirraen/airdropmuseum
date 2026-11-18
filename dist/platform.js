@@ -41,7 +41,9 @@ async function getProvider(){
  connectingWallet=(async()=>{
   const {createWalletConnect}=await import('./walletconnect-bundle.js');
   const connected=await createWalletConnect({projectId:caps.walletConnectProjectId,metadata:{name:'Airdrop Museum',description:'Koneksi wallet eksternal untuk riset airdrop',url:location.origin,icons:[]}});
-  connected.on?.('disconnect',()=>{if(provider===connected){provider=null;walletRead=null;refresh(false).catch(()=>{});}});
+  const invalidate=()=>{if(provider===connected){provider=null;walletRead=null;refresh(false).catch(()=>{});}};
+  connected.on?.('disconnect',invalidate);
+  connected.on?.('session_delete',invalidate);
   connected.on?.('accountsChanged',()=>{walletRead=null;refresh(false).catch(()=>{});});
   connected.on?.('chainChanged',()=>{walletRead=null;refresh(false).catch(()=>{});});
   return connected;
