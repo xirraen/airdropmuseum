@@ -20,7 +20,7 @@ The standard release publishes Worker code **without altering the production dat
 4. Run the read-only preflight and release:
 
        npm run release:readiness
-       AIRDROP_PRODUCTION_RELEASE=APPROVED node scripts/release-production.mjs
+       AIRDROP_PRODUCTION_RELEASE=APPROVED npm run release:production
 
 5. The operator script validates target IDs and live ancestry, keeps the public route available, runs build/tests/parity, verifies binding destinations, reads D1 migration metadata, records the prior Worker version and deploys code. A public route smoke test runs after deployment.
 
