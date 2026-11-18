@@ -25,11 +25,10 @@ test('Telegram aggregator has five persistent tabs and full-size safe-area handl
  assert.match(css,/overflow-x:clip/);
  assert.match(css,/@media\(max-width:420px\)/);
 });
-test('Webpack-like Worker build bundles and serves blue UX on / and modern registry as a separate route',()=>{
- assert.ok(builder.includes("'aggregator-modern.css'"));
- assert.match(builder,/url\.pathname==='\/\'\?'\/index\.html'/);
- assert.match(runtime,/agg-mobile-nav/);
- // Generated Worker should follow the build-script mapping, not an older committed stale route.
- assert.match(worker,/url\.pathname==='\/\'\?'\/index\.html'/);
- assert.ok(worker.includes('/aggregator-modern.css'));
+test('minimal Worker build exposes core styles but not aggregator tools',()=>{
+ assert.ok(builder.includes("'core-five.css'"));
+ assert.match(builder,/url\.pathname==='\/'\?'\/index\.html'/);
+ assert.match(worker,/url\.pathname==='\/'\?'\/index\.html'/);
+ assert.ok(worker.includes('/core-five.css'));
+ assert.ok(!worker.includes('"/aggregator-modern.css":'));
 });

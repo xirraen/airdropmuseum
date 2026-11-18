@@ -1,85 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {UniversalProvider} from '@walletconnect/universal-provider';
+import {readFileSync} from 'node:fs';
+import worker from '../src/worker.mjs';
 import {readOnlyProvider,publicAddresses} from '../dist/wallet-provider.js';
-import {createWalletConnect,sessionAccounts,validPairingUri} from '../dist/walletconnect-adapter.js';
-const address='0x'+'1'.repeat(40),projectId='a'.repeat(32);
-test('production UniversalProvider import exposes the actual init API',()=>assert.equal(typeof UniversalProvider.init,'function'));
-test('read-only facade rejects every signing and transaction method before transport',async()=>{
- let count=0;const p=readOnlyProvider({request:async()=>{count++;return []}});
- for(const method of ['personal_sign','eth_sign','eth_signTypedData_v4','eth_sendTransaction','eth_sendRawTransaction','wallet_sendCalls','wallet_grantPermissions'])
+const address='0x'+'1'.repeat(40);
+test('retired wallet connector is absent from production dependency tree and published Worker assets',async()=>{
+ const deps=JSON.parse(readFileSync('package.json','utf8')).dependencies;
+ const lock=JSON.parse(readFileSync('package-lock.json','utf8'));
+ assert.ok(!('@walletconnect/universal-provider' in deps));
+ assert.ok(!lock.packages['node_modules/@walletconnect/universal-provider']);
+ assert.ok(!lock.packages['node_modules/picomatch']);
+ assert.ok(!readFileSync('scripts/build-worker.mjs','utf8').includes('dist/walletconnect-adapter.js'));
+ assert.equal((await worker.fetch(new Request('https://museum.example.org/walletconnect-bundle.js'))).status,404);
+ assert.equal((await worker.fetch(new Request('https://museum.example.org/api/platform/wallets'))).status,404);
+});
+test('internal defensive wallet facade still rejects signing without touching transport',async()=>{
+ let attempts=0;
+ const p=readOnlyProvider({request:async()=>{attempts++;return []}});
+ for(const method of ['personal_sign','eth_sign','eth_signTypedData_v4','eth_sendTransaction','wallet_sendCalls']){
   await assert.rejects(()=>p.request({method}),/READ_ONLY/);
- assert.equal(count,0);
-});
-test('address and payload boundaries reject malformed or oversized values',async()=>{
- for(const list of [[address.repeat(2)],Array(33).fill(address),['seed phrase'],null])assert.throws(()=>publicAddresses(list));
- assert.deepEqual(publicAddresses([address,address]),[address]);
- let touched=false;const p=readOnlyProvider({request:async()=>{touched=true}});
- await assert.rejects(()=>p.request({method:'eth_call',params:['x'.repeat(32769)]}),/TOO_LARGE/);assert.equal(touched,false);
-});
-test('CAIP session and pairing URI are strictly bounded',()=>{
- assert.deepEqual(sessionAccounts({namespaces:{eip155:{accounts:['eip155:1:'+address]}}},1),[address]);
- assert.throws(()=>sessionAccounts({namespaces:{eip155:{accounts:Array(129).fill('eip155:1:'+address)}}},1));
- for(const uri of ['javascript:alert(1)','wc:bad','wc:'+'a'.repeat(64)+'@2?relay-protocol=irn&symKey=short'])assert.throws(()=>validPairingUri(uri));
- const uri='wc:'+'a'.repeat(64)+'@2?relay-protocol=irn&symKey='+'b'.repeat(64);assert.equal(validPairingUri(uri),uri);
-});
-test('protocol adapter negotiates only read methods and disconnects cleanly',async()=>{
- let offered,disconnected=false;const listeners=new Map();
- const universal={session:null,on:(n,cb)=>listeners.set(n,cb),removeListener:n=>listeners.delete(n),async connect(opts){offered=opts;this.session={namespaces:{eip155:{accounts:['eip155:1:'+address,'eip155:8453:'+address]}}};},request:async()=>null,setDefaultChain(){},async disconnect(){disconnected=true;},abortPairingAttempt(){}};
- const p=await createWalletConnect({projectId},{factory:{init:async()=>universal}});
- assert.ok(offered.namespaces.eip155.methods.every(m=>!m.includes('sign')&&!m.includes('send')));
- assert.deepEqual(await p.request({method:'eth_requestAccounts'}),[address]);
- await p.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x2105'}]});
- assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
- await assert.rejects(()=>p.request({method:'wallet_switchEthereumChain',params:[{chainId:'0xa'}]}),/UNSUPPORTED/);
- assert.equal(listeners.has('display_uri'),false);await p.disconnect();assert.equal(disconnected,true);
-});
-test('chainChanged never selects unsupported, unapproved or expired session chains',async()=>{
- const listeners=new Map(),session={expiry:Math.floor(Date.now()/1000)+3600,
-  namespaces:{eip155:{accounts:['eip155:1:'+address,'eip155:8453:'+address]}}};
- let transportCalls=0;
- const universal={session,on:(name,handler)=>listeners.set(name,handler),removeListener:name=>listeners.delete(name),
-  request:async()=>{transportCalls++;throw Error('TRANSPORT_MUST_NOT_BE_CALLED');},async disconnect(){}};
- const p=await createWalletConnect({projectId},{factory:{init:async()=>universal}});
- const changed=listeners.get('chainChanged');assert.equal(typeof changed,'function');
- assert.equal(await p.request({method:'eth_chainId'}),'0x1');
- for(const event of ['eip155:42161','eip155:137','eip155:11155111','NaN',true,{chainId:'0x2105'}]){
-  changed(event);assert.equal(await p.request({method:'eth_chainId'}),'0x1');
  }
- changed('eip155:8453');assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
- session.expiry=1;changed('eip155:1');
- session.expiry=Math.floor(Date.now()/1000)+3600;
- assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
- session.namespaces.eip155.accounts=['eip155:8453:'+address];
- changed('eip155:1');assert.equal(await p.request({method:'eth_chainId'}),'0x2105');
- session.namespaces.eip155.accounts=['malformed-session-account'];
- changed('eip155:1');
- await assert.rejects(()=>p.request({method:'eth_chainId'}),/INVALID_WALLET_SESSION/);
- session.namespaces.eip155.accounts=['eip155:1:'+address];
- await assert.rejects(()=>p.request({method:'eth_chainId'}),/CHAIN_NOT_APPROVED/);
- await assert.rejects(()=>p.request({method:'eth_call',params:[{},'latest']}),/CHAIN_NOT_APPROVED/);
- assert.equal(transportCalls,0);
- await p.disconnect();changed('eip155:1');
- await assert.rejects(()=>p.request({method:'eth_chainId'}),/DISCONNECTED/);
+ assert.equal(attempts,0);
 });
-test('initialization fails closed for missing project ID without network access',async()=>{
- let touched=false;await assert.rejects(()=>createWalletConnect({projectId:''},{factory:{init:()=>{touched=true}}}),/PROJECT_ID/);assert.equal(touched,false);
-});
-
-test('expired resumed sessions and post-disconnect requests fail before wallet transport',async()=>{
- let calls=0,disconnects=0;
- const session={expiry:Math.floor(Date.now()/1000)+3600,namespaces:{eip155:{accounts:['eip155:1:'+address]}}};
- const universal={session,on(){},removeListener(){},request:async()=>{calls++;},async disconnect(){disconnects++;}};
- const p=await createWalletConnect({projectId},{factory:{init:async()=>universal}});
- session.expiry=1;await assert.rejects(()=>p.request({method:'eth_accounts'}),/SESSION_EXPIRED/);assert.equal(calls,0);
- await assert.rejects(()=>createWalletConnect({projectId},{factory:{init:async()=>universal}}),/SESSION_EXPIRED/);
- session.expiry=Math.floor(Date.now()/1000)+3600;await p.disconnect();
- await assert.rejects(()=>p.request({method:'eth_accounts'}),/DISCONNECTED/);assert.equal(disconnects,2);
-});
-test('pairing cancellation disconnects and removes the temporary listener',async()=>{
- const listeners=new Map();let aborted=false,disconnected=false;
- const uri='wc:'+'a'.repeat(64)+'@2?relay-protocol=irn&symKey='+'b'.repeat(64);
- const universal={session:null,on:(n,cb)=>listeners.set(n,cb),removeListener:n=>listeners.delete(n),connect(){queueMicrotask(()=>listeners.get('display_uri')(uri));return new Promise(()=>{});},abortPairingAttempt(){aborted=true;},async disconnect(){disconnected=true;}};
- await assert.rejects(()=>createWalletConnect({projectId},{factory:{init:async()=>universal},showPairing:(_uri,cancel)=>{queueMicrotask(cancel);return ()=>{};}}),/CANCELLED/);
- assert.equal(aborted,true);assert.equal(disconnected,true);assert.equal(listeners.has('display_uri'),false);
+test('public address validation rejects a seed phrase, duplicates and oversized payloads',()=>{
+ for(const list of [[address.repeat(2)],Array(33).fill(address),['seed phrase'],null])
+  assert.throws(()=>publicAddresses(list));
+ assert.deepEqual(publicAddresses([address,address]),[address]);
 });

@@ -19,8 +19,15 @@ try{
  if(!ready)throw Error('Local workerd did not become ready');
  const checked=spawnSync(process.execPath,['scripts/runtime-checks.mjs'],{encoding:'utf8',timeout:60000,env:{...process.env,RUNTIME_TEST_ORIGIN:'http://localhost:8791'}});
  process.stdout.write(checked.stdout||'');if(checked.status!==0)throw Error(checked.stderr||'Runtime checks failed');
- const report=JSON.parse(checked.stdout.trim().split('\n').at(-1));assert.match(report.aggregate_id,/^[a-f0-9-]{36}$/);
- for(const command of [`UPDATE autopsy_events SET recorded_at=recorded_at WHERE aggregate_id='${report.aggregate_id}'`,`DELETE FROM autopsy_events WHERE aggregate_id='${report.aggregate_id}'`]){
+ const report=JSON.parse(checked.stdout.trim().split('\n').at(-1));
+ assert.equal(report.failed,0);assert.ok(report.passed>=13);
+ // The public autopsy API was intentionally revoked. Preserve the D1 immutability
+ // gate with a local-only synthetic fixture, never via a public HTTP route.
+ const aggregate='22222222-2222-4222-8222-222222222222';
+ const seeded=cli(['d1','execute',database,'--local','--config',config,'--json','--command',
+  "SELECT COUNT(*) n FROM autopsy_events WHERE aggregate_id='"+aggregate+"'"]);
+ const rows=JSON.parse(seeded.stdout);assert.equal(rows?.[0]?.results?.[0]?.n,1);
+ for(const command of [`UPDATE autopsy_events SET recorded_at=recorded_at WHERE aggregate_id='${aggregate}'`,`DELETE FROM autopsy_events WHERE aggregate_id='${aggregate}'`]){
   const result=cli(['d1','execute',database,'--local','--config',config,'--command',command],true);
   assert.notEqual(result.status,0);assert.match((result.stdout||'')+(result.stderr||''),/EVENT_IMMUTABLE/);
  }
