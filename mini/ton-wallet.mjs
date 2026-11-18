@@ -9,7 +9,9 @@ function units(value,decimals=9){
  const pos=precision?digits.length-precision:digits.length;
  const integer=digits.slice(0,pos).replace(/^0+(?=\d)/,'');
  if(!precision)return integer;
- const fractional=digits.slice(pos).slice(0,6).replace(/0+$/,'');
+ // TON has 9 decimal places and Jettons can have up to 18. Never turn
+ // a nonzero on-chain balance into a displayed zero by truncating precision.
+ const fractional=digits.slice(pos).replace(/0+$/,'');
  return integer+(fractional?'.'+fractional:'');
 }
 async function getJSON(url,fetcher){
@@ -26,6 +28,7 @@ async function getJSON(url,fetcher){
 }
 function accountFromTonapi(data){
  if(typeof data?.balance!=='number'&&typeof data?.balance!=='string')throw Error('ACCOUNT_BALANCE_MISSING');
+ if(typeof data.balance==='number'&&!Number.isSafeInteger(data.balance))throw Error('ACCOUNT_BALANCE_UNSAFE_NUMBER');
  const raw=String(data.balance);
  if(!/^\d+$/.test(raw))throw Error('ACCOUNT_BALANCE_INVALID');
  return{ton:units(raw,9),status:text(data.status,40)||'unknown',provider:'TonAPI'};
@@ -39,6 +42,12 @@ function jettonsFromTonapi(data){
    amount:units(String(item.balance),item.jetton.decimals)
   })).filter(item=>item.amount!=='0').slice(0,15);
 }
+function eventTime(seconds){
+ const timestamp=Number(seconds);
+ if(!Number.isSafeInteger(timestamp)||timestamp<=0)return '';
+ const date=new Date(timestamp*1000);
+ return Number.isFinite(date.getTime())?date.toISOString():'';
+}
 function eventsFromTonapi(data){
  if(!Array.isArray(data?.events))throw Error('EVENT_SHAPE');
  return data.events.slice(0,8).map(event=>{
@@ -49,8 +58,7 @@ function eventsFromTonapi(data){
    amount=units(String(first.TonTransfer.amount),9)+' TON';
   else if(type==='JettonTransfer'&&/^\d+$/.test(String(first?.JettonTransfer?.amount||'')))
    amount=units(String(first.JettonTransfer.amount),Number(first?.JettonTransfer?.jetton?.decimals??9))+' '+text(first?.JettonTransfer?.jetton?.symbol,14);
-  const ts=Number(event.timestamp);
-  return{id:text(event.event_id,100),type,amount,time:Number.isFinite(ts)&&ts>0?new Date(ts*1000).toISOString():''};
+  return{id:text(event.event_id,100),type,amount,time:eventTime(event.timestamp)};
  }).filter(e=>e.time);
 }
 function nftsFromTonapi(data){
@@ -72,20 +80,20 @@ async function toncenterHistory(address,fetcher){
  const data=await getJSON(uri,fetcher);
  if(data.ok!==true||!Array.isArray(data.result))throw Error('TONCENTER_HISTORY_UNAVAILABLE');
  return data.result.slice(0,8).map(tx=>{
-  const seconds=Number(tx.utime),messages=[tx.in_msg,...(tx.out_msgs||[])].filter(Boolean);
+  const seconds=tx.utime,messages=[tx.in_msg,...(tx.out_msgs||[])].filter(Boolean);
   const value=messages.find(m=>/^\d+$/.test(String(m.value)));
   return{
    id:text(tx.transaction_id?.hash,100),
    type:'Transaction',
    amount:value?units(String(value.value),9)+' TON':null,
-   time:Number.isFinite(seconds)&&seconds>0?new Date(seconds*1000).toISOString():''
+   time:eventTime(seconds)
   };
  }).filter(e=>e.time);
 }
 function providerFailure(error){
  const message=String(error?.message||error||'');
  if(/^UPSTREAM_HTTP_[0-9]{3}$/.test(message))return message;
- if(message==='ACCOUNT_BALANCE_MISSING'||message==='ACCOUNT_BALANCE_INVALID'||message==='TONCENTER_UNAVAILABLE')return 'INVALID_RESPONSE';
+ if(message==='ACCOUNT_BALANCE_MISSING'||message==='ACCOUNT_BALANCE_INVALID'||message==='ACCOUNT_BALANCE_UNSAFE_NUMBER'||message==='TONCENTER_UNAVAILABLE')return 'INVALID_RESPONSE';
  if(error?.name==='AbortError'||message.toLowerCase().includes('timeout'))return 'TIMEOUT';
  return 'NETWORK_ERROR';
 }
