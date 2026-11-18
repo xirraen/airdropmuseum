@@ -1,0 +1,21 @@
+{
+  "name": "unstorage",
+  "version": "1.17.6-xira.1",
+  "private": true,
+  "license": "MIT",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./drivers/fs-lite": {
+      "import": "./drivers/fs-lite.mjs",
+      "require": "./drivers/fs-lite.cjs"
+    }
+  },
+  "dependencies": {
+    "destr": "2.0.5"
+  }
+}

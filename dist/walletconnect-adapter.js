@@ -1,7 +1,7 @@
 import {UniversalProvider} from '@walletconnect/universal-provider';
 import QRCode from 'qrcode';
 import {readOnlyProvider,publicAddresses} from './wallet-provider.js';
-const CHAINS=[1,8453,42161,137,11155111];
+const CHAINS=[1,8453,42161,137];
 const METHODS=['eth_getBalance','eth_getTransactionCount','eth_call','eth_estimateGas','wallet_switchEthereumChain'];
 /** @param {import('@walletconnect/universal-provider').default['session']} session @param {number} chain */
 export function sessionAccounts(session,chain){
@@ -48,6 +48,8 @@ export async function createWalletConnect(options,{factory=UniversalProvider,sho
   /** @param {import('./wallet-provider.js').WalletRequest} args */
   async request(args){
    if(closed||!universal.session)throw Error('WALLET_DISCONNECTED');
+   if(!CHAINS.includes(chain))throw Error('CHAIN_UNSUPPORTED');
+   if(!sessionAccounts(universal.session,chain).length)throw Error('CHAIN_NOT_APPROVED');
    if(universal.session.expiry!==undefined&&(!Number.isFinite(universal.session.expiry)||universal.session.expiry<=Date.now()/1000))throw Error('WALLET_SESSION_EXPIRED');
    if(['eth_accounts','eth_requestAccounts'].includes(args.method))return sessionAccounts(universal.session,chain);
    if(args.method==='eth_chainId')return '0x'+chain.toString(16);
@@ -69,10 +71,10 @@ export async function createWalletConnect(options,{factory=UniversalProvider,sho
   if(!universal.session)await Promise.race([universal.connect({namespaces:{eip155:{chains:['eip155:1'],methods:METHODS,events:['accountsChanged','chainChanged']}},optionalNamespaces:{eip155:{chains:CHAINS.slice(1).map(c=>'eip155:'+c),methods:METHODS,events:['accountsChanged','chainChanged']}}}),cancellation,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('WALLET_CONNECTION_TIMEOUT')),120000);})]);
   if(universal.session?.expiry!==undefined&&(!Number.isFinite(universal.session.expiry)||universal.session.expiry<=Date.now()/1000))throw Error('WALLET_SESSION_EXPIRED');
   if(!sessionAccounts(universal.session,chain).length)throw Error('INVALID_WALLET_SESSION');
- }catch(error){await universal.disconnect().catch(()=>{});throw error;}
+ }catch(error){universal.abortPairingAttempt?.();await universal.disconnect().catch(()=>{});throw error;}
  finally{clearTimeout(timer);close();universal.removeListener('display_uri',display);}
  universal.on('session_delete',()=>{closed=true;close();});
  universal.on('disconnect',()=>{closed=true;close();});
- universal.on('chainChanged',(/** @type {unknown} */ value)=>{const next=Number(typeof value==='string'&&value.startsWith('eip155:')?value.slice(7):value);if(CHAINS.includes(next))chain=next;});
+ universal.on('chainChanged',(/** @type {unknown} */ value)=>{const next=Number(typeof value==='string'&&value.startsWith('eip155:')?value.slice(7):value);chain=Number.isSafeInteger(next)&&CHAINS.includes(next)?next:0;});
  return readOnlyProvider(transport);
 }
