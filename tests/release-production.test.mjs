@@ -16,7 +16,7 @@ test('code-only release preserves live URL, history, D1 and rollback metadata',(
  for(const name of [
   'CLOUDFLARE_API_TOKEN_REQUIRED',
   'PRODUCTION_TARGET_DRIFT','PUBLIC_ROUTE_WOULD_BE_DISABLED',
-  'WORKERS_DEV_ROUTE_NOT_ACTIVE','LIVE_FEATURES_NOT_IN_CANDIDATE',
+  'WORKERS_DEV_ROUTE_NOT_ACTIVE','assertLiveSourceIncluded',
   'PRODUCTION_CHANGED_DURING_RELEASE','ROLLBACK_VERSION_ID',
   'PENDING_SCHEMA_MIGRATIONS','SELECT name FROM d1_migrations',
   'PRAGMA foreign_key_check','POST_DEPLOY_PUBLIC_SMOKE_FAILED'
@@ -35,7 +35,7 @@ test('staging generator explicitly retains its isolated workers.dev route',()=>{
 test('readiness does not depend on obsolete AUD status or external evidence files',()=>{
  const source=readFileSync('scripts/release-readiness.mjs','utf8');
  assert.ok(source.includes('ready_for_code_only_release'));
- assert.ok(source.includes('LIVE_FEATURES_NOT_IN_CANDIDATE'));
+ assert.ok(source.includes('assertLiveSourceIncluded'));
  assert.ok(!source.includes('verifyReleaseEvidence'));
  assert.ok(!source.includes('requiredReleaseGates'));
  assert.ok(!source.includes('RELEASE_EVIDENCE_FILE'));
