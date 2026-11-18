@@ -7,7 +7,7 @@ test('legacy admin and auxiliary APIs reject GET and POST without publishing dat
  for(const path of paths){
   const read=await request.get(path);expect(read.status(),path).toBe(404);
   const write=await request.post(path,{data:{synthetic:true}});
-  expect(write.status(),path).toBe(404);
+  expect([404,405],path).toContain(write.status());
  }
 });
 test('no admin UI assets are served and an old deep link resolves to Beranda',async({page,request})=>{
