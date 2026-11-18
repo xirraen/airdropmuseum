@@ -130,7 +130,16 @@ document.addEventListener('change',async e=>{if(['chain','mode','sort'].includes
 document.addEventListener('submit',e=>{if(!['new-project','record-form','profile-form','review-form'].includes(e.target.id))return;e.preventDefault();const data=Object.fromEntries(new FormData(e.target));try{if(e.target.id==='new-project'){if(state.custom.length>=100)throw Error('Maksimal 100 proyek pribadi.');const p=cleanProject({...data,id:'custom-'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)),tasks:data.tasks.split('\n')});state.custom.push(p);state.saved.push(p.id);state=normalize(state,catalog);persist(`Created ${p.name}`);$('#project-editor').close();navigate('workspace');showDetail(p.id)}else if(e.target.id==='record-form'){const id=e.target.dataset.id;state.records[id]={...state.records[id],...data,dossier:cleanDossier(data)};detailDraft=null;state=normalize(state,catalog);if(!state.saved.includes(id))state.saved.push(id);persist(`Saved research: ${project(id).name}`);render();showDetail(id);toast('Research saved.')}else if(e.target.id==='review-form'){const p=project(e.target.dataset.id);state.reviews.unshift(cleanReview({...data,projectId:p.id}));state.reviews=state.reviews.slice(0,100);persist(`Added local review: ${p.name}`);render();showDetail(p.id);toast('Ulasan tersimpan lokal, belum dipublikasikan.')}else{state.name=data.name.trim()||'Museum Explorer';persist('Updated local profile');render();toast('Profile saved.')}}catch(err){let feedback=e.target.querySelector('.form-error');if(!feedback){feedback=document.createElement('p');feedback.className='notice form-error';feedback.setAttribute('role','alert');e.target.append(feedback)}feedback.textContent=err.message;toast(err.message)}});
 $('#profile-top').onclick=()=>navigate('profile');$('#detail').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.close()});window.addEventListener('hashchange',()=>{const id=location.hash.slice(1);if(resolveRoute(id)===id&&id!==page){page=id;render()}});
 page=resolveRoute(location.hash.slice(1));if(page==='referral')profileTab='invite';render();
-const tg=window.Telegram?.WebApp;if(tg?.initData){try{tg.ready();tg.expand();if(tg.isVersionAtLeast('6.1')){tg.setHeaderColor('#f5f6f7');tg.setBackgroundColor('#f5f6f7')}tg.BackButton.onClick(()=>{if($('#detail').open)$('#detail').close();else navigate('home')});tg.BackButton.show()}catch{}}
+const tg=window.Telegram?.WebApp;
+if(tg){
+ if(tg.isVersionAtLeast?.('6.1')) tg.BackButton?.hide();
+ tg.ready?.();
+ tg.expand?.();
+ if(tg.isVersionAtLeast?.('6.1')){
+  tg.setHeaderColor?.('#f5f6f7');
+  tg.setBackgroundColor?.('#f5f6f7');
+ }
+}
 
 function dashboard(){
  const tracked=all().filter(p=>state.saved.includes(p.id)&&rec(p).status!=='archived');

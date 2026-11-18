@@ -68,3 +68,18 @@ test('catalog filters expand by keyboard and keep the campaign list reachable', 
  await expect(panel.locator('form')).toBeHidden();
  await expect(page.locator('#campaign-list')).toBeAttached();
 });
+
+test('Telegram retains its native close control across Mini App navigation',async({page})=>{
+ await page.addInitScript(()=>{
+  window.telegramNavCalls=[];
+  window.Telegram={WebApp:{initData:'',isVersionAtLeast:()=>true,BackButton:{
+   hide:()=>window.telegramNavCalls.push('hide'),
+   show:()=>window.telegramNavCalls.push('show'),
+   onClick:()=>window.telegramNavCalls.push('intercept')
+  }}};
+ });
+ await page.goto('/');
+ await page.locator('[data-nav="explore"]:visible').first().click();
+ await expect(page).toHaveURL(/#explore$/);
+ expect(await page.evaluate(()=>window.telegramNavCalls)).toEqual(['hide']);
+});
