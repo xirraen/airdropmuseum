@@ -1,5 +1,6 @@
 import {readFileSync,writeFileSync} from 'node:fs';
 import {reapplyErasureReceipt} from '../src/autopsy/privacyService.ts';
+import {validatedD1Results} from './d1-replay-results.mjs';
 process.umask(0o077);
 const account='9880cf2cc57c2096f8c3ae253d9852e6',production='4e75c8b9-6c58-4bac-a180-01e5bec0d0a3';
 const restoreAccount=process.env.RESTORE_STAGING_ACCOUNT_ID||account;
@@ -21,8 +22,11 @@ async function api(path,body,raw=false,targetRequest=false){
  const data=await r.json();if(raw)return data;
  if(!data.success)throw Error('RESTORE_API_FAILED');return data;
 }
-async function query(id,sql,params=[]){return (await api('/d1/database/'+id+'/query',{sql,params},false,id===target)).result.flatMap(r=>r.results||[]);}
-const DB={prepare(sql){let params=[];const q={sql,params,bind(...values){params=values;q.params=params;return q;},async first(){return (await query(target,sql,params))[0]||null;},async all(){return {results:await query(target,sql,params)};},async run(){return (await api('/d1/database/'+target+'/query',{sql,params},false,true)).result[0];}};return q;},async batch(statements){return (await api('/d1/database/'+target+'/query',{batch:statements.map(q=>({sql:q.sql,params:q.params}))},false,true)).result;}};
+async function query(id,sql,params=[]){
+ const response=await api('/d1/database/'+id+'/query',{sql,params},false,id===target);
+ return validatedD1Results(response,1,{readOnly:true}).flatMap(r=>r.results);
+}
+const DB={prepare(sql){let params=[];const q={sql,params,bind(...values){params=values;q.params=params;return q;},async first(){return (await query(target,sql,params))[0]||null;},async all(){return {results:await query(target,sql,params)};},async run(){return validatedD1Results(await api('/d1/database/'+target+'/query',{sql,params},false,true),1)[0];}};return q;},async batch(statements){return validatedD1Results(await api('/d1/database/'+target+'/query',{batch:statements.map(q=>({sql:q.sql,params:q.params}))},false,true),statements.length);}};
 // Read the live outbox as a completeness barrier. Stop writes/erasure first;
 // never silently accept an eventually consistent KV listing missing a receipt.
 const restoredVersion=(await query(target,'SELECT MAX(version) version FROM am_core_schema'))[0]?.version;
