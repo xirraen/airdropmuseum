@@ -7,6 +7,8 @@ const platform=readFileSync(new URL('../dist/platform.js',import.meta.url),'utf8
 const address='0x'+'1'.repeat(40),projectId='a'.repeat(32);
 
 test('WalletConnect is the only wallet transport in the platform UI',()=>{
+ const bundle=readFileSync(new URL('../dist/platform-bundle.js',import.meta.url),'utf8');
+ assert.doesNotMatch(bundle,/window\\.ethereum|window\\.solana|data-wallet-login/);
  assert.doesNotMatch(platform,/window\.ethereum|window\.solana|data-wallet-login/);
  assert.match(platform,/async function getProvider\(\)/);
  assert.match(platform,/createWalletConnect\(/);
