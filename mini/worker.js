@@ -11,12 +11,20 @@ import {flushErasureLedger} from '../src/autopsy/privacyService.ts';
 import {aggregatorQueue} from '../src/aggregator-jobs.mjs';
 import {queueDiscovery} from '../src/discovery/scheduled.ts';
 import {handlePartnerQueue} from '../src/publicApi/webhookService.ts';
+import {sourceActivity,monitorOfficialSources} from './source-activity.mjs';
 
 const assets=new Map([['/',[html,'text/html']],['/index.html',[html,'text/html']],['/mini.css',[css,'text/css']],['/mini.js',[js,'text/javascript']]]);
 const manifest=JSON.stringify({url:'https://airdrop-museum.xirraen.workers.dev',name:'Airdrop Museum',iconUrl:'https://airdrop-museum.xirraen.workers.dev/tonconnect-icon.png'});
 export default {
  scheduled(event,env,ctx){
   if(env.DB&&env.JOURNAL_ERASURE_LEDGER)ctx.waitUntil(flushErasureLedger(env));
+  // Bounded six-hour official-source sweep; current Worker cron is every minute.
+  const stamp=Number(event.scheduledTime);
+  if(env.DB&&env.AGGREGATOR_MONITOR_SOURCES==='1'&&Number.isFinite(stamp)){
+   const when=new Date(stamp);
+   if(when.getUTCMinutes()===17&&when.getUTCHours()%6===0)
+    ctx.waitUntil(monitorOfficialSources(env));
+  }
  },
  queue(batch,env){
   if(batch.queue==='airdrop-museum-aggregator')return aggregatorQueue(batch,env);
@@ -36,6 +44,14 @@ export default {
     'X-Content-Type-Options':'nosniff'
    }});
   }
+  if(path==='/api/source-activity')return withSecurity(request,env,ctx,async()=>{
+   if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD'}});
+   if(await maintenance(env)==='maintenance')return Response.json({error:'MAINTENANCE'},{status:503});
+   const payload=await sourceActivity(env.DB);
+   return new Response(request.method==='HEAD'?null:JSON.stringify(payload),{
+    headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}
+   });
+  });
   if(path==='/api/projects'||path==='/api/health')return withSecurity(request,env,ctx,async()=>{
    if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD'}});
    if(path==='/api/health'){
