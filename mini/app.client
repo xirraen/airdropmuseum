@@ -189,34 +189,64 @@ function stat(titleTxt,value,detail,iconName,parent){
  node('strong','',value,root);node('small','',detail,root);
 }
 function renderHome(state,rows){
- title('Discover','Jelajahi kampanye Web3 dan susun riset Anda.');
- const hero=node('section','hero quest-hero','',area);
+ title('Ringkasan','Kampanye terpantau, catatan, dan progres riset pribadi.');
+ const dashboard=node('div','legacy-dashboard-shell','',area);
+ const primary=node('div','legacy-primary-column','',dashboard);
+ const rail=node('div','legacy-right-rail','',dashboard);
+ const hero=node('section','hero quest-hero legacy-hero','',primary);
  const copy=node('div','hero-copy','',hero);
- const badge=node('span','hero-badge','',copy);
- node('i','live-dot','',badge);badge.append('WEB3 RESEARCH HUB');
- node('h2','','Jelajahi dunia quest.\nTemukan peluang baru.',copy);
- node('p','','Temukan kampanye dari katalog publik, pantau sumber resmi, dan dokumentasikan progres sendiri.',copy);
- const buttons=node('div','hero-actions','',copy);
- button('Explore campaigns',buttons,()=>go('explore'),'btn btn-light').append(svg('arrow'));
- button('Quest saya',buttons,()=>go('missions'),'btn btn-glass');
- const visual=node('div','hero-visual','',hero);
- const orb=node('div','hero-orb','',visual);
- node('div','hero-orb-core','AM',orb);
- node('span','hero-visual-tag','DISCOVER / VERIFY / TRACK',visual);
- const done=progress(state,rows),stats=node('div','stats quest-stats','',area);
- stat('Quest publik',status==='ready'?catalog.length:'—','Di katalog sekarang','explore',stats);
- stat('Watchlist',state.saved.length,'Kampanye tersimpan','bookmark',stats);
- stat('Riset selesai',done.done+'/'+done.total,'Checklist mandiri','check',stats);
- const picker=section('Featured discovery','Pilihan dari katalog yang tersedia, bukan reward terverifikasi.');
- button('Lihat katalog',picker,()=>go('explore'),'btn btn-text btn-small').append(svg('arrow'));
- if(status==='loading'){loading();return;}
- if(status==='error'){empty('Katalog tidak dapat dimuat','Server data sedang tidak tersedia. Anda tetap dapat mengakses daftar tersimpan.','Coba lagi',load,area,'explore');return;}
- if(!catalog.length){empty('Belum ada kampanye','Belum ada data publik pada katalog. Tidak menampilkan campaign contoh.','Muat ulang',load,area,'explore');return;}
- grid(catalog.slice(0,6).map(projectRow).filter(Boolean),state);
- const h=section('Mulai dengan aman','Sistem riset tiga langkah.');
- const steps=node('div','journey-grid','',area);
- const data=[['01','Discover','Cari proyek dan lihat status sumbernya.'],['02','Verify','Buka dokumen dan pastikan tautan resmi.'],['03','Track','Simpan ke watchlist serta catat hasil riset.']];
- for(const [number,label,detail] of data){const step=node('article','journey-step','',steps);node('span','step-number',number,step);node('h3','',label,step);node('p','',detail,step);}
+ const badge=node('span','hero-badge','',copy);badge.append('YOUR RESEARCH SPACE');
+ node('h2','','Airdrop Museum.\nBukti, bukan janji.',copy);
+ node('p','','Amati peluang, periksa sumber resmi, dan dokumentasikan riset Anda. Tanpa klaim otomatis atau transaksi.',copy);
+ const heroActions=node('div','hero-actions','',copy);
+ button('Jelajahi Airdrop',heroActions,()=>go('explore'),'btn btn-light').append(svg('arrow'));
+ button('Quest saya',heroActions,()=>go('missions'),'btn btn-glass');
+ const art=node('div','hero-visual legacy-hero-art','',hero);
+ node('div','legacy-cloud legacy-cloud-one','',art);
+ node('div','legacy-cloud legacy-cloud-two','',art);
+ node('div','legacy-parachute','',art);
+ const ropes=node('div','legacy-ropes','',art);
+ for(let i=0;i<4;i++)node('i','','',ropes);
+ node('div','legacy-crate','◈',art);
+ node('div','legacy-island','',art);
+ const top=section('Kampanye Terbaru','Sumber katalog aktual · tidak menjamin reward.',primary);
+ button('Lihat semua',top,()=>go('explore'),'btn btn-text btn-small').append(svg('arrow'));
+ const filterBar=node('div','legacy-quick-filters','',primary);
+ const chains=[...new Set(rows.map(p=>p.chain).filter(Boolean))].slice(0,4);
+ const filters=[['all','Semua'],['saved','Watchlist'],...chains.map(v=>[v,v])];
+ for(const [id,label] of filters){
+  const b=button(label,filterBar,()=>{exploreGroup=id==='saved'?'saved':'all';chain=id==='saved'?'all':id;category='all';query='';shown=12;go('explore');},'filter-chip');
+  if(id==='all')b.setAttribute('aria-pressed','true');
+ }
+ if(status==='loading')loading(primary);
+ else if(status==='error')empty('Katalog belum dapat dimuat','Periksa koneksi, lalu muat kembali katalog. Data riset pribadi tetap tersedia.','Coba lagi',load,primary,'explore');
+ else if(!catalog.length)empty('Belum ada kampanye publik','Tidak ada data sumber publik yang dapat ditampilkan sekarang.','Muat ulang',load,primary,'explore');
+ else grid(catalog.slice(0,8).map(projectRow).filter(Boolean),state,primary);
+ const done=progress(state,rows),stats=node('div','stats legacy-stats','',primary);
+ stat('Kampanye publik',status==='ready'?catalog.length:'—','Dari katalog langsung','explore',stats);
+ stat('Watchlist',state.saved.length,'Tersimpan di perangkat','bookmark',stats);
+ stat('Riset selesai',done.done,'Dari '+done.total+' langkah','check',stats);
+ stat('Sumber HTTPS',status==='ready'?catalog.filter(p=>!!safeUrl(p.website)).length:'—','Tautan yang terindeks','shield',stats);
+ const note=node('div','legacy-catalog-notice','',primary);
+ note.append(svg('shield'));
+ node('span','','Selalu periksa tautan dan syarat di situs resmi proyek. Status di katalog adalah bahan riset, bukan verifikasi kelayakan.',note);
+ const questPanel=node('section','legacy-rail-panel','',rail);
+ const questTitle=node('div','legacy-rail-title','',questPanel);questTitle.append(svg('missions'));node('h3','','Langkah Riset',questTitle);
+ node('p','legacy-rail-desc',done.done+' dari '+done.total+' langkah telah ditinjau secara manual.',questPanel);
+ for(const entry of guide){
+  const item=node('div','legacy-rail-item','',questPanel);
+  node('span','legacy-rail-check'+(state.done[entry.id]?' is-done':''),state.done[entry.id]?'✓':'○',item);
+  node('span','',entry.name,item);
+ }
+ button('Buka Quest',questPanel,()=>go('missions'),'btn btn-text btn-small');
+ const watchPanel=node('section','legacy-rail-panel','',rail);
+ const watchTitle=node('div','legacy-rail-title','',watchPanel);watchTitle.append(svg('bookmark'));node('h3','','Koleksi Pribadi',watchTitle);
+ node('strong','legacy-rail-value',state.saved.length+' kampanye',watchPanel);
+ node('p','legacy-rail-desc','Riset tersimpan hanya pada perangkat ini. Periksa dan ekspor dari profil.',watchPanel);
+ button('Lihat Portofolio',watchPanel,()=>go('workspace'),'btn btn-text btn-small');
+ const infoPanel=node('section','legacy-rail-panel','',rail);
+ const infoTitle=node('div','legacy-rail-title','',infoPanel);infoTitle.append(svg('shield'));node('h3','','Prinsip Museum',infoTitle);
+ node('p','legacy-rail-desc','Bukti, bukan janji. Tidak ada seed phrase, private key, claim, atau tanda tangan transaksi.',infoPanel);
 }
 function renderExplore(state,rows){
  title('Explore Quests','Pusat penelusuran kampanye. Semua sumber dan hasil harus diverifikasi sendiri.');
@@ -414,12 +444,15 @@ function render(){
  const route=currentRoute();
  document.body.dataset.view=route;
  for(const b of nav.querySelectorAll('button')){if(b.dataset.route===route)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
+ for(const b of document.querySelectorAll('#legacy-desktop-tabs button')){if(b.dataset.sideRoute===route)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
  area.replaceChildren();
  let state;try{state=read();}catch{
   title('Data tidak dapat dibaca','Data lama tidak dihapus.');
   empty('Penyimpanan bermasalah','Periksa pengaturan penyimpanan perangkat. Hindari menghapus data sebelum memiliki cadangan.',null,null,area,'shield');return;
  }
  const rows=projects(state);
+ const profileTop=document.querySelector('#legacy-profile-top');
+ if(profileTop)profileTop.textContent=initials(state.name||'Museum Explorer');
  ({home:renderHome,explore:renderExplore,missions:renderQuest,workspace:renderPortfolio,profile:renderProfile}[route])(state,rows);
 }
 async function load(){
@@ -434,9 +467,32 @@ async function load(){
  }catch{if(seq!==requestSeq)return;status='error';}
  render();
 }
+const desktopTabs=document.querySelector('#legacy-desktop-tabs');
 for(const [route,label] of Object.entries(tabs)){
  const control=button('',nav,()=>go(route),'');
  control.dataset.route=route;control.append(svg(route));node('span','',label,control);
+ if(desktopTabs){
+  const side=button('',desktopTabs,()=>go(route),'legacy-side-tab');
+  side.dataset.sideRoute=route;side.append(svg(route));node('span','',label,side);
+ }
+}
+const topProfile=document.querySelector('#legacy-profile-top');
+if(topProfile)topProfile.addEventListener('click',()=>go('profile'));
+for(const form of document.querySelectorAll('.legacy-global-search,.legacy-mobile-search')){
+ const input=form.querySelector('[data-legacy-search]');
+ if(!input)continue;
+ input.value=query;
+ input.addEventListener('input',()=>{
+  query=input.value;
+  for(const peer of document.querySelectorAll('[data-legacy-search]'))if(peer!==input)peer.value=query;
+  if(currentRoute()==='explore'){
+   const exploreInput=area.querySelector('.search-field input');
+   if(exploreInput){exploreInput.value=query;exploreInput.dispatchEvent(new Event('input',{bubbles:true}));}
+  }
+ });
+ form.addEventListener('submit',e=>{
+  e.preventDefault();query=input.value.trim();go('explore');
+ });
 }
 window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
 window.addEventListener('storage',e=>{if(e.key===key)render();});

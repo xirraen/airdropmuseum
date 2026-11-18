@@ -12,7 +12,7 @@ test('quest-inspired dashboard uses real campaign cards and exactly five screens
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/',{waitUntil:'domcontentloaded'});
  await expect(page.locator('.hero.quest-hero')).toBeVisible();
- await expect(page.locator('.stats .stat-card')).toHaveCount(3);
+ await expect(page.locator('.stats .stat-card')).toHaveCount(4);
  await expect(page.locator('.campaign-cover')).toHaveCount(3);
  await expect(page.getByRole('navigation').getByRole('button')).toHaveCount(5);
  await expect(page.locator('.campaign-card').first()).toContainText('Zenith Protocol');
