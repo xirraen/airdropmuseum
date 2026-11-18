@@ -1,5 +1,5 @@
 import {ACTION_KINDS,actionQueue,filterActions,setActionTask,actionPlan} from './workbench.js?v=1.2.0';
-import {platformPage,configurePlatform,platformAccount,clearPlatformDrafts} from './platform-bundle.js?v=1.2.0';
+import {platformPage,configurePlatform,platformAccount,clearPlatformDrafts} from './platform-bundle.js?v=20261118-wallet';
 import {CAMPAIGN_STATUS,TASK_STATUS,cleanCampaign,updateCampaign,filterDirectory,radarEvents,campaignCalendar} from './campaigns.js?v=1.2.0';
 import {PROOF_TYPES,BRIEF_STAGES,cleanBrief,cleanHunterProfile,addProof,briefReadiness,compass,compareProofs,researchPack} from './hunter.js?v=1.2.0';
 import {QUESTS,BADGES,badgeEarned,unlockBadges,QUIZ,RESOURCES,BLUEPRINTS,GLOSSARY,dayKey,xpTotal,levelInfo,streak,claimQuest} from './rewards.js?v=1.2.0';
@@ -74,9 +74,9 @@ function miniSidebar(){
 function eligibilityPage(){
  const connected=platformAccount()?.wallet;
  return `<div class="amu-page-heading"><span class="amu-eyebrow">READ-ONLY WALLET RESEARCH</span><h1>Cek Eligibility</h1><p>Periksa informasi kampanye secara manual dan bandingkan dengan aktivitas wallet publik. Tidak diperlukan tanda tangan transaksi.</p></div>
-  <section class="amu-eligibility-panel"><div class="amu-wallet-preview"><span class="amu-wallet-glyph">${icon('wallet')}</span><span><strong>${connected?'Wallet EVM terhubung':'Pilih wallet publik'}</strong><small>${connected?esc(connected.slice(0,6)+'…'+connected.slice(-4)):'Belum ada wallet terhubung'}</small></span><span class="amu-wallet-badge">EVM</span></div><div class="amu-eligibility-actions"><button class="primary" data-nav="wallets">${connected?'Kelola wallet':'Hubungkan wallet'}</button><span>Scan otomatis belum tersedia pada alur frontend ini. Semua hasil harus disertai sumber dan waktu evaluasi.</span></div></section>
+  <section class="amu-eligibility-panel"><div class="amu-wallet-preview"><span class="amu-wallet-glyph">${icon('wallet')}</span><span><strong>${connected?'Wallet EVM terhubung':'Pilih wallet publik'}</strong><small>${connected?esc(connected.slice(0,6)+'…'+connected.slice(-4)):'Belum ada wallet terhubung'}</small></span><span class="amu-wallet-badge">EVM</span></div><div class="amu-eligibility-actions"><button class="primary" data-nav="wallets">${connected?'Kelola wallet':'Hubungkan wallet'}</button><span><a class="secondary" href="/aggregator.html#watchlist">Scan alamat publik</a></span></div></section>
   <div class="amu-section-top"><h2>Daftar pemeriksaan</h2><span class="amu-soft-note">Status bukan jaminan</span></div>
-  <div class="amu-eligibility-list">${all().map(p=>`<div class="amu-eligibility-row"><span class="amu-project-mark">${esc(p.symbol)}</span><span><strong>${esc(p.name)}</strong><small>${esc(p.chain)} · ${p.custom?'Pribadi':'Contoh'}</small></span><span class="amu-review-status">Manual check</span><button data-open="${esc(p.id)}">Periksa ${icon('arrow')}</button></div>`).join('')}</div>
+  <div class="amu-eligibility-list">${all().map(p=>`<div class="amu-eligibility-row"><span class="amu-project-mark">${esc(p.symbol)}</span><span><strong>${esc(p.name)}</strong><small>${esc(p.chain)} · ${p.custom?'Pribadi':'Kampanye publik'}</small></span><span class="amu-review-status">Manual check</span><button data-open="${esc(p.id)}">Periksa ${icon('arrow')}</button></div>`).join('')}</div>
   <p class="amu-mini-disclaimer">Jangan pernah memasukkan seed phrase atau private key. Kelayakan ditentukan aturan resmi proyek, bukan skor dari aplikasi.</p>`;
 }
 
@@ -88,7 +88,7 @@ function notificationsPage(){
 }
 
 function walletPage(){
- return `<div class="amu-page-heading"><span class="amu-eyebrow">PUBLIC ADDRESS ONLY</span><h1>Wallet Saya</h1><p>Hubungkan akun secara aman. Airdrop Museum tidak meminta seed phrase dan tidak menjalankan transaksi atau auto-claim.</p></div><div class="amu-wallets-view">${platformPage('account')}</div>`;
+ return `<div class="amu-page-heading"><span class="amu-eyebrow">PUBLIC ADDRESS ONLY</span><h1>Wallet Saya</h1><p>Hubungkan akun secara aman. Airdrop Museum tidak meminta seed phrase dan tidak menjalankan transaksi atau auto-claim.</p></div><div class="amu-wallets-view">${platformPage('wallet')}</div>`;
 }
 
 function miniPortfolioOverview(){
@@ -224,7 +224,7 @@ document.addEventListener('submit',e=>{if(e.target.id!=='campaign-form')return;e
 
 configurePlatform({toast,getState:()=>state,onAuth:()=>{cloudRevision=null},openHub:()=>navigate('hub')});
 
-function sharedCatalogPanel(){return `<section class="panel shared-catalog"><div class="section-title"><div><span class="eyeline">PUBLIC SOURCE DIRECTORY / API V1</span><h2>Catatan sumber bersama</h2></div><a class="text-btn" href="/api/v1/airdrops" target="_blank" rel="noopener">API publik ↗</a></div>${sharedCatalogStatus==='loading'?'<p role="status">Memuat katalog publik…</p>':sharedCatalogStatus==='error'?'<p role="alert">Katalog editorial belum tersedia. Muat ulang untuk mencoba kembali.</p>':sharedCatalog.length?sharedCatalog.map(p=>`<article class="shared-source-row"><div><b>${esc(p.name)}</b><p>${esc(p.chain||'Jaringan belum dicatat')} · ${esc(p.source||'Belum ada sumber')}</p><small>Catatan sumber · bukan endorsement</small></div><button class="secondary" data-import-shared="${esc(p.id)}">Salin ke riset saya</button></article>`).join(''):'<p>Belum ada catatan editorial yang diterbitkan moderator. Lihat direktori kampanye dari database produksi.</p>'}</section>`}
+function sharedCatalogPanel(){if(sharedCatalogStatus==="ready"&&!sharedCatalog.length)return "";return `<section class="panel shared-catalog"><div class="section-title"><div><span class="eyeline">PUBLIC SOURCE DIRECTORY / API V1</span><h2>Catatan sumber bersama</h2></div><a class="text-btn" href="/api/v1/airdrops" target="_blank" rel="noopener">API publik ↗</a></div>${sharedCatalogStatus==='loading'?'<p role="status">Memuat katalog publik…</p>':sharedCatalogStatus==='error'?'<p role="alert">Katalog editorial belum tersedia. Muat ulang untuk mencoba kembali.</p>':sharedCatalog.length?sharedCatalog.map(p=>`<article class="shared-source-row"><div><b>${esc(p.name)}</b><p>${esc(p.chain||'Jaringan belum dicatat')} · ${esc(p.source||'Belum ada sumber')}</p><small>Catatan sumber · bukan endorsement</small></div><button class="secondary" data-import-shared="${esc(p.id)}">Salin ke riset saya</button></article>`).join(''):'<p>Belum ada catatan editorial yang diterbitkan moderator. Lihat direktori kampanye dari database produksi.</p>'}</section>`}
 
 function actionDigest(){const items=actionQueue(all(),state),urgent=items.filter(a=>a.kind==='blocked'||(a.kind==='date'&&a.days<=0));return `<section class="desk-digest"><span class="desk-digest-mark">${icon('board')}</span><div><span class="eyeline">YOUR NEXT MOVE / ACTION DESK</span><h3>${urgent.length?urgent.length+' hal perlu ditinjau lebih dulu.':'Ruang kerja untuk langkah berikutnya.'}</h3><p>${items.length} tindakan dari checklist, aturan, dan jadwal pribadi Anda.</p></div><button class="secondary" data-mission-tab="desk">Buka Action Desk ${icon('arrow')}</button></section>`}
 function deskRows(items){return items.slice(0,deskLimit).map((a,i)=>`<article class="desk-row desk-kind-${a.kind}"><span class="desk-row-number">${String(i+1).padStart(2,'0')}</span><div class="desk-row-main"><div class="desk-row-meta"><span class="desk-label">${ACTION_KINDS[a.kind]}</span><span>${esc(a.project.chain)}</span>${a.publicSource?'<span class="desk-public">Kampanye publik</span>':''}${a.date?`<time datetime="${esc(a.date)}">${esc(a.date)}</time>`:''}</div><h3>${esc(a.title)}</h3><button class="text-btn desk-project" data-open="${esc(a.project.id)}">${esc(a.project.name)} ${icon('arrow')}</button><p>${esc(a.context)}</p>${a.source?`<small class="desk-source">Sumber tercatat · ${esc(new URL(a.source).hostname)}</small>`:'<small class="desk-source">Sumber aturan belum dicatat</small>'}</div><div class="desk-row-actions"><button class="secondary" data-desk-open="${esc(a.id)}">${a.action==='campaign'?'Tinjau aturan':a.action==='brief'?'Lengkapi brief':a.action==='proof'?'Catat bukti':'Buka checklist'} ${icon('arrow')}</button>${a.taskKey?`<label>Status pribadi<select data-desk-task="${esc(a.taskKey)}" aria-label="Status: ${esc(a.title)} · ${esc(a.project.name)}">${Object.entries(TASK_STATUS).map(([key,label])=>`<option value="${key}" ${key===a.status?'selected':''}>${label}</option>`).join('')}</select></label>`:''}</div></article>`).join('')}
@@ -251,7 +251,7 @@ async function refreshLiveCatalog(){
   state=normalize(state,catalog);
   liveCatalogStatus='error';
  }
- if(['home','explore','workspace','portfolio'].includes(page)&&!document.activeElement?.closest('form'))render();
+ if(['home','explore','workspace','eligibility','missions','notifications','calendar','archive','profile','voices'].includes(page)&&!document.activeElement?.closest('form'))render();
 }
 refreshLiveCatalog();
 

@@ -83,3 +83,14 @@ test('Telegram retains its native close control across Mini App navigation',asyn
  await expect(page).toHaveURL(/#explore$/);
  expect(await page.evaluate(()=>window.telegramNavCalls)).toEqual(['hide']);
 });
+
+test('wallet controls survive a failed quests request and can retry',async({page})=>{
+ let failing=true;
+ await page.route('**/api/platform/quests',r=>r.fulfill({status:failing?503:200,contentType:'application/json',body:failing?'{}':'{"quests":[]}'}));
+ await page.goto('/#wallets');
+ await expect(page.locator('[data-read-wallet]')).toBeVisible();
+ await expect(page.getByText('Daftar quest gagal dimuat.')).toBeVisible();
+ failing=false;
+ await page.getByRole('button',{name:'Coba lagi',exact:true}).click();
+ await expect(page.getByText(/Belum ada quest yang diterbitkan moderator/)).toBeVisible();
+});
