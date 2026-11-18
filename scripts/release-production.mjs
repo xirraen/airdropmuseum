@@ -4,6 +4,7 @@
  * Human authorization is a single explicit deployment intent, not 13 audit artifacts.
  */
 import {execFileSync} from 'node:child_process';
+import {assertLiveSourceIncluded} from './release-policy.mjs';
 import {existsSync,readFileSync,readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 
@@ -57,9 +58,11 @@ async function liveSnapshot(){
  return {commit,deployment_id:current.id,version_id:versionId};
 }
 const live=await liveSnapshot();
-// Reconcile the live feature branch into main before deploying. Never regress live features.
-try{execFileSync('git',['merge-base','--is-ancestor',live.commit,candidate],{stdio:'ignore'});}
-catch{fail('LIVE_FEATURES_NOT_IN_CANDIDATE');}
+// A prior squash merge may preserve identical runtime code but not original commit ancestry.
+let sourceParity;
+try{sourceParity=assertLiveSourceIncluded(live.commit,candidate);}
+catch(error){fail(error.message);}
+console.log('LIVE_SOURCE_PARITY:',sourceParity.mode);
 // Keep the current production endpoint reachable. A custom domain is not required.
 if(cfg.workers_dev!==false){
  const subdomain=await cloudflareGet('/subdomain');
