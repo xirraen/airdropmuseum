@@ -27,7 +27,7 @@ export function validPairingUri(uri){
 function pairingDialog(uri,cancel){
  validPairingUri(uri);
  const dialog=document.createElement('dialog'),heading=document.createElement('h2'),canvas=document.createElement('canvas'),open=document.createElement('a'),copy=document.createElement('button'),close=document.createElement('button'),status=document.createElement('p');
- heading.textContent='Hubungkan wallet read-only';open.textContent='Buka aplikasi wallet';open.href=uri;copy.textContent='Salin tautan koneksi';close.textContent='Batal';
+ heading.textContent='Hubungkan wallet eksternal';open.textContent='Buka aplikasi wallet';open.href=uri;copy.textContent='Salin tautan koneksi';close.textContent='Batal';
  dialog.className='walletconnect-pairing';
  dialog.setAttribute('aria-label',heading.textContent);canvas.setAttribute('aria-label','QR WalletConnect');status.setAttribute('role','status');
  dialog.append(heading,canvas,open,copy,close,status);document.body.append(dialog);
