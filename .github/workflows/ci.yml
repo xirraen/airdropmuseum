@@ -32,18 +32,20 @@ jobs:
         run: node --experimental-sqlite scripts/validate-migrations.mjs
       - name: Build production worker
         run: npm run build
+      - name: Verify generated assets match committed source
+        run: git diff --exit-code -- src/worker.mjs src/platform-bundle.mjs dist/platform-bundle.js dist/walletconnect-bundle.js
       - name: Verify admin browser module
         run: node --check dist/admin.js
       - name: Execute tests
         run: npm test
       - name: Worker runtime, local D1 and immutability gate
         run: npm run test:runtime
-      - name: Production dependency audit (fail closed)
-        run: npm audit --omit=dev --audit-level=high
       - name: Install browser for behavioral verification
         run: npx playwright install --with-deps chromium
       - name: Mobile and desktop browser E2E
         run: npm run test:e2e
+      - name: Production dependency audit (fail closed)
+        run: npm audit --omit=dev --audit-level=high
       - name: Preserve browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
