@@ -24,99 +24,130 @@ const guide=[
  {id:'guide:wallet',name:'Tinjau keamanan wallet',detail:'Jangan membagikan seed phrase atau menandatangani transaksi yang tidak dipahami.'}
 ];
 let catalog=[],status='loading',query='',chain='all',category='all',exploreGroup='all',sortBy='catalog',displayMode='grid',shown=12,requestSeq=0,toastTimer;
-let walletProvider=null,walletSession=null,walletBusy=false,walletIssue='',walletRequestId=0;
-const EVM_NAMES=Object.freeze({'1':'Ethereum','8453':'Base','42161':'Arbitrum One','137':'Polygon'});
-function walletMessage(error){
- const code=typeof error?.message==='string'?error.message:'';
- if(code==='WALLET_CONNECTION_CANCELLED')return 'Koneksi dibatalkan oleh pengguna.';
- if(code==='WALLET_CONNECTION_TIMEOUT')return 'Koneksi kedaluwarsa. Coba lagi.';
- if(code==='WALLETCONNECT_PROJECT_ID_REQUIRED'||code==='WALLETCONNECT_NOT_CONFIGURED')return 'WalletConnect belum dikonfigurasi pada server.';
- if(code==='WALLET_DISCONNECTED'||code==='WALLET_SESSION_EXPIRED')return 'Sesi wallet berakhir. Silakan hubungkan kembali.';
- if(code==='WALLET_PROVIDER_UNAVAILABLE'||code==='CHAIN_NOT_APPROVED'||code==='CHAIN_UNSUPPORTED')return 'Wallet atau jaringan yang dipilih belum didukung.';
- return 'Gagal menghubungkan wallet. Buka aplikasi wallet, periksa koneksi, lalu coba lagi.';
+// TON Connect UI: wallet picker opens immediately; no EVM pairing, signing or transfer flows.
+const TON_UI_CDNS=[
+ 'https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js',
+ 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js'
+];
+const TON_MANIFEST=location.origin+'/tonconnect-manifest.json';
+let tonUi=null,tonUiTask=null,tonLoader=null,tonInfo=null,tonOpening=false,tonIssue='';
+function tonErrorMessage(error){
+ const message=String(error?.message||error||'');
+ if(/manifest/i.test(message))return 'Identitas aplikasi tidak tersedia. Periksa koneksi dan coba lagi.';
+ if(/user.reject|user cancel|closed modal/i.test(message))return '';
+ if(/network|connection|bridge/i.test(message))return 'Koneksi wallet gagal. Periksa internet dan buka kembali daftar wallet.';
+ return 'Pemilih wallet tidak dapat dibuka. Coba lagi atau gunakan aplikasi wallet lain.';
 }
-function walletStatusUpdate(provider,token){
- return async()=>{
-  if(walletProvider!==provider||walletRequestId!==token)return;
-  try{
-   const [addresses,hex]=await Promise.all([provider.request({method:'eth_accounts'}),provider.request({method:'eth_chainId'})]);
-   if(walletProvider!==provider||walletRequestId!==token)return;
-   if(!Array.isArray(addresses)||addresses.length===0||!/^0x[0-9a-f]{40}$/i.test(addresses[0]))throw Error('WALLET_DISCONNECTED');
-   walletSession={address:addresses[0],chainId:String(Number.parseInt(hex,16))};
-   if(currentRoute()==='profile')render();
-  }catch{
-   if(walletProvider!==provider||walletRequestId!==token)return;
-   walletProvider=null;walletSession=null;walletIssue='Sesi wallet terputus atau jaringannya tidak didukung.';
-   walletRequestId++;if(currentRoute()==='profile')render();
+function loadTonScriptFrom(src){
+ return new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.async=true;script.src=src;script.crossOrigin='anonymous';
+  let done=false;const timer=setTimeout(()=>finish(Error('TON_UI_LOAD_TIMEOUT')),8500);
+  function finish(error){
+   if(done)return;done=true;clearTimeout(timer);script.onload=null;script.onerror=null;
+   if(error){script.remove();reject(error);}else resolve(window.TON_CONNECT_UI);
   }
- };
+  script.onload=()=>window.TON_CONNECT_UI?.TonConnectUI?finish():finish(Error('TON_UI_MISSING'));
+  script.onerror=()=>finish(Error('TON_UI_NETWORK'));
+  document.head.append(script);
+ });
 }
-async function connectWallet(){
- if(walletBusy||walletProvider)return;
- const token=++walletRequestId;walletBusy=true;walletIssue='';if(currentRoute()==='profile')render();
- let candidate=null;
- try{
-  const ctrl=new AbortController(),timeout=setTimeout(()=>ctrl.abort(),15000);
-  let response;
-  try{response=await fetch('/api/walletconnect/config',{cache:'no-store',credentials:'same-origin',signal:ctrl.signal});}
-  finally{clearTimeout(timeout);}
-  if(!response.ok)throw Error('WALLETCONNECT_NOT_CONFIGURED');
-  const config=await response.json();
-  if(config?.enabled!==true||typeof config.projectId!=='string'||!/^[a-fA-F0-9]{32}$/.test(config.projectId))throw Error('WALLETCONNECT_NOT_CONFIGURED');
-  const module=await import('/mini-wallet.js');
-  if(typeof module.createWalletConnect!=='function')throw Error('WALLET_PROVIDER_UNAVAILABLE');
-  candidate=await module.createWalletConnect({projectId:config.projectId,metadata:{
-   name:'Airdrop Museum',description:'Koneksi wallet untuk identifikasi alamat saja',
-   url:location.origin,icons:[]
-  }});
-  if(token!==walletRequestId){await candidate.disconnect?.();return;}
-  const [accounts,hex]=await Promise.all([candidate.request({method:'eth_accounts'}),candidate.request({method:'eth_chainId'})]);
-  if(!Array.isArray(accounts)||!accounts.length||!/^0x[0-9a-f]{40}$/i.test(accounts[0])||!/^0x[0-9a-f]{1,16}$/i.test(hex))throw Error('WALLET_DISCONNECTED');
-  if(token!==walletRequestId){await candidate.disconnect?.();return;}
-  walletProvider=candidate;walletSession={address:accounts[0],chainId:String(Number.parseInt(hex,16))};walletIssue='';
-  const update=walletStatusUpdate(candidate,token);
-  candidate.on?.('accountsChanged',update);
-  candidate.on?.('chainChanged',update);
-  candidate.on?.('disconnect',update);
-  candidate.on?.('session_delete',update);
-  notify('WalletConnect terhubung. Tidak ada transaksi atau tanda tangan.');
- }catch(error){
-  if(candidate&&!walletProvider)await candidate.disconnect?.().catch(()=>{});
-  if(token===walletRequestId){walletProvider=null;walletSession=null;walletIssue=walletMessage(error);}
- }finally{if(token===walletRequestId){walletBusy=false;if(currentRoute()==='profile')render();}}
+function tonLibrary(){
+ if(window.TON_CONNECT_UI?.TonConnectUI)return Promise.resolve(window.TON_CONNECT_UI);
+ if(tonLoader)return tonLoader;
+ tonLoader=(async()=>{
+  for(const src of TON_UI_CDNS){
+   try{return await loadTonScriptFrom(src);}
+   catch{} // Retry once through the pinned secondary CDN.
+  }
+  throw Error('TON_UI_UNAVAILABLE');
+ })().finally(()=>{tonLoader=null;});
+ return tonLoader;
 }
-async function disconnectWallet(){
- if(walletBusy)return;
- const previous=walletProvider;
- walletRequestId++;walletProvider=null;walletSession=null;walletIssue='';walletBusy=true;
+function tonWalletUpdate(wallet,error){
+ if(error){tonIssue=tonErrorMessage(error);}
+ if(wallet?.account){
+  if(String(wallet.account.chain)!=='-239'){
+   tonInfo=null;tonIssue='Hanya TON mainnet yang didukung. Pilih wallet mainnet.';
+   void Promise.resolve(tonUi?.disconnect()).catch(()=>{});
+  }else{
+   const raw=String(wallet.account.address||'');
+   const helpers=window.TON_CONNECT_UI;
+   let friendly=raw;
+   try{friendly=helpers?.toUserFriendlyAddress?.(raw) || raw;}catch{}
+   tonInfo={address:friendly,app:String(wallet.device?.appName||'TON Wallet').slice(0,42),chain:'TON Mainnet'};
+   tonIssue='';
+  }
+ }else tonInfo=null;
  if(currentRoute()==='profile')render();
- try{await previous?.disconnect?.();notify('WalletConnect diputuskan.');}
- catch{walletIssue='Sesi lokal terputus, tetapi pemutusan di wallet gagal. Periksa aplikasi wallet Anda.';}
- finally{walletBusy=false;if(currentRoute()==='profile')render();}
 }
-function renderWalletConnect(parent){
- const panel=node('section','panel walletconnect-panel','',parent);
- const heading=node('div','walletconnect-heading','',panel);
- const icon=node('span','walletconnect-icon','',heading);icon.append(svg('layers'));
- const title=node('div','','',heading);
- node('h3','','WalletConnect',title);
- node('p','page-subtitle','Sambungkan wallet eksternal tanpa tanda tangan atau transaksi.',title);
- const indicator=node('span','walletconnect-indicator '+(walletSession?'connected':''),walletSession?'Terhubung':walletBusy?'Menghubungkan…':'Tidak terhubung',heading);
- if(walletSession){
-  const details=node('div','walletconnect-details','',panel);
-  node('span','walletconnect-caption','ALAMAT WALLET',details);
-  node('code','walletconnect-address',walletSession.address,details);
-  const network=node('div','walletconnect-network','',details);
-  node('span','','Jaringan',network);
-  node('strong','',(EVM_NAMES[walletSession.chainId]||'EVM')+' · Chain ID '+walletSession.chainId,network);
-  button('Putuskan WalletConnect',panel,disconnectWallet,'btn btn-outline btn-small');
- }else{
-  node('p','walletconnect-explainer',walletBusy?'Selesaikan persetujuan di aplikasi wallet atau batalkan dialog WalletConnect.':'Hubungkan melalui aplikasi wallet atau QR. Airdrop Museum hanya menampilkan alamat publik dan jaringan yang disetujui.',panel);
-  const b=button(walletBusy?'Menunggu koneksi…':'Hubungkan WalletConnect',panel,connectWallet,'btn btn-primary btn-small walletconnect-connect');
-  b.disabled=walletBusy;
+function tonConnector(){
+ if(tonUi)return Promise.resolve(tonUi);
+ if(tonUiTask)return tonUiTask;
+ tonUiTask=(async()=>{
+  const library=await tonLibrary();
+  const ui=new library.TonConnectUI({
+   manifestUrl:TON_MANIFEST,
+   uiPreferences:{theme:library.THEME?.LIGHT||'LIGHT'}
+  });
+  tonUi=ui;
+  ui.onStatusChange(tonWalletUpdate,error=>tonWalletUpdate(null,error));
+  if(ui.wallet)tonWalletUpdate(ui.wallet);
+  return ui;
+ })().catch(e=>{tonUi=null;throw e;}).finally(()=>{tonUiTask=null;});
+ return tonUiTask;
+}
+async function connectTon(){
+ if(tonOpening)return;
+ tonOpening=true;tonIssue='';if(currentRoute()==='profile')render();
+ try{
+  const ui=await tonConnector();
+  tonOpening=false;if(currentRoute()==='profile')render();
+  // Opening the selector is success; don't wait for an external wallet to approve.
+  Promise.resolve(ui.openModal()).catch(e=>{
+   const message=tonErrorMessage(e);
+   if(message){tonIssue=message;if(currentRoute()==='profile')render();}
+  });
+ }catch(e){
+  tonOpening=false;tonIssue=tonErrorMessage(e);
+  if(currentRoute()==='profile')render();
  }
- if(walletIssue){const error=node('p','walletconnect-error',walletIssue,panel);error.setAttribute('role','alert');}
- node('p','walletconnect-privacy','Koneksi tidak digunakan sebagai login, tidak disimpan dalam ekspor riset, dan tidak meminta seed phrase, approve, sign, atau claim.',panel);
+}
+async function disconnectTon(){
+ if(tonOpening)return;
+ tonOpening=true;tonIssue='';if(currentRoute()==='profile')render();
+ try{
+  await tonUi?.disconnect();
+  tonInfo=null;notify('Koneksi TON Wallet telah diputus.');
+ }catch(e){
+  tonIssue='Gagal memutuskan sesi di wallet. Coba lagi dari wallet Anda.';
+ }finally{
+  tonOpening=false;if(currentRoute()==='profile')render();
+ }
+}
+function renderTonConnect(parent){
+ const panel=node('section','panel ton-connect-panel','',parent);
+ const row=node('div','ton-connection-head','',panel);
+ const icon=node('span','ton-logo','',row);
+ icon.textContent='◇';
+ const info=node('div','ton-heading','',row);
+ node('h3','','Hubungkan Wallet',info);
+ node('p','page-subtitle','TON Connect · Telegram Wallet, Tonkeeper dan wallet TON lainnya',info);
+ node('span','ton-connection-state '+(tonInfo?'connected':''),tonInfo?'Terhubung':'Belum terhubung',row);
+ if(tonInfo){
+  const details=node('div','ton-connected-details','',panel);
+  const summary=node('div','ton-wallet-label','',details);
+  node('strong','',tonInfo.app,summary);
+  node('small','',tonInfo.chain,summary);
+  node('code','ton-address',tonInfo.address,details);
+  const actions=node('div','ton-actions','',panel);
+  button('Putuskan koneksi',actions,disconnectTon,'btn btn-outline btn-small').disabled=tonOpening;
+ }else{
+  node('p','ton-description','Pilih wallet melalui daftar TON Connect, lalu setujui koneksi di aplikasi wallet Anda.',panel);
+  const actions=node('div','ton-actions','',panel);
+  button(tonOpening?'Membuka daftar wallet…':'Hubungkan Wallet',actions,connectTon,'btn btn-primary ton-connect-button').disabled=tonOpening;
+ }
+ if(tonIssue){const alert=node('p','ton-connect-error',tonIssue,panel);alert.setAttribute('role','alert');}
+ node('p','ton-connect-footnote','Koneksi hanya menampilkan alamat publik di TON mainnet. Tidak ada transaksi, klaim, atau tanda tangan.',panel);
 }
 
 function node(tag,cls='',text='',parent){
@@ -498,7 +529,7 @@ function renderProfile(state,rows){
  stat('Campaigns',state.saved.length,'Watchlist lokal','bookmark',profileStats);
  stat('Steps reviewed',totals.done,'Checklist manual','check',profileStats);
  stat('Research XP',totals.done*10,'Bukan reward blockchain','missions',profileStats);
- renderWalletConnect(area);
+ renderTonConnect(area);
  const panel=node('section','panel','',area);node('h3','','Identitas lokal',panel);
  const form=node('form','','',panel),row=node('div','form-group','',form);
  const label=node('label','','Nama profil di perangkat ini',row),input=node('input','','',row);
