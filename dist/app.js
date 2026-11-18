@@ -138,7 +138,7 @@ function dashboard(){
  const deadlines=tracked.filter(p=>rec(p).due&&rec(p).due>=today()).length;
  return `<div class="amu-dashboard-shell">
   <div class="amu-primary-column">
-    <section class="amu-hero"><div class="amu-hero-copy"><span class="amu-eyebrow">WEB3 DISCOVERY & RESEARCH</span><h1>Airdrop <em>Museum</em></h1><h2>One place. All airdrops. More opportunities.</h2><p>Temukan, lacak, dan kelola riset airdrop dalam satu tempat. Verifikasi melalui sumber resmi.</p><div class="amu-hero-actions"><a class="amu-hero-btn" href="/aggregator.html">${icon('compass')} Katalog Airdrop</a><button class="amu-hero-outline" data-nav="profile">${icon('user')} Profil & Telegram</button></div></div>
+    <section class="amu-hero"><div class="amu-hero-copy"><h1>Airdrop <em>Museum</em></h1><p>Telusuri kampanye, cek sumber resmi, dan pantau tenggat riset Anda.</p><div class="amu-hero-actions"><a class="amu-hero-btn" href="/aggregator.html">${icon('compass')} Katalog Airdrop</a><button class="amu-hero-outline" data-nav="profile">${icon('user')} Profil & Telegram</button></div></div>
     <div class="amu-hero-art" aria-hidden="true"><div class="amu-cloud one"></div><div class="amu-cloud two"></div><div class="amu-parachute"></div><div class="amu-ropes"><i></i><i></i><i></i><i></i></div><div class="amu-crate">◇</div><div class="amu-island"></div></div>
     </section>
     ${sharedCatalogPanel()}

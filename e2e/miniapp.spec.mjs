@@ -54,3 +54,17 @@ test('profile form persists a real local update across reload',async({page})=>{
  await expect(page.locator('#profile-form input[name="name"]')).toHaveValue('Peneliti Uji');
  await expect(page.getByRole('heading',{name:'Peneliti Uji',exact:true})).toBeVisible();
 });
+
+test('catalog filters expand by keyboard and keep the campaign list reachable', async ({page}) => {
+ await page.goto('/aggregator.html');
+ const panel = page.locator('details.catalog-filters');
+ const toggle = panel.locator('summary');
+ await expect(panel.locator('form')).toBeHidden();
+ await toggle.focus();
+ await page.keyboard.press('Enter');
+ await expect(panel.getByRole('button', {name:'Terapkan filter'})).toBeVisible();
+ await toggle.focus();
+ await page.keyboard.press('Enter');
+ await expect(panel.locator('form')).toBeHidden();
+ await expect(page.locator('#campaign-list')).toBeAttached();
+});
