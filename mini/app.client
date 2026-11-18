@@ -1,0 +1,84 @@
+const tabs={home:'Beranda',explore:'Airdrop',missions:'Quest',workspace:'Portofolio',profile:'Profil'};
+const key='airdrop-museum-v1';
+const area=document.querySelector('#content');
+let catalog=[],status='loading',query='';
+function element(tag,text,parent){
+ const node=document.createElement(tag);
+ node.textContent=text;
+ parent.append(node);
+ return node;
+}
+function action(label,parent,callback){
+ const button=element('button',label,parent);
+ button.onclick=callback;
+ return button;
+}
+function read(){
+ const state=JSON.parse(localStorage.getItem(key)||'{}');
+ return {...state,saved:Array.isArray(state.saved)?state.saved:[],done:state.done||{},custom:Array.isArray(state.custom)?state.custom:[]};
+}
+function edit(change){
+ try{const state=read();change(state);localStorage.setItem(key,JSON.stringify(state));render();}
+ catch{element('p','Perubahan belum tersimpan. Periksa penyimpanan perangkat.',area);}
+}
+function cards(parent,items,state){
+ for(const p of items){
+  const card=element('article','',parent);
+  element('small',[p.chain,p.category].filter(Boolean).join(' · '),card);
+  element('h2',p.name,card);
+  if(p.desc)element('p',p.desc,card);
+  try{const url=new URL(p.website);if(url.protocol==='https:'){
+   const a=element('a','Sumber resmi',card);a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';
+  }}catch{}
+  const saved=state.saved.includes(p.id);
+  action(saved?'Lepas dari portofolio':'Simpan ke portofolio',card,()=>edit(s=>{
+   s.saved=s.saved.includes(p.id)?s.saved.filter(id=>id!==p.id):[...s.saved,p.id];
+  })).setAttribute('aria-pressed',String(saved));
+ }
+}
+function render(){
+ let route=location.hash.slice(1);
+ if(!Object.hasOwn(tabs,route)){route='home';history.replaceState(null,'','#home');}
+ for(const b of document.querySelectorAll('nav button')){
+  if(b.dataset.route===route)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+ }
+ document.querySelector('#title').textContent=tabs[route];area.replaceChildren();
+ let state;try{state=read();}catch{element('p','Data lokal tidak dapat dibaca. Data asli tetap tersimpan.',area);return;}
+ const projects=[...catalog,...state.custom].filter(p=>p&&typeof p.id==='string'&&typeof p.name==='string');
+ const saved=projects.filter(p=>state.saved.includes(p.id));
+ if(route==='profile'){
+  const form=element('form','',area),label=element('label','Nama profil di perangkat ini',form),input=element('input','',label);
+  input.value=state.name||'';input.maxLength=60;input.required=true;element('button','Simpan nama',form);
+  form.onsubmit=e=>{e.preventDefault();if(input.value.trim())edit(s=>{s.name=input.value.trim();});};
+  element('p',state.saved.length+' kampanye tersimpan di perangkat ini.',area);return;
+ }
+ if(status==='loading')element('p','Memuat kampanye…',area);
+ if(status==='error'){element('p','Katalog belum berhasil dimuat.',area);action('Coba lagi',area,load);}
+ if(route==='missions'){
+  const rows=saved.filter(p=>Array.isArray(p.tasks)&&p.tasks.length);
+  if(!rows.length){element('p','Simpan kampanye untuk menampilkan checklist risetnya.',area);action('Pilih kampanye',area,()=>location.hash='explore');}
+  for(const p of rows){const card=element('article','',area);element('h2',p.name,card);
+   p.tasks.forEach((task,i)=>{const id=p.id+':'+i,label=element('label','',card),box=element('input','',label);
+    box.type='checkbox';box.checked=!!state.done[id];label.append(' '+task);
+    box.onchange=()=>edit(s=>{s.done[id]=box.checked;s.taskStates={...s.taskStates,[id]:box.checked?'done':'pending'};});
+   });
+  }return;
+ }
+ if(route==='workspace'){if(!saved.length){element('p','Kampanye yang Anda simpan akan muncul di sini.',area);action('Pilih kampanye',area,()=>location.hash='explore');}cards(area,saved,state);return;}
+ if(route==='explore'){
+  const label=element('label','Cari nama kampanye atau jaringan',area),input=element('input','',label),results=element('div','',area);
+  input.type='search';input.value=query;
+  function filter(){results.replaceChildren();const found=projects.filter(p=>[p.name,p.chain].join(' ').toLowerCase().includes(query.toLowerCase()));cards(results,found,state);if(!found.length&&status==='ready')element('p','Tidak ada kampanye yang cocok.',results);}
+  input.oninput=()=>{query=input.value;filter();};filter();return;
+ }
+ element('p',catalog.length+' kampanye publik · '+state.saved.length+' tersimpan',area);
+ cards(area,catalog.slice(0,3),state);action('Lihat semua airdrop',area,()=>location.hash='explore');
+}
+async function load(){
+ status='loading';render();
+ try{const r=await fetch('/api/projects',{cache:'no-store'});if(!r.ok)throw Error();const data=await r.json();if(!Array.isArray(data.projects))throw Error();catalog=data.projects;status='ready';}catch{status='error';}render();
+}
+for(const [route,label] of Object.entries(tabs))action(label,document.querySelector('nav'),()=>location.hash=route).dataset.route=route;
+window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
+window.addEventListener('storage',e=>{if(e.key===key)render();});
+const tg=window.Telegram?.WebApp;if(tg?.isVersionAtLeast?.('6.1'))tg.BackButton?.hide();tg?.ready?.();tg?.expand?.();load();

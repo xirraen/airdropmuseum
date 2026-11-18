@@ -44,6 +44,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Mobile and desktop browser E2E
         run: npm run test:e2e
+      - name: Production five-tab flow and retired routes
+        run: npx playwright test --config mini/test.config.mjs
       - name: Production dependency audit (fail closed)
         run: npm audit --omit=dev --audit-level=high
       - name: Preserve browser failure evidence
