@@ -12,6 +12,7 @@ import {aggregatorQueue} from '../src/aggregator-jobs.mjs';
 import {queueDiscovery} from '../src/discovery/scheduled.ts';
 import {handlePartnerQueue} from '../src/publicApi/webhookService.ts';
 import {sourceActivity,monitorOfficialSources} from './source-activity.mjs';
+import {getTonWalletSnapshot} from './ton-wallet.mjs';
 
 const assets=new Map([['/',[html,'text/html']],['/index.html',[html,'text/html']],['/mini.css',[css,'text/css']],['/mini.js',[js,'text/javascript']]]);
 const manifest=JSON.stringify({url:'https://airdrop-museum.xirraen.workers.dev',name:'Airdrop Museum',iconUrl:'https://airdrop-museum.xirraen.workers.dev/tonconnect-icon.png'});
@@ -44,6 +45,25 @@ export default {
     'X-Content-Type-Options':'nosniff'
    }});
   }
+  if(path==='/api/ton-wallet')return withSecurity(request,env,ctx,async()=>{
+   if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD'}});
+   if(await maintenance(env)==='maintenance')return Response.json({error:'MAINTENANCE'},{status:503});
+   const address=new URL(request.url).searchParams.get('address');
+   if(!address||address.length>85)return Response.json({error:'INVALID_TON_ADDRESS'},{status:400,headers:{'Cache-Control':'no-store'}});
+   const cacheKey=new Request(new URL('/api/ton-wallet?address='+encodeURIComponent(address),request.url),{method:'GET'});
+   const store=typeof caches!=='undefined'?caches.default:null;
+   if(store){
+    try{
+     const cached=await store.match(cacheKey);
+     if(cached)return new Response(request.method==='HEAD'?null:cached.body,{status:cached.status,headers:cached.headers});
+    }catch{}
+   }
+   const result=await getTonWalletSnapshot(address);
+   if(result.status!==200)return Response.json({error:result.error||'TON_DATA_UNAVAILABLE'},{status:result.status||503,headers:{'Cache-Control':'no-store'}});
+   const response=Response.json(result.data,{headers:{'Cache-Control':'public, max-age=60','X-Content-Type-Options':'nosniff'}});
+   if(store)ctx.waitUntil(store.put(cacheKey,response.clone()).catch(()=>{}));
+   return request.method==='HEAD'?new Response(null,{status:200,headers:response.headers}):response;
+  });
   if(path==='/api/source-activity')return withSecurity(request,env,ctx,async()=>{
    if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD'}});
    if(await maintenance(env)==='maintenance')return Response.json({error:'MAINTENANCE'},{status:503});
