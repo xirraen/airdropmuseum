@@ -4,6 +4,7 @@
  * Production must already be annotated with its deployed base Git commit.
  */
 import {execFileSync} from 'node:child_process';
+import {releaseChildEnv} from './release-child-env.mjs';
 import {existsSync,readFileSync,realpathSync} from 'node:fs';
 import {resolve,relative,isAbsolute,sep} from 'node:path';
 import {createHash} from 'node:crypto';
@@ -14,7 +15,7 @@ const fail=code=>{throw Error('PRESENTATION_RELEASE_BLOCKED: '+code)};
 if(process.env.AIRDROP_PRESENTATION_RELEASE!=='APPROVED')fail('OWNER_APPROVAL_REQUIRED');
 if(!process.env.CLOUDFLARE_API_TOKEN)fail('CLOUDFLARE_TOKEN_REQUIRED');
 if(!process.env.RELEASE_EVIDENCE_FILE)fail('REVIEWED_EVIDENCE_REQUIRED');
-const cmd=(tool,args)=>execFileSync(tool,args,{encoding:'utf8',timeout:60000}).trim();
+const cmd=(tool,args,{cloudAccess=false}={})=>execFileSync(tool,args,{encoding:'utf8',timeout:60000,env:releaseChildEnv(process.env,{cloudAccess})}).trim();
 if(cmd('git',['branch','--show-current'])!=='main')fail('MAIN_REQUIRED');
 if(cmd('git',['status','--porcelain']))fail('DIRTY_GIT_TREE');
 if(!/^(https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)xirraen\/airdropmuseum(\.git)?$/.test(cmd('git',['remote','get-url','origin'])))
@@ -39,9 +40,9 @@ async function requireLiveBase(){
  return live;
 }
 const live=await requireLiveBase();
-const run=(tool,args,label)=>{
+const run=(tool,args,label,{cloudAccess=false}={})=>{
  console.log('PRESENTATION GATE: '+label);
- execFileSync(tool,args,{stdio:'inherit',timeout:600000,env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'}});
+ execFileSync(tool,args,{stdio:'inherit',timeout:600000,env:releaseChildEnv(process.env,{cloudAccess})});
 };
 run('npm',['ci'],'Locked dependencies');
 for(const [label,args] of [
@@ -53,11 +54,11 @@ for(const [label,args] of [
 run('node',['scripts/security-scan.mjs'],'Credential scan');
 run('node',['--experimental-sqlite','scripts/validate-migrations.mjs'],'Migration validation');
 if(cmd('git',['status','--porcelain']))fail('BUILD_MODIFIED_GIT_TREE');
-run('node',['scripts/verify-production-bindings.mjs'],'Live binding and secret inventory');
+run('node',['scripts/verify-production-bindings.mjs'],'Live binding and secret inventory',{cloudAccess:true});
 const wrangler=resolve('node_modules/wrangler/bin/wrangler.js');
 if(!existsSync(wrangler))fail('WRANGLER_UNAVAILABLE');
 const query=sql=>{
- const raw=cmd('node',[wrangler,'d1','execute','airdrop-museum','--remote','--config','wrangler.jsonc','--json','--command',sql]);
+ const raw=cmd('node',[wrangler,'d1','execute','airdrop-museum','--remote','--config','wrangler.jsonc','--json','--command',sql],{cloudAccess:true});
  const parsed=JSON.parse(raw);
  if(!Array.isArray(parsed)||parsed.some(x=>!x.success))fail('DATABASE_PREFLIGHT_FAILED');
  return parsed.flatMap(x=>x.results||[]);
@@ -69,7 +70,7 @@ await requireLiveBase();
 const hash=createHash('sha256').update(readFileSync('src/worker.mjs')).digest('hex');
 run('node',[wrangler,'deploy','--strict','--config','wrangler.jsonc',
  '--message','Verified main '+commit+'; artifact '+hash,
- '--tag','main-'+commit.slice(0,7)],'Style-only Worker deployment');
+ '--tag','main-'+commit.slice(0,7)],'Style-only Worker deployment',{cloudAccess:true});
 const deployed=await getLiveReleaseBaseline(process.env.CLOUDFLARE_API_TOKEN);
 if(deployed.commit!==commit||deployed.artifact_sha256!==hash||
    deployed.deployment_id===live.deployment_id)fail('DEPLOYMENT_PROVENANCE_MISMATCH');

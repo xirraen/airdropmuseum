@@ -1,39 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
-const js=readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
-const css=readFileSync(new URL('../dist/mini-ui.css',import.meta.url),'utf8');
-const agg=readFileSync(new URL('../dist/aggregator.html',import.meta.url),'utf8');
-
-test('mobile search is present and submits to the existing filtered project directory',()=>{
- assert.match(html,/id="mobile-search-form"/);
- assert.match(html,/id="mobile-search"/);
- assert.match(html,/enterkeyhint="search"/);
- assert.match(js,/e\.target\.id!=='mobile-search-form'/);
- assert.match(js,/query=value;\$\('#search'\)\.value=query;updateGrid\(\)/);
+const html=readFileSync('dist/index.html','utf8');
+const js=readFileSync('dist/core-five.js','utf8');
+const css=readFileSync('dist/core-five.css','utf8');
+test('search and network filter target the active Airdrop tab',()=>{
+ assert.match(js,/id="campaign-search"/);
+ assert.match(js,/id="chain-filter"/);
+ assert.match(js,/addEventListener\('input'/);
+ assert.match(js,/search=event\.target\.value/);
 });
-test('reference layout has hero first, visible campaign list, compact stats and five mobile tabs',()=>{
- assert.match(css,/\.amu-dashboard-shell \.amu-hero\{order:0/);
- assert.match(css,/\.amu-dashboard-shell \.amu-campaign-grid\{order:3/);
- assert.match(css,/\.amu-dashboard-shell \.amu-stat-grid\{order:4/);
- assert.match(css,/\.amu-mobile-search>input/);
- assert.match(css,/safe-area-inset-bottom/);
+test('layout contains compact status cards, live campaigns and five-tab mobile navigation',()=>{
+ assert.match(css,/\.stats\{/);
+ assert.match(css,/\.campaign\{/);
+ assert.match(css,/\.bottom-nav\{/);
+ assert.match(css,/@media\(max-width:420px\)/);
  assert.match(html,/id="mobile-nav"/);
- assert.match(agg,/class="agg-mobile-nav"/);
+ assert.match(html,/core-five\.css/);
 });
-test('detail view exposes manual eligibility, progress, and functional existing actions',()=>{
- assert.match(js,/\['eligibility','Eligibility'\]/);
- assert.match(js,/data-nav="eligibility">Buka cek eligibility/);
- assert.match(js,/Manual check/);
- assert.match(js,/data-detail-tab=/);
+test('portfolio notes and local quests have usable controls',()=>{
+ for(const fragment of ['id="note-dialog"','id="note-form"','id="safety-dialog"'])assert.match(html,new RegExp(fragment));
+ assert.match(js,/data-note=/);
  assert.match(js,/data-save=/);
- assert.match(css,/\.exhibit-detail-head/);
- assert.match(css,/\.amu-detail-eligibility/);
+ assert.match(js,/data-quest=/);
+ assert.match(js,/id="backup-file"/);
 });
-test('read-only wallet and public campaign research disclosures remain explicit',()=>{
- assert.match(js,/Kampanye publik/);assert.doesNotMatch(js,/Contoh fiktif/);
- assert.match(js,/seed phrase/);
- assert.match(agg,/Tanpa auto-claim/);
- assert.match(html,/mini-ui\.css\?v=1\.4\.0/);
+test('wallet signing is not exposed; read-only research disclaimers remain explicit',()=>{
+ assert.match(html,/seed phrase/);
+ assert.match(html,/tidak ada transaksi/i);
+ assert.doesNotMatch(html,/walletconnect|admin\.html|decision-lab/);
+ assert.doesNotMatch(js,/eth_sendTransaction|personal_sign/);
 });

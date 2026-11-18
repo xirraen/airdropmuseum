@@ -44,26 +44,31 @@ export function localReleaseDiff(base,head){
  return classifyReleaseChanges(parseNameStatus(raw));
 }
 
-export async function getLiveReleaseBaseline(token,{fetcher=fetch}={}){
+const API_ORIGIN='https://api.cloudflare.com/client/v4/accounts/9880cf2cc57c2096f8c3ae253d9852e6/workers/scripts/airdrop-museum';
+async function liveGet(token,path,fetcher){
  if(!token)throw Error('CLOUDFLARE_TOKEN_REQUIRED');
- const origin='https://api.cloudflare.com/client/v4/accounts/9880cf2cc57c2096f8c3ae253d9852e6/workers/scripts/airdrop-museum';
- const get=async path=>{
-  const res=await fetcher(origin+path,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(12000)});
-  if(!res.ok)throw Error('CLOUDFLARE_RELEASE_READ_FAILED');
-  const json=await res.json();
-  if(!json.success)throw Error('CLOUDFLARE_RELEASE_READ_FAILED');
-  return json.result;
- };
- const deployments=await get('/deployments');
+ const res=await fetcher(API_ORIGIN+path,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(12000)});
+ if(!res.ok)throw Error('CLOUDFLARE_RELEASE_READ_FAILED');
+ const json=await res.json();
+ if(!json.success)throw Error('CLOUDFLARE_RELEASE_READ_FAILED');
+ return json.result;
+}
+
+export async function getLiveDeploymentIdentity(token,{fetcher=fetch}={}){
+ const deployments=await liveGet(token,'/deployments',fetcher);
  const current=deployments?.deployments?.[0];
  if(!current?.id||current.versions?.length!==1||Number(current.versions[0].percentage)!==100)
   throw Error('NONEXCLUSIVE_PRODUCTION_TRAFFIC');
  const versionId=current.versions[0].version_id;
  if(!versionId)throw Error('PRODUCTION_VERSION_UNKNOWN');
- const version=await get('/versions/'+encodeURIComponent(versionId));
+ return {deployment_id:current.id,version_id:versionId,deployed_at:current.created_on};
+}
+
+export async function getLiveReleaseBaseline(token,{fetcher=fetch}={}){
+ const identity=await getLiveDeploymentIdentity(token,{fetcher});
+ const version=await liveGet(token,'/versions/'+encodeURIComponent(identity.version_id),fetcher);
  const message=version?.annotations?.['workers/message']||'';
  const matched=/Verified main ([0-9a-f]{40}); artifact ([0-9a-f]{64})/.exec(message);
  if(!matched)throw Error('PRODUCTION_BASELINE_UNATTESTED');
- return {commit:matched[1],artifact_sha256:matched[2],deployment_id:current.id,version_id:versionId,
-  deployed_at:current.created_on};
+ return {...identity,commit:matched[1],artifact_sha256:matched[2]};
 }

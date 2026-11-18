@@ -50,7 +50,10 @@ export async function createWalletConnect(options,{factory=UniversalProvider,sho
    if(closed||!universal.session)throw Error('WALLET_DISCONNECTED');
    if(universal.session.expiry!==undefined&&(!Number.isFinite(universal.session.expiry)||universal.session.expiry<=Date.now()/1000))throw Error('WALLET_SESSION_EXPIRED');
    if(['eth_accounts','eth_requestAccounts'].includes(args.method))return sessionAccounts(universal.session,chain);
-   if(args.method==='eth_chainId')return '0x'+chain.toString(16);
+   if(args.method==='eth_chainId'){
+    if(!sessionAccounts(universal.session,chain).length)throw Error('CHAIN_NOT_APPROVED');
+    return '0x'+chain.toString(16);
+   }
    if(args.method==='wallet_switchEthereumChain'){
     const parameter=args.params?.[0];
     const value=parameter&&typeof parameter==='object'&&'chainId' in parameter?parameter.chainId:undefined;
@@ -58,6 +61,7 @@ export async function createWalletConnect(options,{factory=UniversalProvider,sho
     if(!sessionAccounts(universal.session,Number(value)).length)throw Error('CHAIN_NOT_APPROVED');
     await universal.request(args,'eip155:'+chain);chain=Number(value);universal.setDefaultChain('eip155:'+chain);return null;
    }
+   if(!sessionAccounts(universal.session,chain).length)throw Error('CHAIN_NOT_APPROVED');
    return universal.request(args,'eip155:'+chain);
   },
   on:(/** @type {string} */ event,/** @type {import('./wallet-provider.js').WalletListener} */ listener)=>universal.on(event,listener),removeListener:(/** @type {string} */ event,/** @type {import('./wallet-provider.js').WalletListener} */ listener)=>universal.removeListener(event,listener),
@@ -73,6 +77,16 @@ export async function createWalletConnect(options,{factory=UniversalProvider,sho
  finally{clearTimeout(timer);close();universal.removeListener('display_uri',display);}
  universal.on('session_delete',()=>{closed=true;close();});
  universal.on('disconnect',()=>{closed=true;close();});
- universal.on('chainChanged',(/** @type {unknown} */ value)=>{const next=Number(typeof value==='string'&&value.startsWith('eip155:')?value.slice(7):value);if(CHAINS.includes(next))chain=next;});
+ universal.on('chainChanged',(/** @type {unknown} */ value)=>{
+  if(closed||!universal.session)return;
+  const raw=typeof value==='string'&&value.startsWith('eip155:')?value.slice(7):value;
+  if(typeof raw!=='string'&&typeof raw!=='number')return;
+  if(typeof raw==='string'&&!/^(?:0x[0-9a-fA-F]+|[0-9]+)$/.test(raw))return;
+  const next=Number(raw);
+  if(!CHAINS.includes(next))return;
+  const expiry=universal.session.expiry;
+  if(expiry!==undefined&&(!Number.isFinite(expiry)||expiry<=Date.now()/1000))return;
+  try{if(sessionAccounts(universal.session,next).length)chain=next;}catch{/* Invalid session event: retain last approved chain. */}
+ });
  return readOnlyProvider(transport);
 }

@@ -86,7 +86,7 @@ test('degraded health is not falsely healthy',async()=>{
 test('CSP and maintenance path are retained by worker generator',()=>{
  const script=readFileSync('scripts/build-worker.mjs','utf8');
  assert.match(script,/withSecurity/);assert.match(script,/mode==='maintenance'/);
- assert.match(script,/mode==='read_only'/);assert.match(script,/adminAuth/);
+ assert.match(script,/mode==='read_only'/);assert.match(script,/coreApi/);assert.doesNotMatch(script,/return adminRoutes\(request,env,ctx\)/);
 });
 test('workflow and disaster recovery documentation are present',()=>{
  for(const file of ['.github/workflows/ci.yml','.github/workflows/deploy.yml','.github/workflows/preview.yml']){

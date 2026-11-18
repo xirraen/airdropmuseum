@@ -12,11 +12,16 @@
     "test:runtime": "node scripts/run-runtime-tests.mjs",
     "test:e2e": "playwright test",
     "release:readiness": "node scripts/release-readiness.mjs",
-    "release:presentation": "node scripts/release-presentation.mjs"
+    "release:presentation": "node scripts/release-presentation.mjs",
+    "release:forensics": "node scripts/release-forensics.mjs",
+    "recovery:preflight": "node scripts/run-isolated-recovery-drill.mjs --preflight",
+    "recovery:drill": "node scripts/run-isolated-recovery-drill.mjs --execute",
+    "recovery:resume": "node scripts/run-isolated-recovery-drill.mjs --resume",
+    "recovery:finalize:preflight": "node scripts/finalize-isolated-recovery.mjs --preflight",
+    "recovery:finalize": "node scripts/finalize-isolated-recovery.mjs --execute"
   },
   "dependencies": {
     "@scure/bip39": "^2.4.0",
-    "@walletconnect/universal-provider": "2.26.0",
     "qrcode": "1.5.4",
     "viem": "^2.57.12",
     "web-push": "^3.6.7"

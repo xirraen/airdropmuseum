@@ -1,56 +1,78 @@
 import {test,expect} from '@playwright/test';
+
+const projects=[
+ {id:'fixture-alpha',name:'Alpha Research',chain:'Base',category:'L2',desc:'Cek sumber resmi proyek.',status:'confirmed',website:'https://example.org/alpha'},
+ {id:'fixture-beta',name:'Beta Discovery',chain:'Ethereum',category:'DeFi',desc:'Tinjau ketentuan sumber.',status:'rumored',website:'https://example.org/beta'}
+];
 test.beforeEach(async({page})=>{
- // Synthetic Telegram viewport only. This does not establish real-device verification.
  await page.route('https://telegram.org/**',r=>r.fulfill({contentType:'text/javascript',body:''}));
 });
-test('navigation renders every personal screen without overflow or browser errors',async({page})=>{
+async function syntheticCatalog(page){
+ await page.route('**/api/projects',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({mode:'live',projects})}));
+}
+
+test('only five tabs render on mobile and desktop with no JavaScript errors',async({page})=>{
+ await syntheticCatalog(page);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/',{waitUntil:'domcontentloaded'});
- for(const route of ['home','explore','workspace','missions','notifications','profile','wallets']){
-  await page.locator(`[data-nav="${route}"]:visible`).first().click();
+ await expect(page.locator('#mobile-nav button')).toHaveCount(5);
+ await expect(page.locator('#desktop-nav button')).toHaveCount(5);
+ for(const route of ['home','explore','missions','workspace','profile']){
+  await page.locator('[data-tab="'+route+'"]:visible').first().click();
   await expect(page).toHaveURL(new RegExp('#'+route+'$'));
   await expect(page.locator('#app')).not.toBeEmpty();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  }
  expect(errors).toEqual([]);
 });
-test('campaign modal opens and closes and catalog navigation stays available',async({page})=>{
- // A real public D1 campaign record represented as a test-only API fixture.
- await page.route('**/api/projects',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
-  mode:'live',projects:[{id:'campaign-layer3-cube-research',sourceId:'layer3-cube-research',name:'Layer3 — CUBE & Activations (riset)',symbol:'◈',category:'NFT',chain:'Base',desc:'Riset dari dokumentasi resmi, bukan janji airdrop.',status:'speculative',website:'https://docs.layer3.xyz/',tasks:['Periksa ketentuan resmi'],custom:false}]
- })}));
- await page.goto('/#explore',{waitUntil:'domcontentloaded'});
- await page.locator('[data-open]').first().click();
- await expect(page.locator('#detail')).toBeVisible();
- await page.keyboard.press('Escape');
- await expect(page.locator('#detail')).not.toBeVisible();
- await page.getByRole('link',{name:/Buka katalog airdrop/}).click();
- await expect(page).toHaveURL(/aggregator.html/);
- await expect(page.locator('body')).toContainText(/airdrop/i);
+test('campaign search and chain filter work on the live server catalog',async({page})=>{
+ await syntheticCatalog(page);await page.goto('/#explore');
+ await expect(page.locator('.campaign')).toHaveCount(2);
+ await page.locator('#campaign-search').fill('Alpha');
+ await expect(page.locator('.campaign')).toHaveCount(1);
+ await expect(page.locator('.campaign')).toContainText(['Alpha Research']);
+ await page.locator('#campaign-search').fill('');
+ await page.locator('#chain-filter').selectOption('Ethereum');
+ await expect(page.locator('.campaign')).toHaveCount(1);
+ await expect(page.locator('.campaign')).toContainText(['Beta Discovery']);
 });
-test('Decision Lab and admin deny unauthorized personal access',async({page,request})=>{
- await page.goto('/decision-lab.html',{waitUntil:'domcontentloaded'});
- await expect(page.locator('body')).toContainText(/login|masuk|telegram/i);
- expect((await request.get('/admin.html')).status()).toBe(403);
- expect((await request.get('/api/autopsy/export')).status()).toBe(401);
- expect((await request.get('/api/aggregator/portfolio')).status()).toBeGreaterThanOrEqual(400);
+test('official source links are HTTPS and protected against opener access',async({page})=>{
+ await syntheticCatalog(page);await page.goto('/#explore');
+ await expect(page.locator('.campaign a[data-source]')).toHaveCount(2);
+ for(const link of await page.locator('.campaign a[data-source]').all()){
+  expect((await link.getAttribute('href')).startsWith('https://')).toBe(true);
+  await expect(link).toHaveAttribute('target','_blank');
+  await expect(link).toHaveAttribute('rel',/noopener noreferrer/);
+ }
 });
-
-test('catalog backend failure is visible and never replaced with fictional campaigns',async({page})=>{
+test('save a project, record a note, and retain it across reload',async({page})=>{
+ await syntheticCatalog(page);await page.goto('/#explore');
+ await page.locator('[data-save="fixture-alpha"]').click();
+ await page.locator('[data-tab="workspace"]:visible').first().click();
+ await expect(page.locator('.portfolio-row')).toContainText(['Alpha Research']);
+ await page.locator('[data-note="fixture-alpha"]').click();
+ await expect(page.locator('#note-dialog')).toBeVisible();
+ await page.locator('#note-text').fill('Periksa dokumentasi resmi pada 18 November.');
+ await page.locator('#note-form button[type="submit"]').click();
+ await expect(page.locator('#note-dialog')).not.toBeVisible();
+ await page.reload();
+ await page.locator('[data-note="fixture-alpha"]').click();
+ await expect(page.locator('#note-text')).toHaveValue('Periksa dokumentasi resmi pada 18 November.');
+});
+test('catalog failure shows an explicit error, never fake campaigns',async({page})=>{
  await page.route('**/api/projects',r=>r.fulfill({status:503,contentType:'application/json',body:'{"error":"SERVICE_UNAVAILABLE"}'}));
- await page.route('**/api/v1/airdrops',r=>r.fulfill({status:503,contentType:'application/json',body:'{"error":"SERVICE_UNAVAILABLE"}'}));
- await page.goto('/',{waitUntil:'domcontentloaded'});
- await expect(page.getByRole('alert')).toContainText('Katalog editorial belum tersedia');
- await expect(page.locator('.amu-campaign-grid')).toContainText('Katalog publik tidak tersedia');
- await expect(page.getByRole('heading',{name:'Direktori kampanye & riset'})).toBeVisible();
- await expect(page.locator('[data-open]')).toHaveCount(0);
+ await page.goto('/#explore');
+ await expect(page.locator('#app')).toContainText('Data tidak tersedia');
+ await expect(page.locator('.campaign')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Muat ulang'})).toBeVisible();
 });
-
-test('profile form persists a real local update across reload',async({page})=>{
- await page.goto('/#profile',{waitUntil:'domcontentloaded'});
+test('profile settings persist and retired console routes deny direct access',async({page,request})=>{
+ await page.goto('/#profile');
  await page.locator('#profile-form input[name="name"]').fill('Peneliti Uji');
- await page.locator('#profile-form').getByRole('button',{name:'Simpan perubahan'}).click();
- await page.reload({waitUntil:'domcontentloaded'});
+ await page.locator('#profile-form button[type="submit"]').click();
+ await page.reload();
  await expect(page.locator('#profile-form input[name="name"]')).toHaveValue('Peneliti Uji');
- await expect(page.getByRole('heading',{name:'Peneliti Uji',exact:true})).toBeVisible();
+ for(const path of ['/admin.html','/aggregator.html','/decision-lab.html','/api/admin/overview','/api/autopsy/export']){
+  expect((await request.get(path)).status()).toBe(404);
+ }
 });

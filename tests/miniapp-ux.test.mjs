@@ -1,42 +1,41 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {PRIMARY_NAV,SIDE_NAV,resolveRoute,primaryRoute} from '../dist/navigation.js';
-const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
-const app=readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
-const css=readFileSync(new URL('../dist/mini-ui.css',import.meta.url),'utf8');
-const workerBuild=readFileSync(new URL('../scripts/build-worker.mjs',import.meta.url),'utf8');
+import {PRIMARY_NAV,SIDE_NAV,resolveRoute} from '../dist/navigation.js';
+const html=readFileSync('dist/index.html','utf8');
+const app=readFileSync('dist/core-five.js','utf8');
+const css=readFileSync('dist/core-five.css','utf8');
+const builder=readFileSync('scripts/build-worker.mjs','utf8');
 
-test('reference UX exposes five persistent mobile destinations',()=>{
- assert.deepEqual(PRIMARY_NAV.map(x=>x[0]),['home','explore','missions','workspace','profile']);
- assert.equal(SIDE_NAV.some(([k])=>k==='eligibility'),true);
- assert.equal(SIDE_NAV.some(([k])=>k==='wallets'),true);
- assert.equal(SIDE_NAV.some(([k])=>k==='notifications'),true);
- for(const route of ['home','explore','missions','workspace','profile','eligibility','wallets','notifications']) assert.equal(resolveRoute(route),route);
- assert.equal(primaryRoute('eligibility'),'explore');
- assert.equal(primaryRoute('wallets'),'profile');
+test('five mobile and desktop tabs remain the only navigable destinations',()=>{
+ assert.deepEqual(PRIMARY_NAV.map(([id])=>id),['home','explore','missions','workspace','profile']);
+ assert.deepEqual(SIDE_NAV,PRIMARY_NAV);
+ for(const removed of ['wallets','hub','eligibility','notifications','voices','calendar','archive','referral','admin'])
+  assert.equal(resolveRoute(removed),'home',removed);
+ assert.match(html,/id="desktop-nav"/);assert.match(html,/id="mobile-nav"/);
 });
-test('new CSS is actually loaded by default Worker shell',()=>{
- assert.match(html,/mini-ui\.css\?v=/);
- assert.match(html,/id="global-search"/);
- assert.match(html,/data-nav="notifications"/);
- assert.ok(workerBuild.includes("'mini-ui.css'"));
- assert.match(css,/\.amu-dashboard-shell\s*\{/);
- assert.match(css,/@media\(max-width:700px\)/);
+test('new accessible CSS and runtime are both included in Worker assets',()=>{
+ for(const name of ['core-five.css','core-five.js']){assert.ok(html.includes('/'+name+'?v='));assert.ok(builder.includes("'"+name+"'"));}
+ assert.match(css,/@media\(max-width:820px\)/);
  assert.match(css,/safe-area-inset-bottom/);
+ assert.match(css,/:focus-visible/);
+ assert.match(css,/min-height:46px/);
 });
-test('all seven reference screens are connected to the existing app',()=>{
- for(const symbol of ['function miniCampaignCard','function dashboard','function eligibilityPage','function walletPage','function notificationsPage','function miniPortfolioOverview','function missions','function showDetail'])assert.ok(app.includes(symbol),symbol);
- assert.match(app,/workspace:portfolioBody/);
- assert.match(app,/wallets:walletPage/);
- assert.match(app,/notifications:notificationsPage/);
- assert.match(app,/eligibility:eligibilityPage/);
+test('all five tabs have functional renderers and no additional screen navigation',()=>{
+ for(const symbol of ['function home','function explore','function quest','function portfolio','function profile','function saveProject','function openNote','function download','function loadCatalog'])assert.ok(app.includes(symbol),symbol);
+ assert.match(app,/CORE_QUESTS/);
+ assert.match(app,/\['home','Beranda'/);
+ assert.match(app,/\['explore','Airdrop'/);
+ assert.match(app,/\['missions','Quest'/);
+ assert.match(app,/\['workspace','Portofolio'/);
+ assert.match(app,/\['profile','Profil'/);
+ assert.doesNotMatch(html,/admin\.html|decision-lab\.html|walletconnect-bundle\.js|trust-tab\.js/);
 });
-test('UX uses actual local research data and does not fabricate wallet eligibility',()=>{
- assert.match(app,/state\.saved\.includes\(p\.id\)/);
- assert.match(app,/Kampanye publik/);assert.doesNotMatch(app,/Contoh fiktif/);
- assert.match(app,/Manual check/);
- assert.match(app,/Scan otomatis belum tersedia/);
+test('catalog failure is explicit and personal data remains exportable without fake rewards',()=>{
+ assert.match(app,/\/api\/projects/);
+ assert.match(app,/Tidak menampilkan kampanye contoh/);
+ assert.match(app,/localStorage/);
+ assert.match(app,/Ekspor data JSON/);
  assert.match(app,/seed phrase/);
- assert.doesNotMatch(css,/\b245\b/);
+ assert.match(app,/XP adalah progres lokal/);
 });

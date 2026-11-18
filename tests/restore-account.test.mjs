@@ -8,7 +8,7 @@ test('erasure replay accepts schema 17 and keeps source ledger reads separate fr
  const server=http.createServer(async(req,res)=>{
   const parts=[];for await(const chunk of req)parts.push(chunk);const body=parts.length?JSON.parse(Buffer.concat(parts)):{};requests.push({path:req.url,method:req.method,body});
   let result=[];
-  if(req.url.includes('/query'))result=[{success:true,results:body.sql?.includes('MAX(version)')?[{version:req.url.includes('/'+db+'/')?schema:5}]:[]}];
+  if(req.url.includes('/query'))result=[{success:true,meta:{changed_db:false,rows_written:0},results:body.sql?.includes('MAX(version)')?[{version:req.url.includes('/'+db+'/')?schema:5}]:[]}];
   res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({success:true,result,result_info:{cursor:''}}));
  });
  await new Promise(resolve=>server.listen(8792,'127.0.0.1',resolve));

@@ -1,7 +1,7 @@
 import {normalizeUrl,DiscoveryError} from './types.ts';
 import {download,boundedResponse} from './ingestService.ts';
 import {parseFeed} from './feedParser.ts';
-import {requireProviderRights,parseCryptoRankActivities,downloadCryptoRank} from './providerAdapters.ts';
+import {requireProviderRights,parseCryptoRankActivities,downloadCryptoRank,parseRootDataIncentiveEvents,parseRootDataFundingRounds,downloadRootData,parseDefiLlamaProtocols,downloadDefiLlama} from './providerAdapters.ts';
 import {classify} from './classifier.ts';
 
 // This operation is intentionally stateless: no queue, D1 writes, alert, or
@@ -10,12 +10,12 @@ import {classify} from './classifier.ts';
 export async function previewDiscoverySource(source,{fetcher=fetch,env={}}={}){
  const url=normalizeUrl(source.feed_url);
  const provider=requireProviderRights(source,env);
- const response=provider==='cryptorank'?await downloadCryptoRank(url,env,fetcher):await download(url,{
+ const response=provider==='cryptorank'?await downloadCryptoRank(url,env,fetcher):['rootdata','rootdata_funding'].includes(provider)?await downloadRootData(url,env,fetcher):provider==='defillama'?await downloadDefiLlama(url,fetcher):await download(url,{
   Accept:'application/rss+xml, application/atom+xml, application/feed+json, application/json, application/xml, text/xml;q=0.8'
  },fetcher);
  if(!response.ok)throw new DiscoveryError('FETCH_FAILED',502);
- const content=await boundedResponse(response);
- const items=provider==='cryptorank'?parseCryptoRankActivities(content):parseFeed(content,source.source_type,url);
+ const content=await boundedResponse(response,provider==='defillama'?10*1024*1024:524288);
+ const items=provider==='cryptorank'?parseCryptoRankActivities(content):provider==='rootdata'?parseRootDataIncentiveEvents(content):provider==='rootdata_funding'?parseRootDataFundingRounds(content):provider==='defillama'?parseDefiLlamaProtocols(content):parseFeed(content,source.source_type,url);
  const sample=items.slice(0,10).map(item=>({
   title:item.title,url:item.url,summary:item.summary,published_at:item.published_at,
   ...classify({title:item.title,summary:item.summary})

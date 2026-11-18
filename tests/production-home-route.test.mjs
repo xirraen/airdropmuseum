@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-
-test('production Worker homepage maps to responsive blue museum dashboard',()=>{
- const src=readFileSync(new URL('../scripts/build-worker.mjs',import.meta.url),'utf8');
- const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
- assert.ok(src.includes("url.pathname==='/'?'/index.html'"),'Default homepage is new dashboard');
- assert.ok(src.includes("'aggregator.html'"),'Aggregator remains available as its own route');
- assert.ok(src.includes("'/museum.html'?'/index.html'"),'Legacy museum alias preserved');
- assert.ok(html.includes('mini-ui.css'),'Blue responsive mini app stylesheet included');
+test('production Worker default homepage is a five-tab Mini App with no extra pages',()=>{
+ const script=readFileSync('scripts/build-worker.mjs','utf8');
+ const html=readFileSync('dist/index.html','utf8');
+ assert.ok(script.includes("url.pathname==='/'?'/index.html'"));
+ assert.ok(script.includes("'core-five.js'"));
+ assert.ok(script.includes("'core-five.css'"));
+ assert.ok(!script.includes("'aggregator.html'"));
+ assert.ok(!script.includes("'admin.html'"));
+ assert.ok(html.includes('core-five.css'));
 });

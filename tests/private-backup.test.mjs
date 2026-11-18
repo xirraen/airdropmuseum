@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -36,4 +36,16 @@ test('privacy replay refuses production in either letter case, historical stagin
 test('encrypted backup authenticates the full SQL export and wrong keys/tampering leave no plaintext',async()=>{
  const {encryptBackup,decryptBackup}=await import('../scripts/backup-crypto.mjs');const {readFileSync,existsSync}=await import('node:fs');
  fixture(root=>{const input=join(root,'source.sql'),sealed=join(root,'sealed'),key=join(root,'key');writeFileSync(input,schema);const info=encryptBackup(input,sealed,key);const result=decryptBackup(sealed,join(root,'restored.sql'),key);assert.equal(result.sha256,info.plaintext_sha256);assert.equal(readFileSync(join(root,'restored.sql'),'utf8'),schema);writeFileSync(join(root,'wrong-key'),Buffer.alloc(32));assert.throws(()=>decryptBackup(sealed,join(root,'bad.sql'),join(root,'wrong-key')));assert.equal(existsSync(join(root,'bad.sql')),false);const bytes=readFileSync(sealed);bytes[bytes.length-1]^=1;writeFileSync(join(root,'tampered'),bytes);assert.throws(()=>decryptBackup(join(root,'tampered'),join(root,'tampered.sql'),key));assert.equal(existsSync(join(root,'tampered.sql')),false);});
+});
+
+test('backup runner cleans all local plaintext and SQLite artifacts even on failure',()=>{
+ const source=readFileSync('scripts/private-db-backup.mjs','utf8');
+ const begin=source.indexOf("const dump=join(folder,'production.sql')");
+ const guarded=source.indexOf('try{',begin);
+ const exportAt=source.indexOf("run(['d1','export'",guarded);
+ const restoreAt=source.indexOf('verifyBackup(dump,restoredSqlite',guarded);
+ const encryptAt=source.indexOf('encryptBackup(dump,sealed,keyFile)',guarded);
+ const cleanupAt=source.indexOf('finally{',guarded);
+ assert.ok(begin>=0&&guarded>begin&&exportAt>guarded&&restoreAt>exportAt&&encryptAt>restoreAt&&cleanupAt>encryptAt);
+ assert.match(source.slice(cleanupAt),/for\(const file of \[dump,roundtrip,restoredSqlite\]\)rmSync\(file,\{force:true\}\)/);
 });

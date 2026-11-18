@@ -57,8 +57,10 @@ export async function discoveryRoutes(request,env,baseHeaders={}){
    if(method==='POST'){
     const b=validateSource(await readJson(request)),id=crypto.randomUUID();
     await sql(db,'INSERT INTO discovery_sources(id,name,source_type,feed_url,project_hint,enabled,trust_level) VALUES(?,?,?,?,?,?,?)',
-     id,b.name,b.source_type,b.feed_url,b.project_hint,b.enabled,b.trust_level).run();
-    return json({id,created:true},201);
+     id,b.name,b.source_type,b.feed_url,b.project_hint,0,b.trust_level).run();
+    // A new source must never run on cron before an explicit second activation.
+    // Ignore enabled:true on create, including clients using legacy defaults.
+    return json({id,created:true,enabled:false},201);
    }
    fail('METHOD_NOT_ALLOWED',405);
   }
@@ -68,6 +70,7 @@ export async function discoveryRoutes(request,env,baseHeaders={}){
    if(!source)fail('SOURCE_NOT_FOUND',404);
    if(sourceMatch[2]){
     if(method!=='POST')fail('METHOD_NOT_ALLOWED',405);
+    if(!source.enabled)fail('SOURCE_DISABLED',409);
     const result=await fetchDiscoverySource(env,source);
     return json(result,result.error?502:202);
    }

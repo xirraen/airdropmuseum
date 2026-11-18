@@ -1,13 +1,13 @@
 import {normalizeUrl,DiscoveryError,sourceVersion} from './types.ts';
 import {parseFeed} from './feedParser.ts';
-import {requireProviderRights,parseCryptoRankActivities,downloadCryptoRank} from './providerAdapters.ts';
+import {requireProviderRights,parseCryptoRankActivities,downloadCryptoRank,parseRootDataIncentiveEvents,parseRootDataFundingRounds,downloadRootData,parseDefiLlamaProtocols,downloadDefiLlama} from './providerAdapters.ts';
 import {metric} from '../admin/metrics.ts';
 const MAX_BYTES=524288;
 function scrub(code){return ['FETCH_FAILED','FEED_TOO_LARGE','FEED_TIMEOUT','INVALID_XML_FEED','INVALID_JSON_FEED','UNSAFE_XML','INVALID_FEED','QUEUE_UNAVAILABLE','UNSAFE_FEED_HOST','INVALID_HTTPS_URL','PROVIDER_LICENSE_REQUIRED','PROVIDER_KEY_REQUIRED','PROVIDER_API_REQUIRED','PROVIDER_AUTH_FAILED','PROVIDER_RATE_LIMITED','INVALID_PROVIDER_ENDPOINT','PROVIDER_FEED_URL_UNAPPROVED','INVALID_PROVIDER_RESPONSE','PROVIDER_SCHEMA_UNSUPPORTED'].includes(code)?code:'DISCOVERY_FETCH_FAILED';}
-export async function boundedResponse(response){
+export async function boundedResponse(response,maxBytes=MAX_BYTES){
  const reader=response.body?.getReader();if(!reader)throw new DiscoveryError('INVALID_FEED');
  const pieces=[];let size=0;
- try{for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>MAX_BYTES){await reader.cancel();throw new DiscoveryError('FEED_TOO_LARGE',413);}pieces.push(value);}}
+ try{for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>maxBytes){await reader.cancel();throw new DiscoveryError('FEED_TOO_LARGE',413);}pieces.push(value);}}
  finally{try{reader.releaseLock();}catch{}}
  const data=new Uint8Array(size);let n=0;for(const part of pieces){data.set(part,n);n+=part.byteLength;}
  return new TextDecoder('utf-8',{fatal:true}).decode(data);
@@ -35,11 +35,11 @@ export async function fetchDiscoverySource(env,source,{fetcher=fetch}={}){
  if(source.last_modified)headers['If-Modified-Since']=source.last_modified;
  try{
   const provider=requireProviderRights(source,env);
-  const response=provider==='cryptorank'?await downloadCryptoRank(url,env,fetcher):await download(url,headers,fetcher);
+  const response=provider==='cryptorank'?await downloadCryptoRank(url,env,fetcher):['rootdata','rootdata_funding'].includes(provider)?await downloadRootData(url,env,fetcher):provider==='defillama'?await downloadDefiLlama(url,fetcher):await download(url,headers,fetcher);
   if(response.status===304){const update=await db.prepare('UPDATE discovery_sources SET last_fetched_at=CURRENT_TIMESTAMP,last_error=NULL,error_at=NULL,new_item_count=0 WHERE id=? AND feed_url=? AND source_type=? AND enabled=1').bind(source.id,source.feed_url,source.source_type).run();return update.meta?.changes===1?{queued:0,not_modified:true}:{queued:0,error:'SOURCE_CONFIGURATION_CHANGED'};}
   if(!response.ok)throw new DiscoveryError('FETCH_FAILED',502);
-  const content=await boundedResponse(response);
-  const items=provider==='cryptorank'?parseCryptoRankActivities(content):parseFeed(content,source.source_type,url);
+  const content=await boundedResponse(response,provider==='defillama'?10*1024*1024:MAX_BYTES);
+  const items=provider==='cryptorank'?parseCryptoRankActivities(content):provider==='rootdata'?parseRootDataIncentiveEvents(content):provider==='rootdata_funding'?parseRootDataFundingRounds(content):provider==='defillama'?parseDefiLlamaProtocols(content):parseFeed(content,source.source_type,url);
   const current=await db.prepare('SELECT feed_url,source_type,enabled FROM discovery_sources WHERE id=?').bind(source.id).first();
   if(!current||!current.enabled||await sourceVersion(current.feed_url,current.source_type)!==version)return {queued:0,error:'SOURCE_CONFIGURATION_CHANGED'};
   // Only short metadata and a public-feed revision travel through the queue; no article bodies or private data.
