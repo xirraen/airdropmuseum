@@ -173,6 +173,101 @@ const TON_UI_CDNS=[
 ];
 const TON_MANIFEST=location.origin+'/tonconnect-manifest.json';
 let tonUi=null,tonUiTask=null,tonLoader=null,tonInfo=null,tonOpening=false,tonIssue='',tonAutoboot=false;
+let walletData=null,walletLoading=false,walletError='',walletFetchSeq=0,walletLoadedAt=0,walletAbort=null;
+function walletDate(value){
+ if(!value||!Number.isFinite(Date.parse(value)))return 'Tidak diketahui';
+ return new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Jakarta'}).format(new Date(value))+' WIB';
+}
+function resetWalletSnapshot(){
+ walletFetchSeq++;walletAbort?.abort();walletAbort=null;walletData=null;walletLoading=false;walletError='';walletLoadedAt=0;
+}
+async function loadWalletSnapshot(force=false){
+ const raw=tonInfo?.raw;
+ if(!raw||!/^0:[a-f0-9]{64}$/.test(raw))return;
+ if(walletLoading&&!force)return;
+ if(!force&&walletData&&Date.now()-walletLoadedAt<60000)return;
+ const seq=++walletFetchSeq;walletAbort?.abort();
+ const controller=new AbortController();walletAbort=controller;walletLoading=true;walletError='';
+ if(['profile','workspace'].includes(currentRoute()))render();
+ const timer=setTimeout(()=>controller.abort(),38000);
+ try{
+  const r=await fetch('/api/ton-wallet?address='+encodeURIComponent(raw),{cache:'no-store',signal:controller.signal});
+  if(!r.ok)throw Error('HTTP_'+r.status);
+  const payload=await r.json();
+  if(!payload||payload.address!==raw||payload.network!=='TON mainnet'||typeof payload.ton!=='string')throw Error('INVALID_WALLET_DATA');
+  if(seq!==walletFetchSeq||tonInfo?.raw!==raw)return;
+  walletData=payload;walletLoadedAt=Date.now();walletError='';
+ }catch(error){
+  if(seq!==walletFetchSeq||tonInfo?.raw!==raw)return;
+  walletData=null;
+  walletError=controller.signal.aborted?'Permintaan data wallet terlalu lama. Coba perbarui.':
+   String(error.message)==='HTTP_429'?'Layanan blockchain membatasi permintaan. Coba lagi.':
+   'Data blockchain sementara tidak tersedia. Periksa jaringan lalu coba lagi.';
+ }finally{
+  clearTimeout(timer);
+  if(seq===walletFetchSeq){walletLoading=false;walletAbort=null;if(['profile','workspace'].includes(currentRoute()))render();}
+ }
+}
+function renderTonWalletAssets(parent){
+ const card=node('section','ton-assets-panel','',parent);
+ const header=node('div','ton-assets-header','',card);
+ const copy=node('div','','',header);
+ node('span','overline','TON MAINNET · DATA BLOCKCHAIN',copy);
+ node('h2','','Portofolio Wallet TON',copy);
+ node('p','',tonInfo?'Saldo, token, NFT, dan aktivitas dari data jaringan publik.':'Hubungkan TON Wallet di Profil agar data aset dan aktivitas Anda dapat ditampilkan.',copy);
+ if(!tonInfo){
+  button('Hubungkan Wallet',card,()=>go('profile'),'btn btn-primary btn-small');return;
+ }
+ const bar=node('div','ton-assets-controls','',card);
+ const a=node('a','ton-explorer-link','Lihat di TON Viewer',bar);
+ a.href='https://tonviewer.com/'+encodeURIComponent(tonInfo.address);a.target='_blank';a.rel='noopener noreferrer';
+ const refresh=button(walletLoading?'Memuat…':'Perbarui data',bar,()=>loadWalletSnapshot(true),'btn btn-outline btn-small');
+ refresh.disabled=walletLoading;
+ if(walletLoading&&!walletData)node('p','ton-assets-pending','Mengambil data TON mainnet dari penyedia blockchain…',card);
+ if(walletError){const e=node('p','ton-assets-error',walletError,card);e.setAttribute('role','status');}
+ if(!walletData)return;
+ const info=node('div','ton-assets-balance','',card);
+ node('span','','Saldo TON',info);
+ node('strong','',walletData.ton+' TON',info);
+ node('small','','Status akun: '+(walletData.accountStatus||'tidak diketahui')+' · '+(walletData.source||'Sumber blockchain'),info);
+ node('small','','Diperiksa: '+walletDate(walletData.checkedAt),info);
+ const grid=node('div','ton-assets-columns','',card);
+ const tokenPanel=node('section','ton-assets-section','',grid);
+ node('h3','','Jetton',tokenPanel);
+ if(!walletData.jettonsAvailable)node('p','ton-assets-muted','Daftar Jetton belum tersedia dari penyedia data.',tokenPanel);
+ else if(!walletData.jettons?.length)node('p','ton-assets-muted','Tidak ada saldo Jetton yang terdeteksi.',tokenPanel);
+ else for(const token of walletData.jettons.slice(0,15)){
+  const row=node('div','ton-asset-row','',tokenPanel);
+  const info=node('div','','',row);node('strong','',token.symbol||'JETTON',info);node('small','',token.name||'Token',info);
+  node('span','',String(token.amount),row);
+ }
+ const nftPanel=node('section','ton-assets-section','',grid);
+ node('h3','','NFT',nftPanel);
+ if(!walletData.nftsAvailable)node('p','ton-assets-muted','Daftar NFT belum tersedia dari penyedia data.',nftPanel);
+ else if(!walletData.nfts?.length)node('p','ton-assets-muted','Belum ada NFT yang terdeteksi.',nftPanel);
+ else for(const nft of walletData.nfts.slice(0,10)){
+  const row=node('div','ton-asset-row','',nftPanel);
+  const info=node('div','','',row);node('strong','',nft.name||'NFT',info);node('small','',nft.collection||'Tanpa koleksi',info);
+ }
+ const timeline=node('section','ton-assets-section ton-activity-list','',card);
+ node('h3','','Aktivitas terbaru',timeline);
+ if(!walletData.eventsAvailable)node('p','ton-assets-muted','Riwayat transaksi belum tersedia dari penyedia data.',timeline);
+ else if(!walletData.events?.length)node('p','ton-assets-muted','Belum ada aktivitas yang tersedia.',timeline);
+ else for(const event of walletData.events.slice(0,8)){
+  const row=node('div','ton-activity-row','',timeline);
+  const info=node('div','','',row);node('strong','',event.type||'Transaksi',info);
+  node('small','',walletDate(event.time),info);
+  if(event.amount)node('span','',event.amount,row);
+ }
+ const research=node('div','ton-campaign-compat','',card);
+ const matches=catalog.filter(p=>/\bton\b/i.test(p.chain||''));
+ node('strong','','Kaitan dengan katalog airdrop',research);
+ node('p','',matches.length?
+  matches.length+' kampanye mencantumkan jaringan TON. Cocok jaringan tidak berarti wallet ini eligible.':
+  'Belum ada kampanye TON pada katalog saat ini. Data wallet tidak dapat membuktikan kelayakan kampanye pada jaringan lain.',research);
+ if(matches.length)button('Tinjau kampanye',research,()=>{chain='all';query='ton';go('explore');},'btn btn-outline btn-small');
+}
+
 function tonErrorMessage(error){
  const message=String(error?.message||error||'');
  if(/manifest/i.test(message))return 'Identitas aplikasi tidak tersedia. Periksa koneksi dan coba lagi.';
@@ -209,18 +304,25 @@ function tonWalletUpdate(wallet,error){
  if(error){tonIssue=tonErrorMessage(error);}
  if(wallet?.account){
   if(String(wallet.account.chain)!=='-239'){
-   tonInfo=null;tonIssue='Hanya TON mainnet yang didukung. Pilih wallet mainnet.';
+   tonInfo=null;resetWalletSnapshot();tonIssue='Hanya TON mainnet yang didukung. Pilih wallet mainnet.';
    void Promise.resolve(tonUi?.disconnect()).catch(()=>{});
   }else{
    const raw=String(wallet.account.address||'');
    const helpers=window.TON_CONNECT_UI;
    let friendly=raw;
    try{friendly=helpers?.toUserFriendlyAddress?.(raw) || raw;}catch{}
-   tonInfo={address:friendly,app:String(wallet.device?.appName||'TON Wallet').slice(0,42),chain:'TON Mainnet'};
-   tonIssue='';
+   const address=raw.toLowerCase();
+   if(!/^0:[a-f0-9]{64}$/.test(address)){
+    tonInfo=null;resetWalletSnapshot();tonIssue='Alamat TON dari wallet tidak valid.';
+   }else{
+    const changed=tonInfo?.raw!==address;
+    tonInfo={address:friendly,raw:address,app:String(wallet.device?.appName||'TON Wallet').slice(0,42),chain:'TON Mainnet'};
+    tonIssue='';
+    if(changed){resetWalletSnapshot();void loadWalletSnapshot();}
+   }
   }
- }else tonInfo=null;
- if(currentRoute()==='profile')render();
+ }else{tonInfo=null;resetWalletSnapshot();}
+ if(['profile','workspace'].includes(currentRoute()))render();
 }
 function tonConnector(){
  if(tonUi)return Promise.resolve(tonUi);
@@ -261,7 +363,7 @@ async function disconnectTon(){
  tonOpening=true;tonIssue='';if(currentRoute()==='profile')render();
  try{
   await tonUi?.disconnect();
-  tonInfo=null;notify('Koneksi TON Wallet telah diputus.');
+  tonInfo=null;resetWalletSnapshot();notify('Koneksi TON Wallet telah diputus.');
  }catch(e){
   tonIssue='Gagal memutuskan sesi di wallet. Coba lagi dari wallet Anda.';
  }finally{
@@ -283,7 +385,11 @@ function renderTonConnect(parent){
   node('strong','',tonInfo.app,summary);
   node('small','',tonInfo.chain,summary);
   node('code','ton-address',tonInfo.address,details);
+  if(walletData)node('strong','ton-wallet-mini-balance',walletData.ton+' TON · '+(walletData.jettons?.length||0)+' Jetton · '+(walletData.nfts?.length||0)+' NFT',panel);
+  else if(walletLoading)node('p','ton-wallet-mini-info','Mengambil saldo dan aset blockchain…',panel);
+  else if(walletError)node('p','ton-wallet-mini-info',walletError,panel);
   const actions=node('div','ton-actions','',panel);
+  button('Lihat aset & aktivitas',actions,()=>go('workspace'),'btn btn-primary btn-small');
   button('Putuskan koneksi',actions,disconnectTon,'btn btn-outline btn-small').disabled=tonOpening;
  }else{
   node('p','ton-description','Pilih wallet melalui daftar TON Connect, lalu setujui koneksi di aplikasi wallet Anda.',panel);
@@ -291,7 +397,7 @@ function renderTonConnect(parent){
   button(tonOpening?'Membuka daftar wallet…':'Hubungkan Wallet',actions,connectTon,'btn btn-primary ton-connect-button').disabled=tonOpening;
  }
  if(tonIssue){const alert=node('p','ton-connect-error',tonIssue,panel);alert.setAttribute('role','alert');}
- node('p','ton-connect-footnote','Koneksi hanya menampilkan alamat publik di TON mainnet. Tidak ada transaksi, klaim, atau tanda tangan.',panel);
+ node('p','ton-connect-footnote','Koneksi dipakai untuk membaca saldo, Jetton, NFT, dan aktivitas TON mainnet. Tidak melakukan transaksi atau klaim.',panel);
 }
 
 function node(tag,cls='',text='',parent){
@@ -743,6 +849,8 @@ function noteEditor(p,state,parent){
 }
 function renderPortfolio(state,rows){
  title('Watchlist','Campaign tersimpan, catatan riset, dan progres tindak lanjut.');
+ renderTonWalletAssets(area);
+ if(!tonAutoboot){tonAutoboot=true;void tonConnector().catch(()=>{});}
  const saved=rows.filter(x=>state.saved.includes(x.id)),completed=progress(state,rows);
  const overview=node('section','watchlist-overview','',area);
  const left=node('div','','',overview);
