@@ -46,7 +46,7 @@ test('public activity maps source-change and outage without inventing eligibilit
  assert.equal(result.events[0].campaignId,'campaign-alpha');
  assert.match(result.events[0].description,/belum diverifikasi/i);
  assert.equal(result.events[1].type,'unavailable');
- assert.match(result.events[1].description,/tidak dapat dibaca/i);
+ assert.match(result.events[1].description,/gagal diakses berulang kali/i);
 });
 test('scheduled official source monitoring honors opt-in and host allowlist',async()=>{
  const {db}=fakeDb();let requests=0;
@@ -72,13 +72,66 @@ test('fingerprint monitor records baseline then changed source without claiming 
  assert.equal(c.changed,0);
  assert.equal(records.length,2);
 });
-test('unavailable sources create one daily evidence event, not a false change alert',async()=>{
+test('single transient outage is quiet; repeated failure recorded once; recovery recorded once',async()=>{
  const {db,records}=fakeDb();
  const env={DB:db,AGGREGATOR_MONITOR_SOURCES:'1',AGGREGATOR_ALLOWED_HOSTS:'docs.example.org'};
- const fetcher=async()=>{throw Error('Unavailable')};
+ let failed=true;
+ const fetcher=async()=>{if(failed)throw Error('Unavailable');return new Response('Recovered official documentation '.repeat(12),{headers:{'content-type':'text/html'}})};
  const a=await monitorOfficialSources(env,fetcher);
+ assert.equal(a.unavailable,1);assert.equal(records.length,0,'One transient failure cannot become an outage event');
  const b=await monitorOfficialSources(env,fetcher);
- assert.equal(a.unavailable,1);assert.equal(b.unavailable,1);
- assert.equal(records.length,1);
+ assert.equal(b.unavailable,1);assert.equal(records.length,1);
  assert.equal(records[0].event_type,'source_unavailable');
+ await monitorOfficialSources(env,fetcher);
+ assert.equal(records.length,1,'Repeated failures are not spammed daily');
+ failed=false;
+ await monitorOfficialSources(env,fetcher);
+ assert.equal(records.filter(e=>e.event_type==='source_restored').length,1);
+ assert.equal(records.filter(e=>e.event_type==='source_baseline').length,1);
+ await monitorOfficialSources(env,fetcher);
+ assert.equal(records.filter(e=>e.event_type==='source_restored').length,1);
+ const activity=await sourceActivity(db);
+ assert.equal(activity.events.find(e=>e.type==='restored')?.description.includes('kembali dapat dibaca'),true);
+});
+test('an allowlisted HTTPS redirect is followed and establishes a fingerprint',async()=>{
+ const {db,records}=fakeDb();
+ const env={DB:db,AGGREGATOR_MONITOR_SOURCES:'1',AGGREGATOR_ALLOWED_HOSTS:'docs.example.org'};
+ const requested=[];
+ const fetcher=async(url,options)=>{
+  requested.push({url,redirect:options.redirect});
+  return requested.length===1?
+   new Response(null,{status:302,headers:{location:'/latest'}}):
+   new Response('Verified documentation content '.repeat(12),{headers:{'content-type':'text/html'}});
+ };
+ const result=await monitorOfficialSources(env,fetcher);
+ assert.equal(result.checked,1);
+ assert.deepEqual(requested.map(x=>x.url),['https://docs.example.org/research','https://docs.example.org/latest']);
+ assert.ok(requested.every(x=>x.redirect==='manual'));
+ assert.equal(records[0].event_type,'source_baseline');
+});
+test('redirects to nonallowlisted, IP, and custom-port hosts are never fetched',async()=>{
+ for(const destination of ['https://attacker.example/','http://docs.example.org/',
+  'https://127.0.0.1/private','https://docs.example.org:444/private',
+  'https://user:password@docs.example.org/private']){
+  const {db,records}=fakeDb();
+  const env={DB:db,AGGREGATOR_MONITOR_SOURCES:'1',AGGREGATOR_ALLOWED_HOSTS:'docs.example.org'};
+  const seen=[];
+  const fetcher=async url=>{
+   seen.push(url);
+   return new Response(null,{status:302,headers:{location:destination}});
+  };
+  await monitorOfficialSources(env,fetcher);
+  await monitorOfficialSources(env,fetcher);
+  assert.deepEqual(seen,['https://docs.example.org/research','https://docs.example.org/research'],destination);
+  assert.equal(records.length,1,destination);
+  assert.equal(records[0].event_type,'source_unavailable');
+ }
+});
+test('a source that resumes after a failed probe but before the second has no outage event',async()=>{
+ const {db,records}=fakeDb();
+ const env={DB:db,AGGREGATOR_MONITOR_SOURCES:'1',AGGREGATOR_ALLOWED_HOSTS:'docs.example.org'};
+ await monitorOfficialSources(env,async()=>{throw Error('temporary')});
+ await monitorOfficialSources(env,async()=>new Response('Readable official article '.repeat(15),{headers:{'content-type':'text/html'}}));
+ assert.equal(records.some(e=>e.event_type==='source_unavailable'||e.event_type==='source_restored'),false);
+ assert.equal(records[0].event_type,'source_baseline');
 });

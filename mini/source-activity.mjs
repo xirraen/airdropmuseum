@@ -18,9 +18,11 @@ export async function sourceActivity(db){
   try{url=new URL(row.source_url);if(url.protocol!=='https:')continue;}catch{continue;}
   const type=row.event_type==='source_changed'?'changed':
    row.event_type==='source_unavailable'?'unavailable':
+   row.event_type==='source_restored'?'restored':
    String(row.event_type||'').startsWith('status:')?'status':'record';
   const description=type==='changed'?'Isi sumber berubah; status atau kelayakan belum diverifikasi ulang.':
-   type==='unavailable'?'Sumber tidak dapat dibaca pada pemeriksaan ini.':
+   type==='unavailable'?'Sumber gagal diakses berulang kali; periksa secara manual.':
+   type==='restored'?'Sumber kembali dapat dibaca setelah gangguan; aturan dan kelayakan tetap perlu diperiksa.':
    type==='status'?'Status tercatat berubah; periksa sumber sebelum mengambil keputusan.':
    'Pemeriksaan sumber tercatat; bukan bukti kelayakan atau reward.';
   events.push({
@@ -37,12 +39,44 @@ function cleanText(body){
   .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,' ')
   .replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
 }
-async function fetchSourceText(url,fetcher){
+// Every request and redirect must stay inside the explicitly configured official domains.
+// This is not an open URL fetcher. In particular, never permit custom ports, credentials
+// or literal IP/localhost targets, even if an operator accidentally added one to the list.
+function allowedSourceUrl(value,hosts){
+ try{
+  const url=new URL(value);
+  const host=url.hostname.toLowerCase();
+  if(url.protocol!=='https:'||url.username||url.password||url.port||
+   !hosts.has(host)||!host.includes('.')||host==='localhost'||
+   host.endsWith('.localhost')||host.endsWith('.local')||
+   /^\d+(?:\.\d+){3}$/.test(host)||host.includes(':'))return null;
+  url.hash='';
+  return url.href;
+ }catch{return null;}
+}
+async function fetchSourceText(url,fetcher,hosts){
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),12000);
+ const seen=new Set();
+ let target=url;
  let response;
  try{
-  response=await fetcher(url,{method:'GET',redirect:'error',signal:controller.signal,headers:{Accept:'text/html,text/markdown;q=0.9,text/plain;q=0.8,application/json;q=0.7'}});
+  for(let hop=0;hop<=3;hop++){
+   if(seen.has(target))throw Error('SOURCE_REDIRECT_LOOP');
+   seen.add(target);
+   response=await fetcher(target,{method:'GET',redirect:'manual',signal:controller.signal,
+    headers:{Accept:'text/html,text/markdown;q=0.9,text/plain;q=0.8,application/json;q=0.7'}});
+   if([301,302,303,307,308].includes(response.status)){
+    if(hop===3)throw Error('SOURCE_TOO_MANY_REDIRECTS');
+    const location=response.headers.get('location');
+    const next=location&&allowedSourceUrl(new URL(location,target).href,hosts);
+    if(!next)throw Error('SOURCE_REDIRECT_NOT_ALLOWLISTED');
+    try{await response.body?.cancel();}catch{}
+    target=next;
+    continue;
+   }
+   break;
+  }
   if(!response.ok)throw Error('SOURCE_HTTP_'+response.status);
   const contentType=(response.headers.get('content-type')||'').toLowerCase();
   if(contentType&&!/text\/html|text\/markdown|text\/plain|application\/json|application\/ld\+json/.test(contentType))throw Error('SOURCE_TYPE');
@@ -67,6 +101,16 @@ async function fetchSourceText(url,fetcher){
   return text;
  }finally{clearTimeout(timeout);}
 }
+function parseMonitorState(value){
+ try{
+  const state=JSON.parse(value||'null');
+  if(state&&typeof state==='object'){
+   return {failures:Number.isSafeInteger(state.failures)&&state.failures>0?Math.min(state.failures,100):0,
+    outage:state.outage===true};
+  }
+ }catch{}
+ return {failures:0,outage:false};
+}
 // Called only on the existing UTC cron. Never claims, signs, or scans wallet accounts.
 export async function monitorOfficialSources(env,fetcher=fetch){
  if(!env.DB||env.AGGREGATOR_MONITOR_SOURCES!=='1')return {checked:0,changed:0,unavailable:0};
@@ -81,8 +125,9 @@ export async function monitorOfficialSources(env,fetcher=fetch){
   for(const value of entries.slice(0,3)){
    try{
     const u=new URL(value);
-    if(u.protocol!=='https:'||!hosts.has(u.hostname.toLowerCase())||u.username||u.password)continue;
-    urls.push({campaign:c,url:u.href});
+    const url=allowedSourceUrl(u.href,hosts);
+    if(!url)continue;
+    urls.push({campaign:c,url});
    }catch{}
   }
  }
@@ -92,37 +137,59 @@ export async function monitorOfficialSources(env,fetcher=fetch){
  const batch=urls.slice(cursor,cursor+6);
  let checked=0,changed=0,unavailable=0;
  for(const {campaign:c,url} of batch){
-  try{
-   const body=await fetchSourceText(url,fetcher);
-   const fingerprint=await digest(body),key='official-source:'+c.id+':'+await digest(url);
-   const prior=await stmt(env.DB,'SELECT value FROM aggregator_cursor WHERE name=?',key).first();
-   let previous;
-   try{previous=JSON.parse(prior?.value||'null');}catch{previous=null;}
-   if(previous?.hash!==fingerprint){
-    const at=iso(),changedSincePrior=!!previous?.hash,event=changedSincePrior?'source_changed':'source_baseline';
-    const note=changedSincePrior?'Isi teks sumber resmi berubah. Status dan aturan belum ditinjau ulang; periksa manual.':'Baseline sumber resmi dicatat; bukan bukti eligibility.';
-    const actions=[];
-    if(changedSincePrior){
-     let risk=[];try{risk=JSON.parse(c.risk_flags||'[]');}catch{}
-     if(!Array.isArray(risk))risk=[];
-     actions.push(stmt(env.DB,'UPDATE campaigns SET risk_flags=?,updated_at=? WHERE id=?',JSON.stringify([...new Set([...risk,'source_changed_review_required'])]),at,c.id));
-    }
-    actions.push(stmt(env.DB,'INSERT INTO campaign_sources(id,campaign_id,source_url,source_type,captured_at,note,verified_by,event_type,content_hash) VALUES(?,?,?,?,?,?,?,?,?)',crypto.randomUUID(),c.id,url,'official_docs',at,note,'system',event,fingerprint));
-    actions.push(stmt(env.DB,'INSERT INTO aggregator_cursor(name,value) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value',key,JSON.stringify({hash:fingerprint,checked_at:at})));
-    await env.DB.batch(actions);
-    if(changedSincePrior)changed++;
-   }
-   checked++;
-  }catch{
+  const urlHash=await digest(url);
+  const stateKey='official-source-state:'+c.id+':'+urlHash;
+  const oldState=parseMonitorState((await stmt(env.DB,'SELECT value FROM aggregator_cursor WHERE name=?',stateKey).first())?.value);
+  let body;
+  try{body=await fetchSourceText(url,fetcher,hosts);}
+  catch{
    unavailable++;
-   const at=iso(),key='source-unavailable:'+c.id+':'+await digest(url)+':'+at.slice(0,10);
-   if(!await stmt(env.DB,'SELECT value FROM aggregator_cursor WHERE name=?',key).first()){
-    await env.DB.batch([
-     stmt(env.DB,'INSERT INTO campaign_sources(id,campaign_id,source_url,source_type,captured_at,note,verified_by,event_type) VALUES(?,?,?,?,?,?,?,?)',crypto.randomUUID(),c.id,url,'official_docs',at,'Sumber tidak dapat dibaca pada pemeriksaan ini; status belum diperiksa ulang.','system','source_unavailable'),
-     stmt(env.DB,'INSERT OR IGNORE INTO aggregator_cursor(name,value) VALUES(?,?)',key,'1')
-    ]);
-   }
+   const at=iso(),failures=Math.min(100,oldState.failures+1);
+   const report=failures>=2&&!oldState.outage;
+   const actions=[
+    stmt(env.DB,'INSERT INTO aggregator_cursor(name,value) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value',
+     stateKey,JSON.stringify({failures,outage:oldState.outage||report,checked_at:at}))
+   ];
+   if(report)actions.push(
+    stmt(env.DB,'INSERT INTO campaign_sources(id,campaign_id,source_url,source_type,captured_at,note,verified_by,event_type) VALUES(?,?,?,?,?,?,?,?)',
+     crypto.randomUUID(),c.id,url,'official_docs',at,
+     'Sumber tidak dapat dibaca pada dua pemeriksaan berturut-turut; penilaian status belum berubah.','system','source_unavailable')
+   );
+   await env.DB.batch(actions);
+   continue;
   }
+  const fingerprint=await digest(body),key='official-source:'+c.id+':'+urlHash;
+  const prior=await stmt(env.DB,'SELECT value FROM aggregator_cursor WHERE name=?',key).first();
+  let previous;
+  try{previous=JSON.parse(prior?.value||'null');}catch{previous=null;}
+  const at=iso();
+  const actions=[
+   stmt(env.DB,'INSERT INTO aggregator_cursor(name,value) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value',
+    stateKey,JSON.stringify({failures:0,outage:false,checked_at:at}))
+  ];
+  if(oldState.outage)actions.push(
+   stmt(env.DB,'INSERT INTO campaign_sources(id,campaign_id,source_url,source_type,captured_at,note,verified_by,event_type) VALUES(?,?,?,?,?,?,?,?)',
+    crypto.randomUUID(),c.id,url,'official_docs',at,
+    'Sumber kembali dapat dibaca; status kampanye tetap memerlukan verifikasi manual.','system','source_restored')
+  );
+  if(previous?.hash!==fingerprint){
+   const changedSincePrior=!!previous?.hash,event=changedSincePrior?'source_changed':'source_baseline';
+   const note=changedSincePrior?'Isi teks sumber resmi berubah. Status dan aturan belum ditinjau ulang; periksa manual.':'Baseline sumber resmi dicatat; bukan bukti eligibility.';
+   if(changedSincePrior){
+    let risk=[];try{risk=JSON.parse(c.risk_flags||'[]');}catch{}
+    if(!Array.isArray(risk))risk=[];
+    actions.push(stmt(env.DB,'UPDATE campaigns SET risk_flags=?,updated_at=? WHERE id=?',
+     JSON.stringify([...new Set([...risk,'source_changed_review_required'])]),at,c.id));
+   }
+   actions.push(stmt(env.DB,
+    'INSERT INTO campaign_sources(id,campaign_id,source_url,source_type,captured_at,note,verified_by,event_type,content_hash) VALUES(?,?,?,?,?,?,?,?,?)',
+    crypto.randomUUID(),c.id,url,'official_docs',at,note,'system',event,fingerprint));
+   actions.push(stmt(env.DB,'INSERT INTO aggregator_cursor(name,value) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value',
+    key,JSON.stringify({hash:fingerprint,checked_at:at})));
+   if(changedSincePrior)changed++;
+  }
+  await env.DB.batch(actions);
+  checked++;
  }
  await stmt(env.DB,"INSERT INTO aggregator_cursor(name,value) VALUES('source-monitor-offset',?) ON CONFLICT(name) DO UPDATE SET value=excluded.value",String(cursor+batch.length>=urls.length?0:cursor+batch.length)).run();
  return {checked,changed,unavailable};
