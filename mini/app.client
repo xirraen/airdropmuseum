@@ -30,7 +30,7 @@ const TON_UI_CDNS=[
  'https://cdn.jsdelivr.net/npm/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js'
 ];
 const TON_MANIFEST=location.origin+'/tonconnect-manifest.json';
-let tonUi=null,tonUiTask=null,tonLoader=null,tonInfo=null,tonOpening=false,tonIssue='';
+let tonUi=null,tonUiTask=null,tonLoader=null,tonInfo=null,tonOpening=false,tonIssue='',tonAutoboot=false;
 function tonErrorMessage(error){
  const message=String(error?.message||error||'');
  if(/manifest/i.test(message))return 'Identitas aplikasi tidak tersedia. Periksa koneksi dan coba lagi.';
@@ -101,7 +101,9 @@ async function connectTon(){
  tonOpening=true;tonIssue='';if(currentRoute()==='profile')render();
  try{
   const ui=await tonConnector();
-  tonOpening=false;if(currentRoute()==='profile')render();
+  tonOpening=false;
+  if(currentRoute()!=='profile')return; // User navigated away before the SDK was ready.
+  render();
   // Opening the selector is success; don't wait for an external wallet to approve.
   Promise.resolve(ui.openModal()).catch(e=>{
    const message=tonErrorMessage(e);
@@ -530,6 +532,8 @@ function renderProfile(state,rows){
  stat('Steps reviewed',totals.done,'Checklist manual','check',profileStats);
  stat('Research XP',totals.done*10,'Bukan reward blockchain','missions',profileStats);
  renderTonConnect(area);
+ // Restore an existing TON Connect session when the profile is first opened.
+ if(!tonAutoboot){tonAutoboot=true;void tonConnector().catch(()=>{});}
  const panel=node('section','panel','',area);node('h3','','Identitas lokal',panel);
  const form=node('form','','',panel),row=node('div','form-group','',form);
  const label=node('label','','Nama profil di perangkat ini',row),input=node('input','','',row);
