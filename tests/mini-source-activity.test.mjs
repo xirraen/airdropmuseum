@@ -46,7 +46,7 @@ test('public activity maps source-change and outage without inventing eligibilit
  assert.equal(result.events[0].campaignId,'campaign-alpha');
  assert.match(result.events[0].description,/belum diverifikasi/i);
  assert.equal(result.events[1].type,'unavailable');
- assert.match(result.events[1].description,/tidak dapat dibaca/i);
+ assert.match(result.events[1].description,/gagal diakses berulang kali/i);
 });
 test('scheduled official source monitoring honors opt-in and host allowlist',async()=>{
  const {db}=fakeDb();let requests=0;
