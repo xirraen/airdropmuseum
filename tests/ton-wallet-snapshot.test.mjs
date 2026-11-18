@@ -32,7 +32,7 @@ test('actual TON mainnet snapshot formats nanos, jettons, NFTs and meaningful in
  };
  const out=await getTonWalletSnapshot(address,fetcher,noWait);
  assert.equal(out.status,200);
- assert.equal(out.data.ton,'123.456789');
+ assert.equal(out.data.ton,'123.456789012');
  assert.equal(out.data.accountStatus,'active');
  assert.equal(out.data.source,'TonAPI');
  assert.equal(out.data.network,'TON mainnet');
