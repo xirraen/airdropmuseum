@@ -22,7 +22,7 @@ test('original white-blue style is restored without reverting the five-tab exper
  expect(styles.scheme).toBe('light');
  expect(styles.card).toBe('rgb(255, 255, 255)');
  expect(styles.nav).not.toBe('rgb(15, 17, 28)');
- expect(styles.bg).toBe('rgb(245, 247, 251)');
+ expect(styles.bg).toBe('rgb(245, 248, 253)');
 });
 test('new Explore filters, watchlist and research checklist continue working on white theme',async({page})=>{
  await page.goto('/#explore');
