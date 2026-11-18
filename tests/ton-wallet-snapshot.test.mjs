@@ -84,3 +84,52 @@ test('when account data is entirely unavailable, return service-unavailable inst
  const r=await getTonWalletSnapshot(address,async()=>{throw Error('RPC_ERROR')},noWait);
  assert.deepEqual(r,{error:'TON_DATA_UNAVAILABLE',status:503,upstream:{tonapi:'NETWORK_ERROR',toncenter:'NETWORK_ERROR'}});
 });
+
+test('preserves 9-digit nanoTON and 18-digit Jetton dust instead of hiding nonzero assets',async()=>{
+ const request=async uri=>{
+  if(uri.includes('/jettons'))return payload({balances:[
+   {balance:'1',jetton:{name:'One attounit',symbol:'DUST',decimals:18}},
+   {balance:'1',jetton:{name:'Nano-token',symbol:'NANO',decimals:9}},
+   {balance:'0',jetton:{name:'Empty token',symbol:'EMPTY',decimals:18}}
+  ]});
+  if(uri.includes('/events'))return payload({events:[
+   {event_id:'nano',timestamp:1795010000,actions:[{type:'TonTransfer',TonTransfer:{amount:'1'}}]},
+   {event_id:'dust',timestamp:1795010001,actions:[{type:'JettonTransfer',JettonTransfer:{amount:'1',jetton:{symbol:'DUST',decimals:18}}}]}
+  ]});
+  if(uri.includes('/nfts'))return payload({nft_items:[]});
+  return payload({balance:'1',status:'active'});
+ };
+ const out=await getTonWalletSnapshot(address,request,noWait);
+ assert.equal(out.status,200);
+ assert.equal(out.data.ton,'0.000000001');
+ assert.deepEqual(out.data.jettons.map(j=>j.amount),['0.000000000000000001','0.000000001']);
+ assert.equal(out.data.events[0].amount,'0.000000001 TON');
+ assert.equal(out.data.events[1].amount,'0.000000000000000001 DUST');
+});
+test('out-of-range event timestamp is excluded without hiding valid account and activity',async()=>{
+ const request=async uri=>{
+  if(uri.includes('/jettons'))return payload({balances:[]});
+  if(uri.includes('/events'))return payload({events:[
+   {event_id:'bad',timestamp:99999999999999,actions:[{type:'TonTransfer',TonTransfer:{amount:'1'}}]},
+   {event_id:'good',timestamp:1795010000,actions:[{type:'TonTransfer',TonTransfer:{amount:'2000000000'}}]}
+  ]});
+  if(uri.includes('/nfts'))return payload({nft_items:[]});
+  return payload({balance:'5000000000',status:'active'});
+ };
+ const out=await getTonWalletSnapshot(address,request,noWait);
+ assert.equal(out.status,200);
+ assert.equal(out.data.ton,'5');
+ assert.equal(out.data.eventsAvailable,true);
+ assert.equal(out.data.events.length,1);
+ assert.equal(out.data.events[0].id,'good');
+});
+test('unsafe floating point balances never become a fabricated exact on-chain value',async()=>{
+ const request=async uri=>{
+  if(uri.includes('toncenter.com'))throw Error('UPSTREAM_UNAVAILABLE');
+  if(uri.includes('/v2/accounts/'))return payload({balance:9007199254740992,status:'active'});
+  throw Error('Unexpected endpoint');
+ };
+ const out=await getTonWalletSnapshot(address,request,noWait);
+ assert.equal(out.status,503);
+ assert.equal(out.upstream.tonapi,'INVALID_RESPONSE');
+});
