@@ -14,6 +14,6 @@ INSERT OR IGNORE INTO autopsy_events(
 ) VALUES(
  '11111111-1111-4111-8111-111111111111','local-runtime-synthetic-owner',
  '22222222-2222-4222-8222-222222222222','runtime-ended',1,
- 'analysis_consent_changed','2026-11-18T00:00:00Z','[]',
+ 'decision_created','2026-11-18T00:00:00Z','["https://official.example.org/docs"]',
  '{"private_ref":"11111111-1111-4111-8111-111111111111"}'
 );
