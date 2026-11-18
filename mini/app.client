@@ -181,6 +181,86 @@ function walletDate(value){
 function resetWalletSnapshot(){
  walletFetchSeq++;walletAbort?.abort();walletAbort=null;walletData=null;walletLoading=false;walletError='';walletLoadedAt=0;
 }
+// Anonymous indexers rate-limit shared Worker IP addresses. Device-origin requests
+// are an optional fallback and carry only the public TON address, never private keys.
+function tonDecimal(raw,decimals=9){
+ const str=String(raw);
+ if(!/^\d{1,100}$/.test(str))throw Error('INVALID_AMOUNT');
+ const d=Number.isInteger(decimals)&&decimals>=0&&decimals<=18?decimals:9;
+ const digits=str.padStart(d+1,'0'),split=digits.length-d;
+ return digits.slice(0,split).replace(/^0+(?=\d)/,'')+(d&&digits.slice(split,split+6).replace(/0+$/,'')?'.'+digits.slice(split,split+6).replace(/0+$/,''):'');
+}
+async function fetchPublicTonJson(url,signal){
+ const r=await fetch(url,{method:'GET',mode:'cors',credentials:'omit',headers:{Accept:'application/json'},signal});
+ if(!r.ok)throw Error('TON_PROVIDER_HTTP_'+r.status);
+ const result=await r.json();
+ if(!result||typeof result!=='object')throw Error('TON_PROVIDER_INVALID');
+ return result;
+}
+async function tonBrowserFallback(raw,signal,onPartial){
+ const base='https://tonapi.io/v2/accounts/'+encodeURIComponent(raw);
+ let data,provider='TonAPI (langsung)',ton,status;
+ try{
+  data=await fetchPublicTonJson(base,signal);
+  if(!/^\d+$/.test(String(data.balance)))throw Error('TON_BALANCE_INVALID');
+  ton=tonDecimal(String(data.balance));status=String(data.status||'unknown').slice(0,40);
+ }catch{
+  const info=await fetchPublicTonJson('https://toncenter.com/api/v2/getAddressInformation?address='+encodeURIComponent(raw),signal);
+  if(info.ok!==true||!/^\d+$/.test(String(info.result?.balance)))throw Error('TON_BROWSER_NO_PROVIDER');
+  provider='TON Center (langsung)';ton=tonDecimal(String(info.result.balance));status=String(info.result.state||'unknown').slice(0,40);
+ }
+ const result={network:'TON mainnet',address:raw,ton,accountStatus:status,source:provider,
+  jettons:[],jettonsAvailable:false,nfts:[],nftsAvailable:false,events:[],eventsAvailable:false,checkedAt:new Date().toISOString()};
+ onPartial({...result});
+ if(provider!=='TonAPI (langsung)')return result;
+ // Public anonymous TonAPI permits approximately one request per four seconds.
+ const sections=['jettons','events','nfts'];
+ for(const section of sections){
+  await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},4300);
+   function abort(){clearTimeout(timer);reject(Error('ABORTED'));}
+   if(signal.aborted)return abort();
+   signal.addEventListener('abort',abort,{once:true});
+  });
+  if(signal.aborted)break;
+  try{
+   const data=await fetchPublicTonJson(base+'/'+section+(section==='events'?'?limit=8':section==='nfts'?'?limit=15':''),signal);
+   if(section==='jettons'&&Array.isArray(data.balances)){
+    result.jettons=data.balances.slice(0,20).filter(t=>t?.jetton&&/^\d+$/.test(String(t.balance))).map(t=>({
+     symbol:String(t.jetton.symbol||'JETTON').slice(0,14),name:String(t.jetton.name||'Jetton').slice(0,60),
+     amount:tonDecimal(String(t.balance),Number(t.jetton.decimals))
+    })).filter(t=>t.amount!=='0').slice(0,15);
+    result.jettonsAvailable=true;
+   }
+   if(section==='events'&&Array.isArray(data.events)){
+    result.events=data.events.slice(0,8).map(ev=>{
+     const action=Array.isArray(ev.actions)?ev.actions.find(x=>x?.type):null;
+     const type=String(action?.type||'Activity').slice(0,30);
+     let amount=null;
+     try{
+      if(type==='TonTransfer'&&/^\d+$/.test(String(action?.TonTransfer?.amount)))amount=tonDecimal(action.TonTransfer.amount)+' TON';
+      if(type==='JettonTransfer'&&/^\d+$/.test(String(action?.JettonTransfer?.amount)))
+       amount=tonDecimal(action.JettonTransfer.amount,Number(action.JettonTransfer.jetton?.decimals))+' '+String(action.JettonTransfer.jetton?.symbol||'JETTON').slice(0,14);
+     }catch{}
+     const seconds=Number(ev.timestamp);
+     return{type,amount,id:String(ev.event_id||'').slice(0,100),
+      time:Number.isFinite(seconds)&&seconds>0?new Date(seconds*1000).toISOString():''};
+    }).filter(x=>x.time);
+    result.eventsAvailable=true;
+   }
+   if(section==='nfts'&&Array.isArray(data.nft_items)){
+    result.nfts=data.nft_items.slice(0,15).map(n=>({
+     name:String(n?.metadata?.name||'NFT').slice(0,65),collection:String(n?.collection?.name||'Tanpa koleksi').slice(0,55),
+     address:String(n?.address||'').slice(0,100)
+    })).filter(n=>n.address);
+    result.nftsAvailable=true;
+   }
+   onPartial({...result});
+  }catch{}
+ }
+ return result;
+}
+
 async function loadWalletSnapshot(force=false){
  const raw=tonInfo?.raw;
  if(!raw||!/^0:[a-f0-9]{64}$/.test(raw))return;
@@ -189,11 +269,18 @@ async function loadWalletSnapshot(force=false){
  const seq=++walletFetchSeq;walletAbort?.abort();
  const controller=new AbortController();walletAbort=controller;walletLoading=true;walletError='';
  if(['profile','workspace'].includes(currentRoute()))render();
- const timer=setTimeout(()=>controller.abort(),38000);
+ const timer=setTimeout(()=>controller.abort(),48000);
  try{
   const r=await fetch('/api/ton-wallet?address='+encodeURIComponent(raw),{cache:'no-store',signal:controller.signal});
-  if(!r.ok)throw Error('HTTP_'+r.status);
-  const payload=await r.json();
+  let payload;
+  if(r.ok)payload=await r.json();
+  else{
+   payload=await tonBrowserFallback(raw,controller.signal,partial=>{
+    if(seq!==walletFetchSeq||tonInfo?.raw!==raw)return;
+    walletData=partial;walletLoadedAt=Date.now();walletError='';
+    if(['profile','workspace'].includes(currentRoute()))render();
+   });
+  }
   if(!payload||payload.address!==raw||payload.network!=='TON mainnet'||typeof payload.ton!=='string')throw Error('INVALID_WALLET_DATA');
   if(seq!==walletFetchSeq||tonInfo?.raw!==raw)return;
   walletData=payload;walletLoadedAt=Date.now();walletError='';
