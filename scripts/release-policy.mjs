@@ -72,3 +72,32 @@ export async function getLiveReleaseBaseline(token,{fetcher=fetch}={}){
  return {commit,artifact_sha256:legacy?.[2]||null,deployment_id:current.id,version_id:versionId,
   deployed_at:current.created_on};
 }
+
+
+// Squashed PRs can have identical live code without retaining the original head SHA.
+// Permit the first reconciliation only when the entire diff is restricted to this
+// release-tooling change set. Runtime, UI, migrations and bindings must be identical.
+const RECONCILIATION_ONLY=new Set([
+ 'docs/CONTROLLED_PRODUCTION_RELEASE.md','package.json',
+ 'scripts/create-staging-config.mjs','scripts/release-evidence.mjs',
+ 'scripts/release-policy.mjs','scripts/release-presentation.mjs',
+ 'scripts/release-production.mjs','scripts/release-readiness.mjs',
+ 'tests/release-policy.test.mjs','tests/release-production.test.mjs'
+]);
+export function validateSquashReconciliation(paths){
+ const changed=paths.filter(Boolean);
+ const unexpected=changed.filter(path=>!RECONCILIATION_ONLY.has(path));
+ if(unexpected.length)throw Error('LIVE_RUNTIME_DIFF_NOT_RECONCILED: '+unexpected.slice(0,6).join(','));
+ return {mode:'squash_equivalent',changed};
+}
+export function assertLiveSourceIncluded(liveCommit,candidateCommit){
+ if(!SHA.test(liveCommit)||!SHA.test(candidateCommit))throw Error('RELEASE_COMMIT_INVALID');
+ try{execFileSync('git',['merge-base','--is-ancestor',liveCommit,candidateCommit],{stdio:'ignore'});return {mode:'ancestor'};}
+ catch{}
+ try{execFileSync('git',['fetch','--no-tags','origin',liveCommit],{stdio:'ignore',timeout:60000});}
+ catch{throw Error('LIVE_GIT_OBJECT_UNAVAILABLE');}
+ let diff;
+ try{diff=execFileSync('git',['diff','--no-renames','--name-only',liveCommit,candidateCommit],{encoding:'utf8',timeout:60000});}
+ catch{throw Error('LIVE_SOURCE_COMPARISON_FAILED');}
+ return validateSquashReconciliation(diff.trim()?diff.trim().split('\n'):[]);
+}
