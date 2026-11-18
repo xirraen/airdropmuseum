@@ -78,7 +78,7 @@ export async function getLiveReleaseBaseline(token,{fetcher=fetch}={}){
 // Permit the first reconciliation only when the entire diff is restricted to this
 // release-tooling change set. Runtime, UI, migrations and bindings must be identical.
 const RECONCILIATION_ONLY=new Set([
- 'docs/CONTROLLED_PRODUCTION_RELEASE.md','package.json',
+ 'README.md','docs/CONTROLLED_PRODUCTION_RELEASE.md','package.json',
  'scripts/create-staging-config.mjs','scripts/release-evidence.mjs',
  'scripts/release-policy.mjs','scripts/release-presentation.mjs',
  'scripts/release-production.mjs','scripts/release-readiness.mjs',
