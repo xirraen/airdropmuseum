@@ -88,3 +88,16 @@ test('home activity shortcut returns to existing portfolio instead of creating a
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
  expect(overflow).toBeLessThanOrEqual(1);
 });
+
+test('source recovery has a distinct visible status and does not appear as a failure',async({page})=>{
+ events=[{...baseEvents[0],id:'evt-recovered',type:'restored',
+  description:'Sumber kembali dapat dibaca setelah gangguan; aturan dan kelayakan tetap perlu diperiksa.'},...baseEvents];
+ await page.goto('/#workspace');
+ const activity=page.locator('#campaign-activity');
+ await expect(activity.locator('.source-event-restored')).toContainText('Sumber kembali tersedia');
+ await activity.getByRole('button',{name:'Sumber gagal'}).click();
+ await expect(activity.locator('.source-event-restored')).toHaveCount(0);
+ await expect(activity.locator('.source-event-unavailable')).toHaveCount(1);
+ await activity.getByRole('button',{name:'Semua aktivitas'}).click();
+ await expect(activity.locator('.source-event-restored')).toHaveCount(1);
+});
