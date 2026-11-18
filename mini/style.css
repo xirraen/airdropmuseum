@@ -566,3 +566,43 @@ body[data-view=home] .view-head{display:none}
  .ton-assets-section{padding:12px}
  .ton-assets-panel>.btn{width:100%}
 }
+
+
+/* Live campaign evidence: time stamps are signals to review, never eligibility scores. */
+.campaign-evidence-note{margin:13px 0;border:1px solid #dbe7f4;border-radius:10px;padding:12px 13px;background:#f7faff;color:#3a5c81}
+.campaign-evidence-note.requires-review{border-color:#f0dbb5;background:#fff9ed;color:#765226}
+.campaign-evidence-note strong{display:block;font-size:11px;font-weight:760}
+.campaign-evidence-note p{margin:5px 0 0;font-size:10px;line-height:1.65}
+.campaign-tags .campaign-evidence-badge{border:1px solid #ecd9ae;background:#fff4d9;color:#8d6a2d}
+.campaign-compare-tray{display:flex;align-items:center;gap:13px;flex-wrap:wrap;padding:12px 15px;margin:13px 0 10px;background:#eef7ff;border:1px solid #bcdcf9;border-radius:12px;box-shadow:0 4px 17px #247bce12}
+.campaign-compare-tray>strong{color:#205a90;font-size:11px;white-space:nowrap}
+.campaign-compare-tray>span{flex:1;min-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6784a3;font-size:10px}
+.campaign-compare-tray>div{display:flex;gap:7px;flex-wrap:wrap}
+.campaign-compare-action[aria-pressed="true"]{background:#e1f2ff;border-color:#a3d1ff;color:#0b6bc1}
+.campaign-compare-dialog{width:min(920px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:min(90dvh,950px);margin:auto;padding:0;border:1px solid #dbe8f6;border-radius:16px;background:#fff;color:#1c3d60;box-shadow:0 24px 65px #071e3d4d;overflow:hidden}
+.campaign-compare-dialog::backdrop{background:#05172dc0;backdrop-filter:blur(3px)}
+.campaign-compare-head{display:flex;align-items:flex-start;gap:16px;padding:18px 20px;border-bottom:1px solid #e5eef8;background:#f8fbff}
+.campaign-compare-head>div{flex:1;min-width:0}
+.campaign-compare-head h2{margin:6px 0 4px;font-size:18px;line-height:1.25}
+.campaign-compare-head p{margin:0;color:#7990a8;font-size:11px;line-height:1.6}
+.campaign-compare-head button{flex:none;display:grid;place-items:center;min-width:34px;width:34px;height:34px;border-radius:9px;background:#eff5fd}
+.campaign-compare-scroll{max-height:min(55dvh,560px);overflow:auto;overscroll-behavior:contain}
+.campaign-compare-table{border-collapse:collapse;border-spacing:0;min-width:620px;width:100%;font-size:11px;line-height:1.6}
+.campaign-compare-table th,.campaign-compare-table td{padding:12px 11px;border-bottom:1px solid #e8eef5;text-align:left;vertical-align:top;min-width:135px;overflow-wrap:anywhere}
+.campaign-compare-table thead th{position:sticky;top:0;background:#edf6ff;color:#225991;font-weight:800;z-index:1}
+.campaign-compare-table th:first-child{position:sticky;left:0;z-index:2;min-width:155px;max-width:170px;background:#f6f9fd;color:#4c6a8a}
+.campaign-compare-table thead th:first-child{z-index:3;background:#e4f1ff}
+.campaign-compare-table tbody tr:nth-child(even) td{background:#fbfdff}
+.campaign-compare-note{margin:0;padding:12px 20px;font-size:10px;line-height:1.6;color:#748ba2}
+.campaign-compare-actions{display:flex;justify-content:flex-end;align-items:center;gap:9px;padding:12px 20px;border-top:1px solid #e7eff7}
+@media(max-width:700px){
+ .campaign-compare-tray{padding:11px 12px;gap:9px}
+ .campaign-compare-tray>span{flex-basis:100%;order:3}
+ .campaign-compare-tray>div{margin-left:auto}
+ .campaign-compare-dialog{width:calc(100vw - 12px);max-width:calc(100vw - 12px);max-height:calc(100dvh - 24px);border-radius:13px}
+ .campaign-compare-head{padding:13px 14px}
+ .campaign-compare-head h2{font-size:16px}
+ .campaign-compare-table{min-width:570px}
+ .campaign-compare-table th,.campaign-compare-table td{padding:10px 9px;font-size:10px}
+ .campaign-compare-note,.campaign-compare-actions{padding:11px 14px}
+}
