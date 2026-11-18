@@ -1,6 +1,7 @@
 import {readFileSync,writeFileSync} from 'node:fs';
 import {reapplyErasureReceipt} from '../src/autopsy/privacyService.ts';
 import {validatedD1Results} from './d1-replay-results.mjs';
+import {assertStableErasureSnapshot} from './erasure-replay-guard.mjs';
 process.umask(0o077);
 const account='9880cf2cc57c2096f8c3ae253d9852e6',production='4e75c8b9-6c58-4bac-a180-01e5bec0d0a3';
 const restoreAccount=process.env.RESTORE_STAGING_ACCOUNT_ID||account;
@@ -35,6 +36,7 @@ const version=(await query(source,'SELECT MAX(version) version FROM am_core_sche
 if(version>=15){const mode=JSON.parse((await query(source,"SELECT value FROM system_settings WHERE key='maintenance_mode'"))[0]?.value||'"normal"');if(!['read_only','maintenance'].includes(mode))throw Error('LIVE_SOURCE_MUST_BE_READ_ONLY');}
 const expected=version>=15?(await query(source,'SELECT request_id,ledger_synced FROM journal_erasure_receipts')):[];
 if(expected.some(r=>!r.ledger_synced))throw Error('LIVE_ERASURE_OUTBOX_PENDING');
+assertStableErasureSnapshot(expected,expected);
 const keys=[];let cursor='';
 do{const page=await api('/storage/kv/namespaces/'+namespace+'/keys?prefix=journal-erasure%3A'+(cursor?'&cursor='+encodeURIComponent(cursor):''));keys.push(...page.result);cursor=page.result_info?.cursor||'';}while(cursor);
 const names=new Set(keys.map(k=>k.name));
@@ -53,6 +55,15 @@ for(const receipt of receipts){
  if(payloads[0]?.n||owners[0]?.n)throw Error('ERASURE_REPLAY_VERIFICATION_FAILED');
 }
 if((await query(target,'PRAGMA foreign_key_check')).length)throw Error('RESTORE_FOREIGN_KEYS_FAILED');
+// Re-read the entire live outbox, not merely the pending count. A newly
+// synchronized erasure during replay must invalidate recovery acceptance.
+const after=version>=15?(await query(source,'SELECT request_id,ledger_synced FROM journal_erasure_receipts')):[];
+assertStableErasureSnapshot(expected,after);
+if(version>=15){
+ const row=(await query(source,"SELECT value FROM system_settings WHERE key='maintenance_mode'"))[0];
+ const mode=JSON.parse(row?.value||'"normal"');
+ if(!['read_only','maintenance'].includes(mode))throw Error('LIVE_SOURCE_WRITE_FREEZE_RELEASED_DURING_REPLAY');
+}
 const evidence={target_account_id:restoreAccount,source_account_id:account,database_id:target,ledger_namespace:namespace,restored_schema:restoredVersion,source_schema:version,receipts_applied:receipts.length,live_receipts_checked:expected.length,verified_at:new Date().toISOString()};
 if(process.env.PRIVATE_REPLAY_EVIDENCE_FILE)writeFileSync(process.env.PRIVATE_REPLAY_EVIDENCE_FILE,JSON.stringify(evidence,null,2)+'\n',{mode:0o600});
 console.log('PASS erasure ledger replay and restored payload/owner verification ('+receipts.length+' receipts).');
