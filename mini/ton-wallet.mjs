@@ -82,16 +82,26 @@ async function toncenterHistory(address,fetcher){
   };
  }).filter(e=>e.time);
 }
+function providerFailure(error){
+ const message=String(error?.message||error||'');
+ if(/^UPSTREAM_HTTP_[0-9]{3}$/.test(message))return message;
+ if(message==='ACCOUNT_BALANCE_MISSING'||message==='ACCOUNT_BALANCE_INVALID'||message==='TONCENTER_UNAVAILABLE')return 'INVALID_RESPONSE';
+ if(error?.name==='AbortError'||message.toLowerCase().includes('timeout'))return 'TIMEOUT';
+ return 'NETWORK_ERROR';
+}
 export async function getTonWalletSnapshot(address,fetcher=fetch,pause=wait){
  const raw=typeof address==='string'?address.trim():'';
  if(!ADDRESS.test(raw))return{error:'INVALID_TON_ADDRESS',status:400};
  const base='https://tonapi.io/v2/accounts/'+encodeURIComponent(raw);
  let account=null,jettons=[],events=[],nfts=[],jettonsAvailable=false,eventsAvailable=false,nftsAvailable=false;
- try{account=accountFromTonapi(await getJSON(base,fetcher));}catch{}
+ const upstream={};
+ try{account=accountFromTonapi(await getJSON(base,fetcher));}
+ catch(error){upstream.tonapi=providerFailure(error);}
  if(!account){
-  try{account=await toncenterBalance(raw,fetcher);}catch{}
+  try{account=await toncenterBalance(raw,fetcher);}
+  catch(error){upstream.toncenter=providerFailure(error);}
  }
- if(!account)return{error:'TON_DATA_UNAVAILABLE',status:503};
+ if(!account)return{error:'TON_DATA_UNAVAILABLE',status:503,upstream};
  // Anonymous TonAPI is limited to ~1 RPS; make requests sequentially.
  await pause(1120);
  try{jettons=jettonsFromTonapi(await getJSON(base+'/jettons',fetcher));jettonsAvailable=true;}catch{}
