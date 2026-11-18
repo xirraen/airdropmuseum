@@ -19,6 +19,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {verifyRestoreTarget} from './verify-restore-target.mjs';
 import {resolveNewPrivateBackupFolder} from './recovery-path.mjs';
 import {decryptBackup} from './backup-crypto.mjs';
+import {validatedD1Results} from './d1-replay-results.mjs';
 
 process.umask(0o077);
 const PROD_ACCOUNT='9880cf2cc57c2096f8c3ae253d9852e6';
@@ -92,10 +93,10 @@ const databaseQuery=async(id,sql)=>{
  });
  if(!response.ok)fail('Cloudflare read-only SQL HTTP error '+response.status);
  const payload=await response.json();
- if(!payload?.success||!Array.isArray(payload.result)||payload.result.some(x=>!x.success||
-    x.meta?.changed_db===true||x.meta?.rows_written>0))
-  fail('Read-only D1 query failed or reported a write');
- return payload.result.flatMap(x=>x.results||[]);
+ let statements;
+ try{statements=validatedD1Results(payload,1,{readOnly:true});}
+ catch{fail('Read-only D1 query failed or reported a write');}
+ return statements[0].results;
 };
 const tables=Object.keys(manifest.table_counts||{});
 if(!tables.length||tables.length>500||
