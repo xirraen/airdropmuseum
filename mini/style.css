@@ -375,3 +375,37 @@ body[data-view=home] .view-head{display:none}
 }
 @media(max-width:375px){.legacy-hero .hero-copy{max-width:86%;padding:14px}.legacy-hero-art{opacity:.55;right:-34px}.legacy-hero .hero-actions .btn{font-size:8px;padding:6px}.legacy-stats .stat-card strong{font-size:17px}.legacy-stats .stat-title{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.campaign-card{transition:none}}
+
+/* WalletConnect-only attachment — no wallet tools, transaction entry points or login flow. */
+.walletconnect-panel{border:1px solid #dce7f5;background:#fff;box-shadow:0 4px 20px #163d6907}
+.walletconnect-heading{display:flex;align-items:center;gap:10px;margin-bottom:13px;min-width:0}
+.walletconnect-heading>div{flex:1;min-width:0}
+.walletconnect-heading h3{margin:0 0 3px;color:#133456;font-size:14px}
+.walletconnect-heading .page-subtitle{margin:0;font-size:10px;line-height:1.5}
+.walletconnect-icon{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:11px;background:#e8f2ff;color:#1378e8}
+.walletconnect-icon svg{width:19px;height:19px}
+.walletconnect-indicator{flex:none;border-radius:99px;background:#f1f5fa;border:1px solid #dce4ed;color:#77869a;padding:5px 8px;font-size:9px;font-weight:730}
+.walletconnect-indicator.connected{background:#e4f8f0;color:#118760;border-color:#b7edd7}
+.walletconnect-explainer{font-size:11px;line-height:1.7;color:#697d93;margin:0 0 12px}
+.walletconnect-connect{min-height:41px}
+.walletconnect-details{padding:13px 14px;margin:12px 0;border-radius:10px;border:1px solid #dce8f8;background:#f5f9ff;display:grid;gap:6px;min-width:0}
+.walletconnect-caption{font-size:9px;color:#7d90a9;font-weight:780;letter-spacing:.12em}
+.walletconnect-address{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#214d7c;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.walletconnect-network{display:flex;align-items:center;gap:10px;justify-content:space-between;padding-top:9px;margin-top:4px;border-top:1px solid #e2eaf6;color:#70839a;font-size:11px}
+.walletconnect-network strong{color:#1c4e7f;text-align:right;font-weight:750}
+.walletconnect-error{margin:12px 0 0;color:#a03c51;background:#fff0f2;border:1px solid #f2d7dd;border-radius:9px;padding:9px 11px;font-size:11px}
+.walletconnect-privacy{margin:13px 0 0;font-size:10px;line-height:1.65;color:#8294aa}
+.walletconnect-pairing{border:1px solid #dbe7f8;border-radius:18px;background:#fff;box-shadow:0 25px 80px #001d4861;padding:23px 20px;max-width:min(370px,calc(100vw - 28px));width:100%;color:#1b3049;text-align:center}
+.walletconnect-pairing::backdrop{background:#08172dc7;backdrop-filter:blur(4px)}
+.walletconnect-pairing h2{font-size:18px;line-height:1.25;letter-spacing:-.035em;color:#162e4d;margin:0 0 14px}
+.walletconnect-pairing canvas{display:block;width:240px;max-width:100%;height:auto;margin:0 auto 16px;border:1px solid #e5ecf4;border-radius:12px}
+.walletconnect-pairing a,.walletconnect-pairing button{display:flex;justify-content:center;align-items:center;gap:7px;width:100%;min-height:42px;margin:8px 0 0;padding:9px 12px;text-decoration:none;font-weight:730;font-size:12px;border-radius:10px;border:1px solid #dce7f6;background:#f4f8ff;color:#1554a8}
+.walletconnect-pairing a{background:#0878ed;border-color:#0878ed;color:white}
+.walletconnect-pairing button:last-of-type{background:transparent;color:#647a96}
+.walletconnect-pairing p[role=status]{font-size:10px;color:#7e8fa5;line-height:1.6;margin:11px 0 0}
+@media(max-width:700px){
+ .walletconnect-heading{flex-wrap:wrap;gap:9px}
+ .walletconnect-indicator{margin-left:auto}
+ .walletconnect-pairing{max-width:calc(100vw - 24px);padding:19px 16px}
+}
+@media(prefers-reduced-motion:reduce){.walletconnect-pairing::backdrop{backdrop-filter:none}}
