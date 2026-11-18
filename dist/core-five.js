@@ -175,5 +175,14 @@ document.addEventListener('submit',event=>{
  if(event.target.id==='note-form'){event.preventDefault();const id=$('#note-id').value;if(!state.tracked.includes(id))return;state.notes[id]=$('#note-text').value.slice(0,4000);if(state.notes[id].trim())updateQuest('note');save();$('#note-dialog').close();render();notify('Catatan tersimpan.');}
 });
 window.addEventListener('hashchange',()=>{const selected=route(location.hash.slice(1));if(selected!==page){page=selected;render();}});
+// Retire previously installed push/navigation workers for deleted screens.
+if('serviceWorker' in navigator){
+ navigator.serviceWorker.getRegistrations().then(registrations=>{
+  for(const registration of registrations){
+   if(new URL(registration.scope).origin===location.origin)
+    registration.unregister().catch(()=>{});
+  }
+ }).catch(()=>{});
+}
 page=route(location.hash.slice(1));render();loadCatalog();
 try{const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();tg.BackButton?.hide();}}catch{}
