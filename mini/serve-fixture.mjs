@@ -1,6 +1,6 @@
 import {build} from 'esbuild';
 import {createServer} from 'node:http';
-const result=await build({entryPoints:['mini/worker.js'],bundle:true,format:'esm',platform:'node',loader:{'.html':'text','.css':'text','.client':'text'},write:false});
+const result=await build({entryPoints:['mini/worker.js'],bundle:true,format:'esm',platform:'node',loader:{'.html':'text','.css':'text','.client':'text','.base64':'text'},write:false});
 const {default:worker}=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].contents).toString('base64'));
 createServer(async(req,res)=>{
  const method=req.method||'GET';
