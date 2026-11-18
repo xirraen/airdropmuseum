@@ -68,7 +68,8 @@ await check('security headers protect Mini App and catalog',async()=>{
   const r=await request(path);
   assert.equal(r.headers.get('X-Content-Type-Options'),'nosniff');
   assert.match(r.headers.get('Content-Security-Policy'),/frame-ancestors/);
-  assert.match(r.headers.get('Content-Security-Policy'),/https:\/\/web\.telegram\.org/);
+  if(path==='/')assert.match(r.headers.get('Content-Security-Policy'),/https:\/\/web\.telegram\.org/);
+  else assert.equal(r.headers.get('Content-Security-Policy'),"default-src 'none'; frame-ancestors 'none'");
   assert.ok(!r.headers.get('X-Frame-Options'));
  }
 });
