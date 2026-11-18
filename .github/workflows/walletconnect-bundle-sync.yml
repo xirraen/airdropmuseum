@@ -1,0 +1,87 @@
+name: WalletConnect branch generated-artifact parity
+on:
+  push:
+    branches:
+      - feat/walletconnect-only-20261118
+    paths:
+      - 'dist/platform.js'
+      - 'dist/walletconnect-adapter.js'
+      - 'dist/wallet-provider.js'
+      - 'scripts/build-worker.mjs'
+      - 'package-lock.json'
+      - '.github/workflows/walletconnect-bundle-sync.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: walletconnect-bundle-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/feat/walletconnect-only-20261118'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Generate reproducible bundles
+        run: npm run build
+      - name: Typecheck and targeted wallet regression
+        run: |
+          npm run typecheck
+          node --experimental-strip-types --test tests/walletconnect-only.test.mjs tests/wallet-readonly.test.mjs
+      - name: Upload built assets (not secrets or source map)
+        uses: actions/upload-artifact@v4
+        with:
+          name: walletconnect-built-assets
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            dist/platform-bundle.js
+            dist/walletconnect-bundle.js
+            dist/aggregator-ui-bundle.js
+            src/platform-bundle.mjs
+            src/delivery-bundle.mjs
+            src/worker.mjs
+  commit:
+    needs: build
+    if: github.ref == 'refs/heads/feat/walletconnect-only-20261118'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/walletconnect-only-20261118
+          persist-credentials: true
+          fetch-depth: 1
+      - name: Reject changed base
+        shell: bash
+        env:
+          EXPECTED: ${{ github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED" || { echo "::error::Branch moved since build; do not apply stale artifacts."; exit 1; }
+      - uses: actions/download-artifact@v4
+        with:
+          name: walletconnect-built-assets
+          path: .
+      - name: Commit generated artifacts to feature branch only
+        shell: bash
+        run: |
+          git add -- dist/platform-bundle.js dist/walletconnect-bundle.js dist/aggregator-ui-bundle.js src/platform-bundle.mjs src/delivery-bundle.mjs src/worker.mjs
+          if git diff --cached --quiet; then
+            echo "Generated assets are already in sync."
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build(wallet): synchronize generated WalletConnect-only assets'
+          git push origin HEAD:refs/heads/feat/walletconnect-only-20261118
