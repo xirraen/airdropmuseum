@@ -77,3 +77,29 @@ test('partial provider failures distinguish unavailable Jettons, NFTs and activi
  await expect(page.locator('.ton-assets-panel')).toContainText('NFT belum tersedia');
  await expect(page.locator('.ton-assets-panel')).toContainText('transaksi belum tersedia');
 });
+
+
+test('shared Worker 429 is bypassed by device-origin TON mainnet account request',async({page})=>{
+ await page.unroute('**/api/ton-wallet?**');
+ await page.route('**/api/ton-wallet?**',r=>r.fulfill({status:503,json:{error:'TON_DATA_UNAVAILABLE',upstream:{tonapi:'UPSTREAM_HTTP_429',toncenter:'UPSTREAM_HTTP_429'}}}));
+ await page.route('https://tonapi.io/v2/accounts/**',r=>r.fulfill({status:200,headers:{'Access-Control-Allow-Origin':'*'},contentType:'application/json',
+  json:{address:walletAddress,balance:10731721361275,status:'active'}}));
+ await connectWallet(page);
+ await expect(page.locator('.ton-wallet-mini-balance')).toContainText('10731.721361');
+ await page.getByRole('button',{name:'Lihat aset & aktivitas'}).click();
+ await expect(page.locator('.ton-assets-balance')).toContainText('10731.721361');
+ await expect(page.locator('.ton-assets-balance')).toContainText('TonAPI (langsung)');
+ await expect(page.getByRole('navigation').getByRole('button')).toHaveCount(5);
+});
+test('device-origin TON Center fallback shows genuine balance if TonAPI browser request fails',async({page})=>{
+ await page.unroute('**/api/ton-wallet?**');
+ await page.route('**/api/ton-wallet?**',r=>r.fulfill({status:503,json:{error:'TON_DATA_UNAVAILABLE'}}));
+ await page.route('https://tonapi.io/v2/accounts/**',r=>r.fulfill({status:429,json:{error:'RATE_LIMITED'}}));
+ await page.route('https://toncenter.com/api/v2/getAddressInformation?**',r=>r.fulfill({status:200,headers:{'Access-Control-Allow-Origin':'*'},contentType:'application/json',
+  json:{ok:true,result:{balance:'12500000000',state:'active'}}}));
+ await connectWallet(page);
+ await expect(page.locator('.ton-wallet-mini-balance')).toContainText('12.5 TON');
+ await page.getByRole('button',{name:'Lihat aset & aktivitas'}).click();
+ await expect(page.locator('.ton-assets-balance')).toContainText('TON Center (langsung)');
+ await expect(page.locator('.ton-assets-panel')).toContainText('Jetton belum tersedia');
+});
