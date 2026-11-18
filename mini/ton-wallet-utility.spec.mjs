@@ -53,6 +53,8 @@ test('no connection means no wallet scan; disconnect removes prior account data 
  expect(requests).toBeGreaterThan(0);
 });
 test('provider outage shows explicit unavailability, not invented zero balance',async({page})=>{
+ await page.route('https://tonapi.io/**',r=>r.abort());
+ await page.route('https://toncenter.com/**',r=>r.abort());
  await page.unroute('**/api/ton-wallet?**');
  await page.route('**/api/ton-wallet?**',r=>r.fulfill({status:503,json:{error:'TON_DATA_UNAVAILABLE'}}));
  await connectWallet(page);
