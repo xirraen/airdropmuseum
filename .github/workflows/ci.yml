@@ -33,7 +33,7 @@ jobs:
       - name: Build production worker
         run: npm run build
       - name: Verify generated assets match committed source
-        run: git diff --exit-code -- src/worker.mjs src/platform-bundle.mjs dist/platform-bundle.js dist/walletconnect-bundle.js
+        run: git diff --exit-code -- dist/aggregator-ui-bundle.js src/delivery-bundle.mjs src/worker.mjs src/platform-bundle.mjs dist/platform-bundle.js dist/walletconnect-bundle.js
       - name: Verify admin browser module
         run: node --check dist/admin.js
       - name: Execute tests

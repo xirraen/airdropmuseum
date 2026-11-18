@@ -35,4 +35,4 @@ git diff --check
 
 Generated artifacts and application source MUST be committed together and checked for parity before deploy. Recheck in Telegram on Android and iOS. Do not update production or merge before required security/recovery release gates.
 
-**Known blocker on 2026-11-18:** the existing production WalletConnect dependency graph reaches picomatch under high-severity advisory `GHSA-fc5q-39xc-vjpf`; no verified compatible fix was available in the latest repository audit. Never suppress the dependency audit to allow deployment.
+The locked WalletConnect storage dependency uses the pinned upstream subset in `vendor/unstorage`. Its driver exports, source hashes, and persisted session behavior are tested. Keep the production dependency audit enabled on every candidate.

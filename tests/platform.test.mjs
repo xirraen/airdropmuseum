@@ -83,3 +83,25 @@ test('public leaderboard never exposes verified account identifiers or private a
  assert.doesNotMatch(JSON.stringify(response.body),/tg:123456789|private@example\.org|0x111111/);
  DB.sql.close();
 });
+
+test('parallel invalid email attempts cannot exceed the five-attempt challenge budget',async()=>{
+ const DB=database(),challenge='parallel-code',now=Math.floor(Date.now()/1000);
+ DB.sql.prepare('INSERT INTO am_email_codes(id,email,code_hash,expires) VALUES(?,?,?,?)').run(challenge,'parallel@example.org',await digest(challenge+'123456'),now+600);
+ // Force eight requests to observe the same challenge snapshot before updates.
+ const prepare=DB.prepare.bind(DB);let reads=0,release;const gate=new Promise(r=>{release=r;});
+ DB.prepare=q=>{const st=prepare(q);if(q==='SELECT * FROM am_email_codes WHERE id=?'){const first=st.first.bind(st);st.first=async()=>{const row=await first();if(reads<8){reads++;if(reads===8)release();await gate;}return row;};}return st;};
+ const results=await Promise.all(Array.from({length:8},()=>call(DB,'/auth/email/verify',{id:challenge,code:'000000'})));
+ assert.ok(results.every(r=>r.status===401));
+ assert.equal(DB.sql.prepare('SELECT attempts FROM am_email_codes WHERE id=?').get(challenge).attempts,5);
+ assert.equal((await call(DB,'/auth/email/verify',{id:challenge,code:'123456'})).status,401);
+ assert.equal(DB.sql.prepare('SELECT COUNT(*) n FROM am_sessions').get().n,0);DB.sql.close();
+});
+
+test('fifth email attempt succeeds once and expired challenges do not consume attempts',async()=>{
+ const DB=database(),now=Math.floor(Date.now()/1000);
+ for(const [challenge,expires] of [['last-attempt',now+600],['expired-attempt',now-1]])DB.sql.prepare('INSERT INTO am_email_codes(id,email,code_hash,expires,attempts) VALUES(?,?,?,?,4)').run(challenge,'last@example.org',await digest(challenge+'123456'),expires);
+ assert.equal((await call(DB,'/auth/email/verify',{id:'last-attempt',code:'123456'})).status,200);
+ assert.equal((await call(DB,'/auth/email/verify',{id:'last-attempt',code:'123456'})).status,401);
+ assert.equal((await call(DB,'/auth/email/verify',{id:'expired-attempt',code:'123456'})).status,401);
+ assert.equal(DB.sql.prepare("SELECT attempts FROM am_email_codes WHERE id='expired-attempt'").get().attempts,4);DB.sql.close();
+});
