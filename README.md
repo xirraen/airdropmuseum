@@ -1,10 +1,10 @@
-> **Current production status, 2026-11-04:** deployed from `main`, D1 schema **17**. Live browser/API checks passed; full acceptance remains **BLOCKED — EXTERNAL VERIFICATION REQUIRED** for real devices and owner admin bootstrap. Analytics Engine awaits C0 activation. See [current live release evidence](docs/PRODUCTION_LIVE_RELEASE.md). Statements below describing schema 5 or an undeployed candidate are historical and superseded by that record.
+> **Rilis produksi:** Gunakan prosedur code-only di [docs/CONTROLLED_PRODUCTION_RELEASE.md](docs/CONTROLLED_PRODUCTION_RELEASE.md). Audit historis dan checklist 13/6 gate bukan prasyarat rilis kode. Source yang dideploy harus sesuai versi live, tanpa mutasi D1 otomatis; URL Mini App workers.dev tetap aktif.
 
 # Airdrop Museum
 
 A mobile-first, Indonesian-language airdrop research museum deployed as `airdrop-museum` on **Cloudflare C0**. The editorial porcelain-and-teal UI is designed around evidence, provenance, lifecycle, and visitor judgment.
 
-Public launch caveats and remaining deployment checks are documented in [docs/PUBLIC_LAUNCH_READINESS.md](docs/PUBLIC_LAUNCH_READINESS.md). UI comparison and design adaptations are in [docs/UI_REFERENCE_RESEARCH.md](docs/UI_REFERENCE_RESEARCH.md). These documents prepare the code; they do not establish that a live public domain is deployed or verified.
+Dokumen lama, termasuk [checklist publik historis](docs/PUBLIC_LAUNCH_READINESS.md), disimpan sebagai arsip implementasi; bukan status rilis saat ini. Gunakan prosedur rilis aktif di atas.
 
 ## Seven navigable areas
 
