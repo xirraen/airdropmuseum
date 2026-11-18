@@ -82,5 +82,5 @@ test('when one supplementary provider is unavailable, do not invent asset counts
 });
 test('when account data is entirely unavailable, return service-unavailable instead of zero',async()=>{
  const r=await getTonWalletSnapshot(address,async()=>{throw Error('RPC_ERROR')},noWait);
- assert.deepEqual(r,{error:'TON_DATA_UNAVAILABLE',status:503});
+ assert.deepEqual(r,{error:'TON_DATA_UNAVAILABLE',status:503,upstream:{tonapi:'NETWORK_ERROR',toncenter:'NETWORK_ERROR'}});
 });

@@ -59,7 +59,7 @@ export default {
     }catch{}
    }
    const result=await getTonWalletSnapshot(address);
-   if(result.status!==200)return Response.json({error:result.error||'TON_DATA_UNAVAILABLE'},{status:result.status||503,headers:{'Cache-Control':'no-store'}});
+   if(result.status!==200)return Response.json({error:result.error||'TON_DATA_UNAVAILABLE',upstream:result.upstream||undefined},{status:result.status||503,headers:{'Cache-Control':'no-store'}});
    const response=Response.json(result.data,{headers:{'Cache-Control':'public, max-age=60','X-Content-Type-Options':'nosniff'}});
    if(store)ctx.waitUntil(store.put(cacheKey,response.clone()).catch(()=>{}));
    return request.method==='HEAD'?new Response(null,{status:200,headers:response.headers}):response;
