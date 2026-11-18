@@ -27,3 +27,12 @@ test('reject malformed response rows',()=>{
  for(const row of [null,{success:true},{success:'true',results:[]},{success:true,results:null}])
   assert.throws(()=>validatedD1Results({success:true,result:[row]}),/RESTORE_D1_QUERY_FAILED/);
 });
+
+test('require explicit typed confirmation of read-only execution',()=>{
+ for(const meta of [null,{}, {changed_db:false}, {rows_written:0},
+  {changed_db:'false',rows_written:0}, {changed_db:false,rows_written:'0'},
+  {changed_db:false,rows_written:-1}]){
+  assert.throws(()=>validatedD1Results({success:true,result:[ok([],meta)]},1,{readOnly:true}),/RESTORE_D1_QUERY_FAILED/);
+ }
+ assert.throws(()=>validatedD1Results({success:'false',result:[ok()]}),/RESTORE_D1_QUERY_FAILED/);
+});
