@@ -74,7 +74,7 @@ async function toncenterHistory(address,fetcher){
   };
  }).filter(e=>e.time);
 }
-export async function getTonWalletSnapshot(address,fetcher=fetch){
+export async function getTonWalletSnapshot(address,fetcher=fetch,pause=wait){
  const raw=typeof address==='string'?address.trim():'';
  if(!ADDRESS.test(raw))return{error:'INVALID_TON_ADDRESS',status:400};
  const base='https://tonapi.io/v2/accounts/'+encodeURIComponent(raw);
@@ -85,9 +85,9 @@ export async function getTonWalletSnapshot(address,fetcher=fetch){
  }
  if(!account)return{error:'TON_DATA_UNAVAILABLE',status:503};
  // Anonymous TonAPI is limited to ~1 RPS; make requests sequentially.
- await wait(1120);
+ await pause(1120);
  try{jettons=jettonsFromTonapi(await getJSON(base+'/jettons',fetcher));jettonsAvailable=true;}catch{}
- await wait(1120);
+ await pause(1120);
  try{events=eventsFromTonapi(await getJSON(base+'/events?limit=8',fetcher));eventsAvailable=true;}catch{
   try{events=await toncenterHistory(raw,fetcher);eventsAvailable=true;}catch{}
  }
