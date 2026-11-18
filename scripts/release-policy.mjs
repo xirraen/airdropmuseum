@@ -61,9 +61,14 @@ export async function getLiveReleaseBaseline(token,{fetcher=fetch}={}){
  const versionId=current.versions[0].version_id;
  if(!versionId)throw Error('PRODUCTION_VERSION_UNKNOWN');
  const version=await get('/versions/'+encodeURIComponent(versionId));
- const message=version?.annotations?.['workers/message']||'';
- const matched=/Verified main ([0-9a-f]{40}); artifact ([0-9a-f]{64})/.exec(message);
- if(!matched)throw Error('PRODUCTION_BASELINE_UNATTESTED');
- return {commit:matched[1],artifact_sha256:matched[2],deployment_id:current.id,version_id:versionId,
+ const annotations=version?.annotations||{};
+ const message=annotations['workers/message']||'';
+ const legacy=/Verified main ([0-9a-f]{40}); artifact ([0-9a-f]{64})/.exec(message);
+ const annotated=annotations['workers/commit_sha'];
+ const commit=annotated||legacy?.[1]||/\bVerified main ([0-9a-f]{40})\b/.exec(message)?.[1];
+ if(!/^[a-f0-9]{40}$/.test(commit||''))throw Error('PRODUCTION_BASELINE_UNATTESTED');
+ if(annotations['workers/repository_url']&&annotations['workers/repository_url']!=='https://github.com/xirraen/airdropmuseum')
+  throw Error('PRODUCTION_REPOSITORY_MISMATCH');
+ return {commit,artifact_sha256:legacy?.[2]||null,deployment_id:current.id,version_id:versionId,
   deployed_at:current.created_on};
 }
